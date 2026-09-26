@@ -1,29 +1,30 @@
-Copyright (c) 2026 rootLocalGhost
+ViveStream End User License Agreement (EULA) & Commercial Terms
+Copyright (c) 2026 ViveStream Authors & rootLocalGhost. All rights reserved.
 
-This software is licensed under the PolyForm Noncommercial License 1.0.0.
+1. GRANT OF LICENSE
+ViveStream-Next ("the Software") is proprietary software developed and published by rootLocalGhost ("Licensor"). Subject to the terms of this Agreement, Licensor grants you a non-exclusive, non-transferable, revocable license to install and use the Software.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+(a) Core & Personal Edition:
+You are granted a license to use the core media player, video downloader, playlist management, and offline library functionality of the Software free of charge for personal, non-commercial entertainment and media archival purposes.
 
-The Software may not be used for any Commercial Purpose. "Commercial Purpose" 
-means any use or distribution of the Software for a fee, charge, or other 
-consideration, or any use of the Software in a business, enterprise, or 
-commercial environment, or to generate revenue directly or indirectly.
+(b) Commercial & Premium AI Features (Pro):
+Advanced artificial intelligence capabilities—including without limitation the ViveStream AI Studio, Whisper neural transcription, synchronized karaoke LRC generation, subtitle generation, and local language model workflows ("AI Features")—are proprietary commercial features.
+Access to AI Features is locked behind a commercial paywall and requires an active, valid commercial subscription license.
 
-If you build upon this Software, your derivative works must also not be used 
-for any Commercial Purpose.
+2. SUBSCRIPTION & BILLING (LEMON SQUEEZY)
+(a) Payment Schedule: Access to AI Features is licensed on a recurring semi-annual payment schedule (every six (6) calendar months).
+(b) Merchant of Record: Subscription payments, checkout processing, taxes, and renewals are handled by Lemon Squeezy (or designated authorized merchant of record).
+(c) Early Access & Feature Lock: AI Features remain locked in the application until an active 6-month subscription or verified license key is applied. Bypassing or circumventing this lock without a valid subscription is a direct violation of this Agreement.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. RESTRICTIONS
+You agree NOT to:
+(a) Sell, resell, rent, lease, sublicense, distribute, or commercially exploit the Software or any portion thereof without explicit written permission from the Licensor.
+(b) Decompile, reverse engineer, disassemble, decipher, or attempt to derive the source code of any proprietary components, license verification mechanisms, or paywall gates.
+(c) Circumvent, disable, tamper with, or bypass any license verification, paywall, digital rights management, or feature-lock controls in the Software.
+(d) Remove, obscure, or alter any copyright notices, trademarks, or proprietary markings contained in or on the Software.
 
-A full copy of the PolyForm Noncommercial License 1.0.0 can be found at:
-https://polyformproject.org/licenses/noncommercial/1.0.0
+4. DISCLAIMER OF WARRANTIES
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+5. THIRD-PARTY COMPONENTS
+The Software utilizes certain third-party libraries and runtime binaries (such as FFmpeg, yt-dlp, Tauri, and Candle). Nothing in this Agreement shall restrict any rights granted to you under the open-source licenses governing those third-party components.
