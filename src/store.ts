@@ -130,6 +130,8 @@ export const {
   setAppPalette,
   designStyle,
   setDesignStyle,
+  isAiUnlocked,
+  setIsAiUnlocked,
   concurrentDownloads,
   setConcurrentDownloads,
   concurrentFragments,
@@ -317,6 +319,16 @@ export const {
     getBool("removeSponsorBlock", false),
   );
 
+  const [isAiUnlocked, setIsAiUnlockedState] = createSignal(
+    getBool("isAiUnlocked", false),
+  );
+  const setIsAiUnlocked = (val: boolean) => {
+    setIsAiUnlockedState(val);
+    if (isBrowser) {
+      window.localStorage.setItem("isAiUnlocked", String(val));
+    }
+  };
+
   const [downloadType, setDownloadType] = createSignal(
     getStr("downloadType", "Video"),
   );
@@ -469,6 +481,8 @@ export const {
     setAppPalette,
     designStyle,
     setDesignStyle,
+    isAiUnlocked,
+    setIsAiUnlocked,
     concurrentDownloads,
     setConcurrentDownloads,
     concurrentFragments,
