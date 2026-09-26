@@ -2,7 +2,8 @@ import { createSignal, onMount, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { VideoEntry } from "../store";
+import { VideoEntry, isAiUnlocked, setIsAiUnlocked, addToast } from "../store";
+import AiPaywall from "../components/AiPaywall";
 import "./AI.css";
 
 interface ModelInfo {
@@ -62,6 +63,7 @@ export default function AI() {
   const [status, setStatus] = createSignal<WhisperStatus | null>(null);
   const [loadingStatus, setLoadingStatus] = createSignal(true);
   const [libraryVideos, setLibraryVideos] = createSignal<VideoEntry[]>([]);
+  const [isPreviewMode, setIsPreviewMode] = createSignal(false);
 
   // Generation Form State
   const [selectedVideoId, setSelectedVideoId] = createSignal<string>("");
@@ -122,6 +124,11 @@ export default function AI() {
   });
 
   const handleDownloadModel = async (modelName: string) => {
+    if (!isAiUnlocked()) {
+      addToast("Model downloads are locked behind the 6-month Pro subscription.", "error");
+      setIsPreviewMode(false);
+      return;
+    }
     try {
       setErrorMsg("");
       setDownloadingModel(modelName);
@@ -163,6 +170,12 @@ export default function AI() {
   };
 
   const handleGenerate = async () => {
+    if (!isAiUnlocked()) {
+      addToast("AI Studio features are locked. A 6-month Pro subscription is required.", "error");
+      setIsPreviewMode(false);
+      return;
+    }
+
     const targetPath = getAudioPathToRun();
     if (!targetPath) {
       setErrorMsg("Please select a video from your library or browse for a local audio file.");
@@ -205,17 +218,72 @@ export default function AI() {
   };
 
   return (
-    <div class="ai-page-container">
-      {/* Header */}
-      <div class="ai-header">
-        <div class="ai-title-wrap">
-          <div class="ai-badge-row">
-            <span class="ai-badge">Pure Rust Native</span>
-            <span class="ai-subtitle">Candle Engine // Zero Python Overhead</span>
+    <Show
+      when={isAiUnlocked() || isPreviewMode()}
+      fallback={
+        <AiPaywall
+          onPreviewToggle={() => setIsPreviewMode(true)}
+          isPreviewing={false}
+        />
+      }
+    >
+      <div class="ai-page-container">
+        {/* Preview Mode Locked Banner */}
+        <Show when={!isAiUnlocked()}>
+          <div class="ai-preview-banner">
+            <div class="ai-preview-banner-text">
+              <i class="ph-fill ph-lock-key" />
+              <span>
+                AI Studio Preview Mode — Generation is locked behind the 6-Month Pro Subscription (Lemon Squeezy).
+              </span>
+            </div>
+            <button
+              type="button"
+              class="ai-btn-sm"
+              onClick={() => setIsPreviewMode(false)}
+            >
+              <i class="ph ph-shopping-cart-simple" /> View Paywall
+            </button>
           </div>
-          <h1 class="ai-title">AI Studio // Synced Lyrics & Subtitles</h1>
+        </Show>
+
+        {/* Header */}
+        <div class="ai-header">
+          <div class="ai-title-wrap">
+            <div class="ai-badge-row">
+              <Show
+                when={isAiUnlocked()}
+                fallback={
+                  <span class="ai-badge" style={{ background: "#ff9f1c", color: "#111" }}>
+                    <i class="ph-fill ph-lock-key" /> Preview Mode
+                  </span>
+                }
+              >
+                <span class="ai-badge" style={{ background: "#2ec4b6", color: "#000" }}>
+                  <i class="ph-fill ph-seal-check" /> Pro Active (6-Month Plan)
+                </span>
+              </Show>
+              <span class="ai-badge">Pure Rust Native</span>
+              <span class="ai-subtitle">Candle Engine // Zero Python Overhead</span>
+              <Show when={isAiUnlocked()}>
+                <button
+                  type="button"
+                  class="ai-btn-sm"
+                  style={{ "margin-left": "auto", "font-size": "11px", padding: "4px 8px" }}
+                  onClick={() => {
+                    setIsAiUnlocked(false);
+                    setIsPreviewMode(false);
+                    addToast("Pro access locked. Paywall active.", "info");
+                  }}
+                  title="Lock Pro access for testing"
+                >
+                  <i class="ph ph-lock" /> Lock Pro
+                </button>
+              </Show>
+            </div>
+            <h1 class="ai-title">AI Studio // Synced Lyrics & Subtitles</h1>
+          </div>
         </div>
-      </div>
 
       {/* Show Global Error if any */}
       <Show when={errorMsg()}>
@@ -433,11 +501,15 @@ export default function AI() {
           <button
             class="ai-btn-primary"
             disabled={isGenerating() || (!selectedVideoId() && !customAudioPath())}
-            onClick={handleGenerate}
+            onClick={!isAiUnlocked() ? () => setIsPreviewMode(false) : handleGenerate}
           >
             {isGenerating() ? (
               <>
                 <i class="ph ph-spinner ph-spin" /> {genStatusMsg()}
+              </>
+            ) : !isAiUnlocked() ? (
+              <>
+                <i class="ph-bold ph-lock-simple" /> Unlock Pro to Generate (6-Month Subscription)
               </>
             ) : (
               <>
@@ -535,5 +607,6 @@ export default function AI() {
         </div>
       </Show>
     </div>
+  </Show>
   );
 }
