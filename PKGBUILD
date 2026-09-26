@@ -5,7 +5,7 @@ pkgrel=1
 pkgdesc="A lightning-fast, natively integrated YouTube downloader and local media library."
 arch=('x86_64')
 url="https://github.com/rootlocalghost/ViveStream-Next"
-license=('custom:PolyForm Noncommercial 1.0.0')
+license=('custom:Proprietary')
 
 # Enforcing Intel QSV / VAAPI fallback matrix hardware dependencies and GStreamer media backends
 depends=('webkit2gtk-4.1' 'gst-plugins-good' 'gst-plugins-base' 'gst-plugins-bad' 'gst-plugins-ugly' 'gst-libav' 'yt-dlp' 'ffmpeg' 'intel-media-driver' 'libva-utils')
