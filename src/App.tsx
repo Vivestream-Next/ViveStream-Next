@@ -189,6 +189,7 @@ const NavItem = (props: {
   text: string;
   iconName: string;
   animClass?: string;
+  badge?: string;
 }) => {
   return (
     <A href={props.href} end={props.href === "/"}>
@@ -197,6 +198,7 @@ const NavItem = (props: {
         <i class={`ph-fill ph-${props.iconName} icon-fill`}></i>
       </div>
       <span class="nav-text">{props.text}</span>
+      {props.badge && <span class="nav-badge-pro">{props.badge}</span>}
     </A>
   );
 };
@@ -427,6 +429,7 @@ const AppLayout: Component<{ children?: any }> = (props) => {
             text="AI"
             iconName="sparkle"
             animClass="anim-pulse"
+            badge="PRO"
           />
         </div>
         <div class="nav-links bottom-links">
