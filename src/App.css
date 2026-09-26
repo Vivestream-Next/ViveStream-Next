@@ -864,6 +864,27 @@ input:checked + .slider:before {
   transition-delay: 0.08s;
 }
 
+.nav-badge-pro {
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: var(--primary-accent);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  box-shadow: 1px 1px 0px var(--border-color);
+}
+
+.sidebar.expanded .nav-badge-pro {
+  opacity: 1;
+  transition-delay: 0.08s;
+}
+
 .icon-stack {
   position: relative;
   width: 24px;
