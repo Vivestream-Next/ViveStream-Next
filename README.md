@@ -7,7 +7,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24C8D6?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
 [![SolidJS](https://img.shields.io/badge/SolidJS-v1.9-2C4F7C?style=for-the-badge&logo=solid&logoColor=white)](https://solidjs.com/)
 [![Rust](https://img.shields.io/badge/Rust-v1.8+-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/License-PolyForm%20Noncommercial-E63946?style=for-the-badge)](./LICENSE)
+[![License](https://img.shields.io/badge/License-Proprietary-E63946?style=for-the-badge)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue?style=for-the-badge&logo=linux&logoColor=white)](<>)
 
 ### 🎬 A lightning-fast, native YouTube downloader & sleek local media library.
@@ -216,10 +216,12 @@ For deep-dives into the codebase structure, architectural decisions, database sc
 
 ## ⚖️ License
 
-**PolyForm Noncommercial License 1.0.0**
+**ViveStream Commercial & Personal EULA**
 
-This project is free to use, modify, and build upon for personal, educational, and non-commercial purposes. **You may not use this software for any commercial purpose.**
+- **Core Features**: Free for personal media archival, offline playback, and playlist organization.
+- **AI Studio Features**: Proprietary commercial features requiring a recurring 6-month subscription (processed via Lemon Squeezy).
+- Commercial redistribution, resale, or bypassing feature locks and paywalls is strictly prohibited.
 
-See the [`LICENSE`](./LICENSE) file for details.
+See the [`LICENSE`](./LICENSE) file for the full terms and conditions.
 
 _Disclaimer: This tool is intended for personal media archival and offline viewing of content you have the right to access. The developers are not responsible for how users utilize this software._
