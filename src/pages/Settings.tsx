@@ -2166,7 +2166,7 @@ export default function Settings() {
         </div>
 
         <div class="about-footer-row">
-          <span>License: PolyForm Noncommercial License 1.0.0</span>
+          <span>License: ViveStream EULA & Commercial Terms (AI Pro Subscription)</span>
           <span>ViveStream-Next © {new Date().getFullYear()}</span>
         </div>
       </div>
