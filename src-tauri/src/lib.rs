@@ -5,6 +5,7 @@ mod models;
 mod server;
 mod system;
 mod whisper;
+mod license;
 
 #[cfg(test)]
 mod tests; // Added tests module
@@ -12,6 +13,7 @@ mod tests; // Added tests module
 use db::*;
 use downloader::*;
 use media_controls::*;
+use license::*;
 use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, PlatformConfig};
 use std::sync::Mutex;
 use system::*;
@@ -200,7 +202,10 @@ pub fn run() {
             download_whisper_model,
             generate_track_lyrics,
             get_cached_lyrics,
-            test_hardware_transcoding
+            test_hardware_transcoding,
+            get_license_status,
+            activate_lemon_license,
+            deactivate_lemon_license
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
