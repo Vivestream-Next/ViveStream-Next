@@ -2166,7 +2166,7 @@ export default function Settings() {
         </div>
 
         <div class="about-footer-row">
-          <span>License: ViveStream EULA & Commercial Terms (AI Pro Subscription)</span>
+          <span>License: Business Source License 1.1 (BSL-1.1) — AI Pro Subscription</span>
           <span>ViveStream-Next © {new Date().getFullYear()}</span>
         </div>
       </div>
