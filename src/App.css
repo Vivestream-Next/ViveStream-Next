@@ -658,6 +658,7 @@ input:checked + .slider:before {
   width: 45px;
   height: 100%;
   cursor: pointer;
+  background-color: var(--clay-bg);
   color: var(--primary-text);
   transition:
     background 0.15s,
