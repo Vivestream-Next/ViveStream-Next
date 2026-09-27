@@ -229,6 +229,10 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
 /// 3. Download a Whisper Model on demand with streaming progress
 #[tauri::command]
 pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Result<(), String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("AI Studio model downloads are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
+    }
+
     let models_dir = get_whisper_models_dir(&app)?;
     fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
 
@@ -299,6 +303,10 @@ pub async fn generate_track_lyrics(
     audio_path: String,
     model: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("AI Studio features are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
+    }
+
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
     let lyrics_dir = get_lyrics_dir(&app)?;
