@@ -64,6 +64,10 @@ export default function AI() {
   const [loadingStatus, setLoadingStatus] = createSignal(true);
   const [libraryVideos, setLibraryVideos] = createSignal<VideoEntry[]>([]);
   const [isPreviewMode, setIsPreviewMode] = createSignal(false);
+  const [isInstallingEngine, setIsInstallingEngine] = createSignal(false);
+  const [engineSetupMsg, setEngineSetupMsg] = createSignal("");
+
+  const hasInstalledModel = () => (status()?.models || []).some((m) => m.installed);
 
   // Generation Form State
   const [selectedVideoId, setSelectedVideoId] = createSignal<string>("");
@@ -121,7 +125,35 @@ export default function AI() {
         setDownloadSpeedMb(`${event.payload.downloaded_mb} / ${event.payload.total_mb} MB`);
       }
     );
+
+    // Listen for engine deployment progress
+    listen<string>("whisper-setup-progress", (event) => {
+      setEngineSetupMsg(event.payload);
+    });
   });
+
+  const handleInstallEngine = async () => {
+    if (!isAiUnlocked()) {
+      addToast("Whisper Engine deployment is available to Pro users.", "error");
+      setIsPreviewMode(false);
+      return;
+    }
+
+    try {
+      setIsInstallingEngine(true);
+      setErrorMsg("");
+      setEngineSetupMsg("Deploying Whisper engine binary...");
+      await invoke("install_whisper_binary");
+      addToast("Whisper engine deployed successfully!", "success");
+      await fetchStatus();
+    } catch (e: any) {
+      setErrorMsg(`Failed to deploy Whisper engine: ${e}`);
+      addToast("Failed to deploy Whisper engine", "error");
+    } finally {
+      setIsInstallingEngine(false);
+      setEngineSetupMsg("");
+    }
+  };
 
   const handleDownloadModel = async (modelName: string) => {
     if (!isAiUnlocked()) {
@@ -293,6 +325,86 @@ export default function AI() {
           style={{ "border-color": "var(--primary-accent)", background: "rgba(231, 29, 54, 0.1)" }}
         >
           <div style={{ color: "var(--primary-accent)", "font-weight": "700" }}>{errorMsg()}</div>
+        </div>
+      </Show>
+
+      {/* Step 1: Engine Provisioning Setup Card if Binary Not Installed */}
+      <Show when={!loadingStatus() && !status()?.binary_installed}>
+        <div class="ai-setup-card">
+          <div class="ai-setup-icon-box">
+            <i class="ph-fill ph-cpu" />
+          </div>
+          <div class="ai-setup-content">
+            <div class="ai-badge-row">
+              <span class="ai-badge" style={{ background: "#ff9f1c", color: "#000" }}>
+                <i class="ph-bold ph-warning" /> Step 1: Engine Setup Required
+              </span>
+              <span class="ai-subtitle">Pure Rust Candle Inference // Zero Python Overhead</span>
+            </div>
+            <h2 class="ai-setup-title">Deploy Whisper Neural Engine</h2>
+            <p class="ai-setup-desc">
+              ViveStream AI Studio uses a standalone pure-Rust Candle inference engine to transcribe audio and compute syllable alignments locally on your CPU. Install and deploy the engine binary to get started.
+            </p>
+            <div class="ai-setup-actions">
+              <button
+                type="button"
+                class="ai-btn-primary"
+                disabled={isInstallingEngine()}
+                onClick={handleInstallEngine}
+              >
+                {isInstallingEngine() ? (
+                  <>
+                    <i class="ph ph-spinner ph-spin" /> {engineSetupMsg() || "Deploying Engine..."}
+                  </>
+                ) : (
+                  <>
+                    <i class="ph-bold ph-download-simple" /> Install & Deploy Whisper Engine
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Show>
+
+      {/* Step 2: Model Download Setup Card if Engine Ready but No Models Installed */}
+      <Show when={!loadingStatus() && status()?.binary_installed && !hasInstalledModel()}>
+        <div class="ai-setup-card model-setup">
+          <div class="ai-setup-icon-box" style={{ background: "#2ec4b6" }}>
+            <i class="ph-fill ph-database" style={{ color: "#000" }} />
+          </div>
+          <div class="ai-setup-content">
+            <div class="ai-badge-row">
+              <span class="ai-badge" style={{ background: "#2ec4b6", color: "#000" }}>
+                <i class="ph-bold ph-check" /> Step 2: Download Model Weights
+              </span>
+              <span class="ai-subtitle">
+                Recommended for your system: {status()?.system?.recommended_default_model?.toUpperCase() || "BASE"}
+              </span>
+            </div>
+            <h2 class="ai-setup-title">Download Recommended Whisper Model</h2>
+            <p class="ai-setup-desc">
+              Your hardware diagnostic recommends the <strong>{status()?.system?.recommended_default_model?.toUpperCase() || "BASE"}</strong> model (~290 MB) for optimal lyric transcription speed (~2-4s) and low memory usage.
+            </p>
+            <div class="ai-setup-actions">
+              <button
+                type="button"
+                class="ai-btn-primary"
+                disabled={downloadingModel() !== null}
+                onClick={() => handleDownloadModel(status()?.system?.recommended_default_model || "base")}
+              >
+                {downloadingModel() ? (
+                  <>
+                    <i class="ph ph-spinner ph-spin" /> Downloading {downloadingModel()} ({downloadPercentage()}% - {downloadSpeedMb()})
+                  </>
+                ) : (
+                  <>
+                    <i class="ph-bold ph-download-simple" /> Download Recommended Model ({status()?.system?.recommended_default_model?.toUpperCase() || "BASE"})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
 
@@ -501,7 +613,11 @@ export default function AI() {
           {/* Action Trigger */}
           <button
             class="ai-btn-primary"
-            disabled={isGenerating() || (!selectedVideoId() && !customAudioPath())}
+            disabled={
+              isGenerating() ||
+              (!selectedVideoId() && !customAudioPath()) ||
+              (isAiUnlocked() && (!status()?.binary_installed || !hasInstalledModel()))
+            }
             onClick={!isAiUnlocked() ? () => setIsPreviewMode(false) : handleGenerate}
           >
             {isGenerating() ? (
@@ -511,6 +627,14 @@ export default function AI() {
             ) : !isAiUnlocked() ? (
               <>
                 <i class="ph-bold ph-lock-simple" /> Unlock Pro to Generate (6-Month Subscription)
+              </>
+            ) : !status()?.binary_installed ? (
+              <>
+                <i class="ph-bold ph-warning" /> Deploy Whisper Engine First (Step 1 Above)
+              </>
+            ) : !hasInstalledModel() ? (
+              <>
+                <i class="ph-bold ph-database" /> Download a Whisper Model First (Step 2 Above)
               </>
             ) : (
               <>
