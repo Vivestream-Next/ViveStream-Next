@@ -26,34 +26,46 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
         "vivestream-whisper"
     };
 
-    // 1. Check AppData/bin
-    if let Ok(bin_dir) = get_bin_dir(app) {
-        let p = bin_dir.join(bin_name);
-        if p.is_file() {
-            return Ok(p);
-        }
-    }
-
-    // 2. Check local workspace parent during development
-    if let Ok(curr) = std::env::current_dir() {
-        let p1 = curr.join(bin_name);
-        if p1.is_file() {
-            return Ok(p1);
-        }
-        if let Some(parent) = curr.parent() {
-            let p2 = parent.join(bin_name);
-            if p2.is_file() {
-                return Ok(p2);
-            }
-            let p3 = parent.join("vivestream-whisper").join("target").join("release").join(bin_name);
-            if p3.is_file() {
-                return Ok(p3);
-            }
-        }
-    }
-
     let bin_dir = get_bin_dir(app)?;
-    Ok(bin_dir.join(bin_name))
+    let app_data_bin = bin_dir.join(bin_name);
+
+    // 1. Check AppData/bin
+    if app_data_bin.is_file() {
+        return Ok(app_data_bin);
+    }
+
+    // 2. Check local workspace candidates during development
+    let mut candidates = Vec::new();
+
+    if let Ok(curr) = std::env::current_dir() {
+        candidates.push(curr.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
+        candidates.push(curr.join("vivestream-whisper").join("target").join("release").join(bin_name));
+        candidates.push(curr.join("target").join("release").join(bin_name));
+        candidates.push(curr.join(bin_name));
+
+        if let Some(parent) = curr.parent() {
+            candidates.push(parent.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
+            candidates.push(parent.join("vivestream-whisper").join("target").join("release").join(bin_name));
+            candidates.push(parent.join(bin_name));
+            if let Some(grand) = parent.parent() {
+                candidates.push(grand.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
+                candidates.push(grand.join("vivestream-whisper").join("target").join("release").join(bin_name));
+            }
+        }
+    }
+
+    for cand in candidates {
+        if cand.is_file() {
+            let _ = fs::create_dir_all(&bin_dir);
+            let _ = fs::copy(&cand, &app_data_bin);
+            if app_data_bin.is_file() {
+                return Ok(app_data_bin);
+            }
+            return Ok(cand);
+        }
+    }
+
+    Ok(app_data_bin)
 }
 
 pub fn get_whisper_models_dir(app: &AppHandle) -> Result<PathBuf, String> {
@@ -178,21 +190,24 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
     let _ = app.emit("whisper-setup-progress", "Deploying Whisper engine binary...");
 
     // Check if development binary is accessible locally first
+    let mut candidates = Vec::new();
     if let Ok(curr) = std::env::current_dir() {
-        let candidates = vec![
-            curr.join("vivestream-whisper.exe"),
-            curr.parent().map(|p| p.join("vivestream-whisper.exe")).unwrap_or_default(),
-            curr.parent()
-                .map(|p| p.join("vivestream-whisper").join("target").join("release").join("vivestream-whisper.exe"))
-                .unwrap_or_default(),
-        ];
+        candidates.push(curr.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
+        candidates.push(curr.join("vivestream-whisper").join("target").join("release").join(bin_name));
+        candidates.push(curr.join(bin_name));
 
-        for cand in candidates {
-            if cand.is_file() {
-                fs::copy(&cand, &target_bin).map_err(|e| e.to_string())?;
-                let _ = app.emit("whisper-setup-progress", "Whisper engine deployed successfully.");
-                return Ok(());
-            }
+        if let Some(parent) = curr.parent() {
+            candidates.push(parent.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
+            candidates.push(parent.join("vivestream-whisper").join("target").join("release").join(bin_name));
+            candidates.push(parent.join(bin_name));
+        }
+    }
+
+    for cand in candidates {
+        if cand.is_file() {
+            fs::copy(&cand, &target_bin).map_err(|e| format!("Failed to copy binary: {}", e))?;
+            let _ = app.emit("whisper-setup-progress", "Whisper engine successfully deployed from local build.");
+            return Ok(());
         }
     }
 
