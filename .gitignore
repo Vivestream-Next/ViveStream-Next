@@ -10,3 +10,4 @@ PKGBUILD.1
 src/debian-binary
 /src/usr
 *.zst
+ViveStream-Whisper/
