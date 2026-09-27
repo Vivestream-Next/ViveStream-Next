@@ -31,7 +31,7 @@
     "release:tag": "bun ./scripts/bump.js --tag",
     "format": "bunx prettier -w -u . && cd src-tauri && cargo fmt --all"
   },
-  "license": "Proprietary",
+  "license": "BSL-1.1",
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
     "@solidjs/router": "^1.0.0",
