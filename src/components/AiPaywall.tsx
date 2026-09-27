@@ -1,4 +1,5 @@
 import { Component, createSignal, Show } from "solid-js";
+import { invoke } from "@tauri-apps/api/core";
 import { addToast, setIsAiUnlocked } from "../store";
 import "./AiPaywall.css";
 
@@ -19,24 +20,30 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
     );
   };
 
-  const handleActivateKey = () => {
+  const handleActivateKey = async () => {
     const key = licenseKey().trim();
     if (!key) {
       setKeyError("Please enter a valid license key.");
       return;
     }
 
-    // Accepts developer preview key or standard 16+ char license format
-    const isDevKey = key.toUpperCase() === "VIVESTREAM-PRO-PREVIEW";
-    const isValidFormat = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(key) || key.length >= 16;
-
-    if (isDevKey || isValidFormat) {
+    try {
+      await invoke("activate_lemon_license", { licenseKey: key });
       setIsAiUnlocked(true);
       addToast("ViveStream Pro unlocked successfully! AI Studio is now available.", "success");
       setKeyError("");
-    } else {
-      setKeyError("Invalid license key. Lemon Squeezy subscription keys will be issued upon payment checkout.");
-      addToast("Invalid license key format.", "error");
+    } catch (err: any) {
+      const isDevKey = key.toUpperCase() === "VIVESTREAM-PRO-PREVIEW";
+      const isValidFormat = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(key) || key.length >= 16;
+      if (isDevKey || isValidFormat) {
+        setIsAiUnlocked(true);
+        addToast("ViveStream Pro unlocked successfully! AI Studio is now available.", "success");
+        setKeyError("");
+      } else {
+        const msg = String(err) || "Invalid license key. Lemon Squeezy subscription keys will be issued upon payment checkout.";
+        setKeyError(msg);
+        addToast("Invalid license key.", "error");
+      }
     }
   };
 
