@@ -7,7 +7,7 @@
 [![Tauri](https://img.shields.io/badge/Tauri-v2-24C8D6?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app/)
 [![SolidJS](https://img.shields.io/badge/SolidJS-v1.9-2C4F7C?style=for-the-badge&logo=solid&logoColor=white)](https://solidjs.com/)
 [![Rust](https://img.shields.io/badge/Rust-v1.8+-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![License](https://img.shields.io/badge/License-Proprietary-E63946?style=for-the-badge)](./LICENSE)
+[![License](https://img.shields.io/badge/License-BSL%201.1-E63946?style=for-the-badge)](./LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux-blue?style=for-the-badge&logo=linux&logoColor=white)](<>)
 
 ### 🎬 A lightning-fast, native YouTube downloader & sleek local media library.
@@ -216,12 +216,13 @@ For deep-dives into the codebase structure, architectural decisions, database sc
 
 ## ⚖️ License
 
-**ViveStream Commercial & Personal EULA**
+**Business Source License 1.1 (BSL 1.1)**
 
-- **Core Features**: Free for personal media archival, offline playback, and playlist organization.
-- **AI Studio Features**: Proprietary commercial features requiring a recurring 6-month subscription (processed via Lemon Squeezy).
-- Commercial redistribution, resale, or bypassing feature locks and paywalls is strictly prohibited.
+- **Open Source / Source-Available**: The codebase is public on GitHub for transparency, security audits, and community collaboration.
+- **Core Features**: Free of charge for personal media archival, offline playback, and playlist organization.
+- **AI Studio Features (Pro)**: Commercial subscription features requiring an active 6-month license (processed securely via Lemon Squeezy).
+- **Change Date**: Converts automatically to standard **GPLv3** on 2030-01-01.
 
-See the [`LICENSE`](./LICENSE) file for the full terms and conditions.
+See the [`LICENSE`](./LICENSE) file for the full legal parameters and terms.
 
 _Disclaimer: This tool is intended for personal media archival and offline viewing of content you have the right to access. The developers are not responsible for how users utilize this software._
