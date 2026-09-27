@@ -1,30 +1,26 @@
-ViveStream End User License Agreement (EULA) & Commercial Terms
-Copyright (c) 2026 ViveStream Authors & rootLocalGhost. All rights reserved.
+Business Source License 1.1
 
-1. GRANT OF LICENSE
-ViveStream-Next ("the Software") is proprietary software developed and published by rootLocalGhost ("Licensor"). Subject to the terms of this Agreement, Licensor grants you a non-exclusive, non-transferable, revocable license to install and use the Software.
+Parameters
 
-(a) Core & Personal Edition:
-You are granted a license to use the core media player, video downloader, playlist management, and offline library functionality of the Software free of charge for personal, non-commercial entertainment and media archival purposes.
+Licensor:                 rootLocalGhost <rootlocalghost@gmail.com>
+Licensed Work:            ViveStream-Next
+Change Date:              2030-01-01
+Change License:           GNU General Public License v3.0 or later (GPL-3.0-or-later)
 
-(b) Commercial & Premium AI Features (Pro):
-Advanced artificial intelligence capabilities—including without limitation the ViveStream AI Studio, Whisper neural transcription, synchronized karaoke LRC generation, subtitle generation, and local language model workflows ("AI Features")—are proprietary commercial features.
-Access to AI Features is locked behind a commercial paywall and requires an active, valid commercial subscription license.
+Additional Use Grant (Core Personal & Non-Commercial Use):
+You may make use of the Licensed Work (including copying, modifying, and running derivative works) for non-commercial personal entertainment, media archival, and educational purposes. The core video downloader, audio player, playlist manager, and local library indexing features are licensed free of charge for personal use.
 
-2. SUBSCRIPTION & BILLING (LEMON SQUEEZY)
-(a) Payment Schedule: Access to AI Features is licensed on a recurring semi-annual payment schedule (every six (6) calendar months).
-(b) Merchant of Record: Subscription payments, checkout processing, taxes, and renewals are handled by Lemon Squeezy (or designated authorized merchant of record).
-(c) Early Access & Feature Lock: AI Features remain locked in the application until an active 6-month subscription or verified license key is applied. Bypassing or circumventing this lock without a valid subscription is a direct violation of this Agreement.
+Commercial Feature Restrictions (ViveStream AI Studio Pro):
+The ViveStream AI Studio features—including without limitation Whisper neural transcription, synchronized karaoke LRC generation, enhanced word-level timing extraction, subtitle generation, and local speech-to-text inference ("AI Features")—are proprietary commercial features.
 
-3. RESTRICTIONS
-You agree NOT to:
-(a) Sell, resell, rent, lease, sublicense, distribute, or commercially exploit the Software or any portion thereof without explicit written permission from the Licensor.
-(b) Decompile, reverse engineer, disassemble, decipher, or attempt to derive the source code of any proprietary components, license verification mechanisms, or paywall gates.
-(c) Circumvent, disable, tamper with, or bypass any license verification, paywall, digital rights management, or feature-lock controls in the Software.
-(d) Remove, obscure, or alter any copyright notices, trademarks, or proprietary markings contained in or on the Software.
+Access to and execution of AI Features requires an active, paid commercial subscription license (billed semi-annually every six (6) calendar months via Lemon Squeezy or authorized distributor). 
 
-4. DISCLAIMER OF WARRANTIES
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Circumventing, tampering with, disassembling, or removing any paywall mechanism, license validation check, or feature lock guarding the AI Features is strictly prohibited and constitutes a direct violation of this License.
 
-5. THIRD-PARTY COMPONENTS
-The Software utilizes certain third-party libraries and runtime binaries (such as FFmpeg, yt-dlp, Tauri, and Candle). Nothing in this Agreement shall restrict any rights granted to you under the open-source licenses governing those third-party components.
+Notice
+The Licensor hereby grants you the right to copy, modify, create derivative works, redistribute, and make non-production personal use of the Licensed Work. The grant of rights under this License will terminate automatically if you fail to comply with any of its terms or conditions.
+
+Effective on the Change Date, or the fourth anniversary of the first publicly available release of a specific version of the Licensed Work (whichever is earlier), the Licensor hereby grants you rights under the terms of the Change License, and the terms of this License will terminate.
+
+DISCLAIMER OF WARRANTIES
+THE LICENSED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE LICENSED WORK OR THE USE OR OTHER DEALINGS IN THE LICENSED WORK.
