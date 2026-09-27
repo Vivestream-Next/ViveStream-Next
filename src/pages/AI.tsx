@@ -271,6 +271,7 @@ export default function AI() {
                   class="ai-btn-sm"
                   style={{ "margin-left": "auto", "font-size": "11px", padding: "4px 8px" }}
                   onClick={() => {
+                    invoke("deactivate_lemon_license").catch(() => {});
                     setIsAiUnlocked(false);
                     setIsPreviewMode(false);
                     addToast("Pro access locked. Paywall active.", "info");
