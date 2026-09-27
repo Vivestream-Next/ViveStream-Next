@@ -20,6 +20,20 @@ Built with **Tauri v2**, **SolidJS**, and **Rust** for maximum performance, hard
 
 ---
 
+> [!NOTE]
+> ### 📢 Project Sustainability & Why AI Features Are Paid
+> Developing and maintaining **ViveStream-Next** has taken hundreds of hours of complex engineering across Rust, Tauri, SolidJS, and FFmpeg/Whisper pipelines.
+> 
+> Open-source software cannot survive on goodwill alone. Despite active adoption, voluntary sponsorships and donations have yielded zero financial support to sustain development. To prevent developer burnout, cover costs, and ensure ViveStream-Next remains actively maintained and continually updated, we have adopted an **Open-Core / Source-Available model (BSL 1.1)**:
+> 
+> - **Core App is 100% Free**: Video downloads, audio extraction, local library indexing, playlists, the cinema player, and ambient lighting remain completely free forever for personal use.
+> - **AI Studio is Paid**: Neural-powered speech-to-text, synced karaoke LRC generation, and subtitle extraction are reserved as a Pro tier billed on a **6-month recurring subscription via Lemon Squeezy**.
+> - **Code Stays Open**: The entire codebase remains publicly viewable on GitHub for transparency, privacy audits, and community contributions.
+> 
+> Thank you for respecting independent creators and supporting sustainable software development!
+
+---
+
 ## ✨ Project Overview & Tech Stack
 
 ViveStream-Next is an advanced, ultra-lightweight, offline-first media downloader and local streaming platform. Unlike Electron-based alternatives, it avoids shipping a bundled Chromium browser, keeping the install size incredibly small.
