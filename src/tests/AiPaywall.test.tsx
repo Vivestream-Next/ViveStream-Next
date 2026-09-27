@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { render, screen, fireEvent } from "@solidjs/testing-library";
+import { render, screen, fireEvent, waitFor } from "@solidjs/testing-library";
 import { AiPaywall } from "../components/AiPaywall";
 import { isAiUnlocked, setIsAiUnlocked } from "../store";
 
@@ -32,7 +32,9 @@ describe("AiPaywall Component", () => {
     const activateBtn = screen.getByText("Activate");
     fireEvent.click(activateBtn);
 
-    expect(isAiUnlocked()).toBe(true);
+    await waitFor(() => {
+      expect(isAiUnlocked()).toBe(true);
+    });
   });
 
   it("shows error when activating empty or invalid key", async () => {
