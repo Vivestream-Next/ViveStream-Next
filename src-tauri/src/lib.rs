@@ -6,6 +6,7 @@ mod server;
 mod system;
 mod whisper;
 mod license;
+mod telemetry;
 
 #[cfg(test)]
 mod tests; // Added tests module
@@ -18,6 +19,7 @@ use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, PlatformConfig};
 use std::sync::Mutex;
 use system::*;
 use whisper::*;
+use telemetry::*;
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager,
@@ -208,7 +210,9 @@ pub fn run() {
             test_hardware_transcoding,
             get_license_status,
             activate_lemon_license,
-            deactivate_lemon_license
+            deactivate_lemon_license,
+            get_system_telemetry,
+            get_live_hardware_usage
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
