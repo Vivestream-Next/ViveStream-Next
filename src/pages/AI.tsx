@@ -174,6 +174,16 @@ export default function AI() {
     }
   };
 
+  const handleDeleteModel = async (modelName: string) => {
+    try {
+      await invoke("delete_whisper_model", { modelName });
+      addToast(`Model ${modelName.toUpperCase()} removed`, "info");
+      await fetchStatus();
+    } catch (e: any) {
+      addToast(`Failed to delete model: ${e}`, "error");
+    }
+  };
+
   const handleBrowseLocalFile = async () => {
     try {
       const selected = await open({
@@ -504,14 +514,24 @@ export default function AI() {
                     <Show
                       when={!m.installed}
                       fallback={
-                        <button class="ai-btn-sm installed" disabled>
-                          <i class="ph ph-check" /> Installed
-                        </button>
+                        <div style={{ display: "flex", gap: "6px", "align-items": "center" }}>
+                          <button class="ai-btn-sm installed" disabled>
+                            <i class="ph ph-check" /> Installed
+                          </button>
+                          <button
+                            class="ai-btn-sm"
+                            style={{ padding: "4px 8px", color: "var(--primary-accent)" }}
+                            title={`Delete ${m.name.toUpperCase()} model to free disk space`}
+                            onClick={() => handleDeleteModel(m.name)}
+                          >
+                            <i class="ph ph-trash" />
+                          </button>
+                        </div>
                       }
                     >
                       <button
                         class="ai-btn-sm"
-                        disabled={downloadingModel() === m.name}
+                        disabled={downloadingModel() !== null}
                         onClick={() => handleDownloadModel(m.name)}
                       >
                         {downloadingModel() === m.name ? (
