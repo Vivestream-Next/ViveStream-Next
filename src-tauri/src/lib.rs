@@ -203,6 +203,8 @@ pub fn run() {
             delete_whisper_model,
             generate_track_lyrics,
             get_cached_lyrics,
+            open_whisper_folder,
+            list_cached_lyrics_files,
             test_hardware_transcoding,
             get_license_status,
             activate_lemon_license,
