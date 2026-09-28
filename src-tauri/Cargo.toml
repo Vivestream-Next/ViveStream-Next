@@ -32,6 +32,7 @@ tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 rusqlite = "0.31.0"
 warp = "0.3"
 arboard = "3"
+sysinfo = "0.33"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
