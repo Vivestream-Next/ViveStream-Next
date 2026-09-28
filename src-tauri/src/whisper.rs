@@ -181,11 +181,12 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
     let bin_dir = get_bin_dir(&app)?;
     fs::create_dir_all(&bin_dir).map_err(|e| e.to_string())?;
 
-    let target_bin = bin_dir.join(if cfg!(target_os = "windows") {
+    let bin_name = if cfg!(target_os = "windows") {
         "vivestream-whisper.exe"
     } else {
         "vivestream-whisper"
-    });
+    };
+    let target_bin = bin_dir.join(bin_name);
 
     let _ = app.emit("whisper-setup-progress", "Deploying Whisper engine binary...");
 
@@ -206,36 +207,168 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
     for cand in candidates {
         if cand.is_file() {
             fs::copy(&cand, &target_bin).map_err(|e| format!("Failed to copy binary: {}", e))?;
+            #[cfg(not(target_os = "windows"))]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = fs::metadata(&target_bin) {
+                    let mut perms = meta.permissions();
+                    perms.set_mode(0o755);
+                    let _ = fs::set_permissions(&target_bin, perms);
+                }
+            }
             let _ = app.emit("whisper-setup-progress", "Whisper engine successfully deployed from local build.");
             return Ok(());
         }
     }
 
-    // Remote GitHub release fallback
+    // Remote GitHub release download from https://github.com/Vivestream-Next/ViveStream-Whisper
     let client = reqwest::Client::builder()
         .user_agent("ViveStream-Next")
+        .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|e| e.to_string())?;
 
-    let download_url = if cfg!(target_os = "windows") {
-        "https://github.com/yt-dlp/yt-dlp/releases" // Placeholder or GitHub releases asset url
-    } else {
-        "https://github.com/yt-dlp/yt-dlp/releases"
-    };
+    let _ = app.emit("whisper-setup-progress", "Checking latest GitHub release of ViveStream-Whisper...");
 
-    let _ = app.emit("whisper-setup-progress", "Fetching binary from releases...");
-    let bytes = client
-        .get(download_url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?
-        .bytes()
-        .await
-        .map_err(|e| e.to_string())?;
+    // 1. Query GitHub releases API for latest asset URLs
+    let mut download_urls = Vec::new();
+    let api_url = "https://api.github.com/repos/Vivestream-Next/ViveStream-Whisper/releases/latest";
+    if let Ok(resp) = client.get(api_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(assets) = json["assets"].as_array() {
+                    for asset in assets {
+                        let name = asset["name"].as_str().unwrap_or("").to_lowercase();
+                        let dl_url = asset["browser_download_url"].as_str().unwrap_or("");
+                        if dl_url.is_empty() {
+                            continue;
+                        }
 
-    File::create(&target_bin)
-        .and_then(|mut f| f.write_all(&bytes))
-        .map_err(|e| e.to_string())?;
+                        #[cfg(target_os = "windows")]
+                        if name.ends_with(".exe") && (name.contains("windows") || name.contains("whisper")) {
+                            download_urls.push(dl_url.to_string());
+                        }
+
+                        #[cfg(target_os = "linux")]
+                        if name.contains("linux") && !name.ends_with(".sha256") && !name.ends_with(".tar.gz") {
+                            download_urls.push(dl_url.to_string());
+                        }
+
+                        #[cfg(target_os = "macos")]
+                        if (name.contains("macos") || name.contains("darwin") || name.contains("apple"))
+                            && !name.ends_with(".sha256")
+                        {
+                            download_urls.push(dl_url.to_string());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. Direct latest release URLs matching CI release.yml matrix as fallbacks
+    #[cfg(target_os = "windows")]
+    {
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-windows-x64.exe".to_string());
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper.exe".to_string());
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-linux-x64".to_string());
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper".to_string());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-macos-arm64".to_string());
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper".to_string());
+    }
+
+    let temp_bin = bin_dir.join(format!("{}.download", bin_name));
+    let mut downloaded = false;
+    let mut last_err = String::from("No release assets available");
+
+    for url in download_urls {
+        let _ = app.emit(
+            "whisper-setup-progress",
+            "Downloading Whisper engine from GitHub release...",
+        );
+
+        let resp = match client.get(&url).send().await {
+            Ok(r) if r.status().is_success() => r,
+            Ok(r) => {
+                last_err = format!("Download error: HTTP {}", r.status());
+                continue;
+            }
+            Err(e) => {
+                last_err = format!("Network error: {}", e);
+                continue;
+            }
+        };
+
+        let total_size = resp.content_length().unwrap_or(0);
+        let total_mb = (total_size as f64) / (1024.0 * 1024.0);
+
+        let mut file = match File::create(&temp_bin) {
+            Ok(f) => f,
+            Err(e) => return Err(e.to_string()),
+        };
+
+        let mut current_bytes: u64 = 0;
+        let mut resp = resp;
+        let mut stream_failed = false;
+
+        while let Some(chunk) = resp.chunk().await.unwrap_or(None) {
+            if let Err(e) = file.write_all(&chunk) {
+                last_err = format!("Failed writing binary chunk: {}", e);
+                stream_failed = true;
+                break;
+            }
+            current_bytes += chunk.len() as u64;
+
+            if total_size > 0 {
+                let pct = ((current_bytes as f64) / (total_size as f64)) * 100.0;
+                let cur_mb = (current_bytes as f64) / (1024.0 * 1024.0);
+                let _ = app.emit(
+                    "whisper-setup-progress",
+                    format!(
+                        "Downloading Whisper engine: {:.1}% ({:.1} / {:.1} MB)",
+                        pct, cur_mb, total_mb
+                    ),
+                );
+            }
+        }
+
+        if stream_failed {
+            let _ = fs::remove_file(&temp_bin);
+            continue;
+        }
+
+        let _ = file.flush();
+        drop(file);
+
+        if fs::rename(&temp_bin, &target_bin).is_ok() {
+            #[cfg(not(target_os = "windows"))]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = fs::metadata(&target_bin) {
+                    let mut perms = meta.permissions();
+                    perms.set_mode(0o755);
+                    let _ = fs::set_permissions(&target_bin, perms);
+                }
+            }
+            downloaded = true;
+            break;
+        }
+    }
+
+    if !downloaded {
+        return Err(format!(
+            "Failed to download Whisper engine from GitHub releases: {}",
+            last_err
+        ));
+    }
 
     let _ = app.emit("whisper-setup-progress", "Whisper engine deployed successfully.");
     Ok(())
@@ -254,13 +387,26 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
     let target_file = models_dir.join(format!("{}.safetensors", model_name));
     let temp_file = models_dir.join(format!("{}.safetensors.part", model_name));
 
+    let repo_name = match model_name.as_str() {
+        "tiny" => "openai/whisper-tiny",
+        "base" => "openai/whisper-base",
+        "small" => "openai/whisper-small",
+        "medium" => "openai/whisper-medium",
+        "large-v2" => "openai/whisper-large-v2",
+        "large-v3" => "openai/whisper-large-v3",
+        other => {
+            return Err(format!("Unsupported Whisper model size: {}", other));
+        }
+    };
+
     let url = format!(
-        "https://huggingface.co/openai/whisper-{}/resolve/main/model.safetensors",
-        model_name
+        "https://huggingface.co/{}/resolve/main/model.safetensors",
+        repo_name
     );
 
     let client = reqwest::Client::builder()
         .user_agent("ViveStream-Next")
+        .redirect(reqwest::redirect::Policy::limited(10))
         .build()
         .map_err(|e| e.to_string())?;
 
@@ -308,6 +454,21 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
 
     fs::rename(&temp_file, &target_file).map_err(|e| e.to_string())?;
 
+    Ok(())
+}
+
+/// 4. Delete a downloaded Whisper Model to free disk space
+#[tauri::command]
+pub async fn delete_whisper_model(app: AppHandle, model_name: String) -> Result<(), String> {
+    let models_dir = get_whisper_models_dir(&app)?;
+    let target_file = models_dir.join(format!("{}.safetensors", model_name));
+    if target_file.is_file() {
+        fs::remove_file(&target_file).map_err(|e| format!("Failed to delete model file: {}", e))?;
+    }
+    let sub_folder = models_dir.join(&model_name);
+    if sub_folder.is_dir() {
+        let _ = fs::remove_dir_all(&sub_folder);
+    }
     Ok(())
 }
 
