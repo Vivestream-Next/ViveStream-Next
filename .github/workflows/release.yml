@@ -282,7 +282,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Linux dependencies
-        if: startsWith(matrix.os, 'ubuntu')
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'linux')
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libglib2.0-dev patchelf squashfs-tools libfuse2 binutils zstd tar
@@ -301,7 +301,7 @@ jobs:
           prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
 
       - name: Generate & Upload Arch Linux Package (.pkg.tar.zst)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'linux')
         shell: bash
         run: |
           DEB_FILE=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -n 1)
@@ -351,7 +351,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attest Build Provenance (Linux)
-        if: startsWith(matrix.os, 'ubuntu')
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'linux')
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         timeout-minutes: 5
@@ -361,7 +361,7 @@ jobs:
             *.pkg.tar.zst
 
       - name: Attest Build Provenance (Windows)
-        if: matrix.os == 'windows-latest'
+        if: contains(matrix.os, 'windows')
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         timeout-minutes: 5
