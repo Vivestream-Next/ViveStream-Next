@@ -1773,16 +1773,25 @@ export default function Settings() {
             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
               <h3 class="settings-title">Whisper Neural Engine</h3>
               <Show
-                when={whisperStatus()?.binary_installed}
+                when={!loadingWhisperStatus()}
                 fallback={
-                  <span class="hw-badge hw-neutral" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(255, 159, 28, 0.2); color: #ff9f1c;">
-                    <i class="ph-bold ph-warning"></i> Engine Missing
+                  <span class="hw-badge hw-neutral" style="font-size: 0.75rem; padding: 2px 8px; opacity: 0.7;">
+                    <i class="ph-bold ph-spinner spinIcon"></i> Checking...
                   </span>
                 }
               >
-                <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
-                  <i class="ph-bold ph-check-circle"></i> Pure-Rust Engine Ready
-                </span>
+                <Show
+                  when={whisperStatus()?.binary_installed}
+                  fallback={
+                    <span class="hw-badge hw-neutral" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(255, 159, 28, 0.2); color: #ff9f1c;">
+                      <i class="ph-bold ph-warning"></i> Engine Missing
+                    </span>
+                  }
+                >
+                  <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
+                    <i class="ph-bold ph-check-circle"></i> Pure-Rust Engine Ready
+                  </span>
+                </Show>
               </Show>
             </div>
             <p class="settings-desc">
@@ -1792,11 +1801,11 @@ export default function Settings() {
           <button
             type="button"
             class="command-btn primary"
-            disabled={isDeployingWhisper()}
+            disabled={isDeployingWhisper() || loadingWhisperStatus()}
             onClick={handleDeployWhisperEngine}
             style="min-width: 170px;"
           >
-            <i class={`ph-bold ${isDeployingWhisper() ? "ph-spinner spinIcon" : "ph-download-simple"}`}></i>
+            <i class={`ph-bold ${isDeployingWhisper() || loadingWhisperStatus() ? "ph-spinner spinIcon" : "ph-download-simple"}`}></i>
             {isDeployingWhisper() ? (whisperDeployMsg() || "Deploying...") : (whisperStatus()?.binary_installed ? "Re-Deploy Engine" : "Install Engine")}
           </button>
         </div>
