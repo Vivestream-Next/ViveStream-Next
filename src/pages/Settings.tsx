@@ -56,6 +56,14 @@ import {
   alwaysShowSortBar,
   toggleAlwaysShowSortBar,
   closeGlobalMiniplayer,
+  isAiUnlocked,
+  setIsAiUnlocked,
+  whisperDefaultModel,
+  updateWhisperDefaultModel,
+  whisperDefaultTask,
+  updateWhisperDefaultTask,
+  whisperAutoLinkLyrics,
+  toggleWhisperAutoLinkLyrics,
 } from "../store";
 import BenchmarkModal from "../components/BenchmarkModal";
 import { APP_VERSION } from "../version";
@@ -101,6 +109,10 @@ export default function Settings() {
   const [loadingPoToken, setLoadingPoToken] = createSignal(false);
   const [cookiesDropdownOpen, setCookiesDropdownOpen] = createSignal(false);
   const [clientDropdownOpen, setClientDropdownOpen] = createSignal(false);
+  const [whisperStatus, setWhisperStatus] = createSignal<any | null>(null);
+  const [loadingWhisperStatus, setLoadingWhisperStatus] = createSignal(false);
+  const [isDeployingWhisper, setIsDeployingWhisper] = createSignal(false);
+  const [whisperDeployMsg, setWhisperDeployMsg] = createSignal("");
 
   let cookiesRef: HTMLDivElement | undefined;
   let clientRef: HTMLDivElement | undefined;
@@ -175,8 +187,44 @@ export default function Settings() {
     return `${mins}m`;
   };
 
+  const fetchWhisperStatus = async () => {
+    try {
+      setLoadingWhisperStatus(true);
+      const res = await invoke("check_whisper_status");
+      setWhisperStatus(res);
+    } catch (e) {
+      console.error("Failed to load whisper status in settings:", e);
+    } finally {
+      setLoadingWhisperStatus(false);
+    }
+  };
+
+  const handleDeployWhisperEngine = async () => {
+    try {
+      setIsDeployingWhisper(true);
+      setWhisperDeployMsg("Deploying Whisper engine...");
+      await invoke("install_whisper_binary");
+      addToast("Whisper engine deployed successfully!", "success");
+      await fetchWhisperStatus();
+    } catch (e: any) {
+      addToast(`Engine deployment failed: ${e}`, "error");
+    } finally {
+      setIsDeployingWhisper(false);
+      setWhisperDeployMsg("");
+    }
+  };
+
+  const handleOpenFolder = async (target: "models" | "lyrics") => {
+    try {
+      await invoke("open_whisper_folder", { target });
+    } catch (e: any) {
+      addToast(`Could not open folder: ${e}`, "error");
+    }
+  };
+
   onMount(() => {
     loadPoTokenStatus();
+    fetchWhisperStatus();
     const handleClickOutside = (e: MouseEvent) => {
       if (cookiesRef && !cookiesRef.contains(e.target as Node)) {
         setCookiesDropdownOpen(false);
@@ -368,6 +416,13 @@ export default function Settings() {
           onClick={() => scrollToSection("sec-engine")}
         >
           <i class="ph-fill ph-sliders"></i> Engine
+        </button>
+        <button
+          type="button"
+          class={`settings-nav-pill ${activeSection() === "sec-ai" ? "active" : ""}`}
+          onClick={() => scrollToSection("sec-ai")}
+        >
+          <i class="ph-fill ph-brain"></i> AI Studio
         </button>
         <button
           type="button"
@@ -1701,6 +1756,200 @@ export default function Settings() {
             >
               <i class="ph-bold ph-floppy-disk"></i> Save Token
             </button>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="page-title page-title-spaced" id="sec-ai">
+        <i class="ph-fill ph-brain"></i> AI Studio & Whisper Engine
+      </h2>
+
+      <div class="settings-card">
+        {/* Engine Status & Deploy */}
+        <div class="flex-row-between" id="setting-ai-engine-status">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h3 class="settings-title">Whisper Neural Engine</h3>
+              <Show
+                when={whisperStatus()?.binary_installed}
+                fallback={
+                  <span class="hw-badge hw-neutral" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(255, 159, 28, 0.2); color: #ff9f1c;">
+                    <i class="ph-bold ph-warning"></i> Engine Missing
+                  </span>
+                }
+              >
+                <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
+                  <i class="ph-bold ph-check-circle"></i> Pure-Rust Engine Ready
+                </span>
+              </Show>
+            </div>
+            <p class="settings-desc">
+              Standalone Candle neural inference runtime. Computes syllable-level alignments and synchronized lyrics on local CPU with zero Python overhead.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="command-btn primary"
+            disabled={isDeployingWhisper()}
+            onClick={handleDeployWhisperEngine}
+            style="min-width: 170px;"
+          >
+            <i class={`ph-bold ${isDeployingWhisper() ? "ph-spinner spinIcon" : "ph-download-simple"}`}></i>
+            {isDeployingWhisper() ? (whisperDeployMsg() || "Deploying...") : (whisperStatus()?.binary_installed ? "Re-Deploy Engine" : "Install Engine")}
+          </button>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Default Model */}
+        <div class="flex-row-between" id="setting-ai-default-model">
+          <div>
+            <h3 class="settings-title">Default Whisper Model</h3>
+            <p class="settings-desc">
+              Select your default model size for lyrics transcription. Hardware diagnostic recommends: <strong>{whisperStatus()?.system?.recommended_default_model?.toUpperCase() || "BASE"}</strong>.
+            </p>
+          </div>
+          <div class="speed-limit-presets" role="toolbar" aria-label="Default Whisper Model">
+            <For each={["tiny", "base", "small", "medium", "large-v3"]}>
+              {(m) => (
+                <button
+                  type="button"
+                  class={`speed-preset-btn ${whisperDefaultModel() === m ? "active" : ""}`}
+                  onClick={() => updateWhisperDefaultModel(m)}
+                >
+                  {m.toUpperCase()}
+                </button>
+              )}
+            </For>
+          </div>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Default Task Mode */}
+        <div class="flex-row-between" id="setting-ai-default-task">
+          <div>
+            <h3 class="settings-title">Default Processing Task</h3>
+            <p class="settings-desc">
+              Transcribe retains the original song language. Translate automatically generates translated English subtitles and lyrics.
+            </p>
+          </div>
+          <div class="speed-limit-presets" role="toolbar" aria-label="Default Task">
+            <button
+              type="button"
+              class={`speed-preset-btn ${whisperDefaultTask() === "transcribe" ? "active" : ""}`}
+              onClick={() => updateWhisperDefaultTask("transcribe")}
+            >
+              Transcribe (Original)
+            </button>
+            <button
+              type="button"
+              class={`speed-preset-btn ${whisperDefaultTask() === "translate" ? "active" : ""}`}
+              onClick={() => updateWhisperDefaultTask("translate")}
+            >
+              Translate (English)
+            </button>
+          </div>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Auto Link Lyrics to Player */}
+        <div class="flex-row-between" id="setting-ai-autolink">
+          <div>
+            <h3 class="settings-title">Auto-Sync Lyrics with Media Player</h3>
+            <p class="settings-desc">
+              Automatically make generated .lrc lyric files available in the ViveStream player when playing corresponding tracks.
+            </p>
+          </div>
+          <label class="toggle-switch">
+            <input
+              type="checkbox"
+              checked={whisperAutoLinkLyrics()}
+              onChange={() => toggleWhisperAutoLinkLyrics()}
+              aria-label="Auto-Sync Lyrics with Media Player"
+            />
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Storage Folders */}
+        <div class="flex-row-between" id="setting-ai-folders">
+          <div>
+            <h3 class="settings-title">Whisper Storage & Directories</h3>
+            <p class="settings-desc">
+              Models are stored in <code>%USERPROFILE%\ViveStream\AI\Whisper</code> and lyrics in <code>%USERPROFILE%\ViveStream\Lyrics</code>.
+            </p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button
+              type="button"
+              class="command-btn secondary"
+              onClick={() => handleOpenFolder("models")}
+            >
+              <i class="ph-bold ph-folder-open"></i> Models Folder
+            </button>
+            <button
+              type="button"
+              class="command-btn secondary"
+              onClick={() => handleOpenFolder("lyrics")}
+            >
+              <i class="ph-bold ph-file-text"></i> Lyrics Folder
+            </button>
+          </div>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Pro Subscription Status */}
+        <div class="flex-row-between" id="setting-ai-subscription">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 class="settings-title">Pro Subscription Tier</h3>
+              <Show
+                when={isAiUnlocked()}
+                fallback={
+                  <span class="hw-badge hw-neutral" style="font-size: 0.75rem; padding: 2px 8px; background: rgba(255, 159, 28, 0.2); color: #ff9f1c;">
+                    <i class="ph-bold ph-lock-key"></i> Locked (Preview Mode)
+                  </span>
+                }
+              >
+                <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
+                  <i class="ph-bold ph-seal-check"></i> Pro Active (6-Month Plan)
+                </span>
+              </Show>
+            </div>
+            <p class="settings-desc">
+              AI Studio features are licensed under the Business Source License (BSL-1.1). Subscriptions renew every 6 months via Lemon Squeezy.
+            </p>
+          </div>
+          <div>
+            <Show
+              when={isAiUnlocked()}
+              fallback={
+                <button
+                  type="button"
+                  class="command-btn primary"
+                  onClick={() => setIsAiUnlocked(true)}
+                >
+                  <i class="ph-bold ph-key"></i> Activate Pro License
+                </button>
+              }
+            >
+              <button
+                type="button"
+                class="command-btn secondary"
+                onClick={() => {
+                  invoke("deactivate_lemon_license").catch(() => {});
+                  setIsAiUnlocked(false);
+                  addToast("Pro access locked for testing.", "info");
+                }}
+              >
+                <i class="ph-bold ph-lock"></i> Deactivate License
+              </button>
+            </Show>
           </div>
         </div>
       </div>
