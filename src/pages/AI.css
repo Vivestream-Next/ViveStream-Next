@@ -1466,3 +1466,215 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Live GPU & Telemetry Enhancements                                         */
+/* ------------------------------------------------------------------------- */
+.ai-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.ai-device-rec-badge {
+  font-size: 10px;
+  font-weight: 800;
+  color: #2ec4b6;
+  background: rgba(46, 196, 182, 0.15);
+  border: 1px solid #2ec4b6;
+  border-radius: 4px;
+  padding: 2px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 10px;
+  margin-top: 10px;
+}
+
+.ai-section-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-color);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(46, 196, 182, 0.15);
+  color: #2ec4b6;
+  border: 1.5px solid #2ec4b6;
+  border-radius: 9999px;
+  padding: 3px 10px;
+}
+
+.ai-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2ec4b6;
+  box-shadow: 0 0 8px #2ec4b6;
+  animation: livePulse 1.5s infinite;
+}
+
+@keyframes livePulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 196, 182, 0.7);
+  }
+  70% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 6px rgba(46, 196, 182, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(46, 196, 182, 0);
+  }
+}
+
+.vram-fill {
+  background: linear-gradient(90deg, #0071c5, #2ec4b6);
+}
+
+.cpu-fill {
+  background: linear-gradient(90deg, #ff9f1c, #ff5964);
+}
+
+/* GPU Showcase Cards Grid */
+.ai-gpu-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.ai-gpu-showcase-card {
+  background: var(--clay-bg);
+  border: 2.5px solid var(--border-color);
+  border-radius: var(--neo-radius, 12px);
+  padding: 22px;
+  box-shadow: 6px 6px 0px var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ai-gpu-showcase-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 8px 8px 0px var(--border-color);
+}
+
+.ai-gpu-showcase-card.recommended {
+  border-color: #2ec4b6;
+}
+
+.ai-gpu-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-gpu-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-gpu-vendor-badge {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  display: inline-block;
+  width: fit-content;
+}
+
+.ai-gpu-vendor-badge[data-vendor="intel"] {
+  background: #0071c5;
+  color: #ffffff;
+}
+
+.ai-gpu-vendor-badge[data-vendor="nvidia"] {
+  background: #76b900;
+  color: #000000;
+}
+
+.ai-gpu-vendor-badge[data-vendor="amd"] {
+  background: #ed1c24;
+  color: #ffffff;
+}
+
+.ai-gpu-vendor-badge[data-vendor="apple"] {
+  background: #a2aaad;
+  color: #000000;
+}
+
+.ai-gpu-name {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text-color);
+  margin: 0;
+}
+
+.ai-gpu-specs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.15);
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.ai-gpu-spec {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ai-gpu-spec .spec-label {
+  font-size: 11px;
+  color: var(--secondary-text, #888);
+}
+
+.ai-gpu-spec .spec-val {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.ai-gpu-spec .spec-val.highlight {
+  color: #2ec4b6;
+  font-size: 13px;
+}
+
+.ai-gpu-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.ai-gpu-footer .ai-btn-sm.active {
+  background: #2ec4b6;
+  color: #021a17;
+  border-color: var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
