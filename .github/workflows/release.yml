@@ -37,7 +37,7 @@ jobs:
   # ============================================================================
   prepare:
     name: Prepare Release & Changelog
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-22.04
     outputs:
       app_version: ${{ steps.version_check.outputs.app_version }}
       tag_name: ${{ steps.version_check.outputs.tag_name }}
@@ -256,9 +256,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: blacksmith-4vcpu-ubuntu-2204
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-          - os: blacksmith-4vcpu-windows-2025
+          - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
 
@@ -374,7 +374,7 @@ jobs:
   publish:
     name: Publish Release
     needs: [prepare, build]
-    runs-on: blacksmith-4vcpu-ubuntu-2404
+    runs-on: ubuntu-22.04
     if: needs.prepare.outputs.is_draft == 'false'
     steps:
       - name: Checkout repository
