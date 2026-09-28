@@ -101,6 +101,70 @@ export interface VideoMetadataResponse {
   entries: VideoEntry[];
 }
 
+export interface GpuInfo {
+  id: string;
+  name: string;
+  vendor: string;
+  device_type: string;
+  vram_total_mb: number;
+  vram_used_mb: number;
+  driver_version: string;
+  compute_capability: string;
+  is_recommended: boolean;
+}
+
+export interface ComputeDeviceOption {
+  id: string;
+  label: string;
+  device_type: string;
+  description: string;
+}
+
+export interface LiveGpuUsage {
+  id: string;
+  name: string;
+  vram_total_mb: number;
+  vram_used_mb: number;
+  vram_usage_percent: number;
+}
+
+export interface LiveHardwareUsage {
+  timestamp_ms: number;
+  total_ram_mb: number;
+  used_ram_mb: number;
+  available_ram_mb: number;
+  ram_usage_percent: number;
+  cpu_usage_percent: number;
+  gpus: LiveGpuUsage[];
+}
+
+export interface SystemScan {
+  os_name?: string;
+  os_version?: string;
+  cpu_brand?: string;
+  cpu_physical_cores?: number;
+  cpu_logical_threads?: number;
+  cpu_frequency_mhz?: number;
+  cpu_features?: string[];
+  total_ram_mb?: number;
+  available_ram_mb?: number;
+  used_ram_mb?: number;
+  ram_usage_percent?: number;
+  gpus?: GpuInfo[];
+  primary_gpu?: GpuInfo;
+  recommended_device_id?: string;
+  compute_devices?: ComputeDeviceOption[];
+  recommended_default_model?: string;
+  model_recommendations?: Array<{
+    model: string;
+    performance: string;
+    can_run: boolean;
+    min_ram_gb: number;
+    recommended_ram_gb: number;
+    note: string;
+  }>;
+}
+
 export const {
   toasts,
   setToasts,
@@ -138,6 +202,8 @@ export const {
   setWhisperDefaultTask,
   whisperAutoLinkLyrics,
   setWhisperAutoLinkLyrics,
+  whisperComputeDevice,
+  setWhisperComputeDevice,
   concurrentDownloads,
   setConcurrentDownloads,
   concurrentFragments,
@@ -360,6 +426,9 @@ export const {
   const [whisperAutoLinkLyrics, setWhisperAutoLinkLyrics] = createSignal(
     getBool("whisperAutoLinkLyrics", true),
   );
+  const [whisperComputeDevice, setWhisperComputeDevice] = createSignal(
+    getStr("whisperComputeDevice", "auto"),
+  );
 
   const [defaultSortBy, setDefaultSortBy] = createSignal(
     getStr("defaultSortBy", "date"),
@@ -531,6 +600,8 @@ export const {
     setWhisperDefaultTask,
     whisperAutoLinkLyrics,
     setWhisperAutoLinkLyrics,
+    whisperComputeDevice,
+    setWhisperComputeDevice,
     defaultSortBy,
     setDefaultSortBy,
     defaultSortDirection,
@@ -1031,6 +1102,11 @@ export const toggleWhisperAutoLinkLyrics = (val?: boolean) => {
   const next = typeof val === "boolean" ? val : !whisperAutoLinkLyrics();
   setWhisperAutoLinkLyrics(next);
   if (isBrowser) window.localStorage.setItem("whisperAutoLinkLyrics", next.toString());
+};
+
+export const updateWhisperComputeDevice = (val: string) => {
+  setWhisperComputeDevice(val);
+  if (isBrowser) window.localStorage.setItem("whisperComputeDevice", val);
 };
 
 export const updateDefaultSortBy = (val: string) => {
