@@ -200,6 +200,7 @@ pub fn run() {
             check_whisper_status,
             install_whisper_binary,
             download_whisper_model,
+            delete_whisper_model,
             generate_track_lyrics,
             get_cached_lyrics,
             test_hardware_transcoding,
