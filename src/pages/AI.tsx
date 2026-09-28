@@ -5,14 +5,11 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   VideoEntry,
   isAiUnlocked,
-  setIsAiUnlocked,
   addToast,
   whisperDefaultModel,
   whisperDefaultTask,
   whisperComputeDevice,
   updateWhisperComputeDevice,
-  GpuInfo,
-  ComputeDeviceOption,
   LiveHardwareUsage,
   SystemScan,
 } from "../store";
@@ -1268,7 +1265,7 @@ export default function AI() {
                   {liveUsage()?.used_ram_mb
                     ? `${(liveUsage()!.used_ram_mb / 1024).toFixed(1)} GB / ${(liveUsage()!.total_ram_mb / 1024).toFixed(1)} GB`
                     : status()?.system?.total_ram_mb
-                    ? `${((status()!.system!.used_ram_mb || 0) / 1024).toFixed(1)} GB / ${((status()!.system!.total_ram_mb) / 1024).toFixed(1)} GB`
+                    ? `${((status()?.system?.used_ram_mb || 0) / 1024).toFixed(1)} GB / ${(((status()?.system?.total_ram_mb || 0)) / 1024).toFixed(1)} GB`
                     : "16 GB RAM"}
                 </div>
                 <div class="ai-ram-meter">
@@ -1435,7 +1432,7 @@ export default function AI() {
                       <td><strong>Total Physical Memory</strong></td>
                       <td>
                         {status()?.system?.total_ram_mb
-                          ? `${(status()!.system!.total_ram_mb / 1024).toFixed(1)} GB High-Speed DDR RAM`
+                          ? `${(((status()?.system?.total_ram_mb || 0)) / 1024).toFixed(1)} GB High-Speed DDR RAM`
                           : "16 GB RAM"}
                       </td>
                     </tr>
