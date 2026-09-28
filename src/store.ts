@@ -132,6 +132,12 @@ export const {
   setDesignStyle,
   isAiUnlocked,
   setIsAiUnlocked,
+  whisperDefaultModel,
+  setWhisperDefaultModel,
+  whisperDefaultTask,
+  setWhisperDefaultTask,
+  whisperAutoLinkLyrics,
+  setWhisperAutoLinkLyrics,
   concurrentDownloads,
   setConcurrentDownloads,
   concurrentFragments,
@@ -345,6 +351,16 @@ export const {
     getStr("downloadQuality", "1440p"),
   );
 
+  const [whisperDefaultModel, setWhisperDefaultModel] = createSignal(
+    getStr("whisperDefaultModel", "base"),
+  );
+  const [whisperDefaultTask, setWhisperDefaultTask] = createSignal(
+    getStr("whisperDefaultTask", "transcribe"),
+  );
+  const [whisperAutoLinkLyrics, setWhisperAutoLinkLyrics] = createSignal(
+    getBool("whisperAutoLinkLyrics", true),
+  );
+
   const [defaultSortBy, setDefaultSortBy] = createSignal(
     getStr("defaultSortBy", "date"),
   );
@@ -509,6 +525,12 @@ export const {
     setDownloadUrl,
     downloadQuality,
     setDownloadQuality,
+    whisperDefaultModel,
+    setWhisperDefaultModel,
+    whisperDefaultTask,
+    setWhisperDefaultTask,
+    whisperAutoLinkLyrics,
+    setWhisperAutoLinkLyrics,
     defaultSortBy,
     setDefaultSortBy,
     defaultSortDirection,
@@ -993,6 +1015,22 @@ export const toggleLiveFromStart = (val: boolean) => {
 export const updateDownloadQuality = (val: string) => {
   setDownloadQuality(val);
   if (isBrowser) window.localStorage.setItem("downloadQuality", val);
+};
+
+export const updateWhisperDefaultModel = (val: string) => {
+  setWhisperDefaultModel(val);
+  if (isBrowser) window.localStorage.setItem("whisperDefaultModel", val);
+};
+
+export const updateWhisperDefaultTask = (val: string) => {
+  setWhisperDefaultTask(val);
+  if (isBrowser) window.localStorage.setItem("whisperDefaultTask", val);
+};
+
+export const toggleWhisperAutoLinkLyrics = (val?: boolean) => {
+  const next = typeof val === "boolean" ? val : !whisperAutoLinkLyrics();
+  setWhisperAutoLinkLyrics(next);
+  if (isBrowser) window.localStorage.setItem("whisperAutoLinkLyrics", next.toString());
 };
 
 export const updateDefaultSortBy = (val: string) => {
