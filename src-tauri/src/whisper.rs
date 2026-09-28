@@ -478,6 +478,8 @@ pub async fn generate_track_lyrics(
     app: AppHandle,
     audio_path: String,
     model: Option<String>,
+    task: Option<String>,
+    language: Option<String>,
 ) -> Result<serde_json::Value, String> {
     if !crate::license::check_license_active(&app) {
         return Err("AI Studio features are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
@@ -492,10 +494,14 @@ pub async fn generate_track_lyrics(
     }
 
     let model_name = model.unwrap_or_else(|| "base".to_string());
+    let task_mode = task.unwrap_or_else(|| "transcribe".to_string());
+    let lang = language.unwrap_or_else(|| "auto".to_string());
 
     let mut cmd = Command::new(&bin_path);
     cmd.arg(&audio_path);
     cmd.arg("--model").arg(&model_name);
+    cmd.arg("--task").arg(&task_mode);
+    cmd.arg("--language").arg(&lang);
     cmd.arg("--models-dir").arg(&models_dir);
     cmd.arg("-f").arg("all");
     cmd.arg("-o").arg(&lyrics_dir);
@@ -541,4 +547,69 @@ pub async fn get_cached_lyrics(
         "enhanced_lrc": enhanced_lrc,
         "srt": srt,
     }))
+}
+
+/// 6. Open a Whisper folder (models or lyrics) in OS file manager
+#[tauri::command]
+pub async fn open_whisper_folder(app: AppHandle, target: String) -> Result<(), String> {
+    let dir = match target.as_str() {
+        "lyrics" => get_lyrics_dir(&app)?,
+        _ => get_whisper_models_dir(&app)?,
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        Command::new("explorer")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Command::new("open")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        Command::new("xdg-open")
+            .arg(&dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+
+    Ok(())
+}
+
+/// 7. List all previously generated lyric files in the lyrics directory
+#[tauri::command]
+pub async fn list_cached_lyrics_files(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
+    let lyrics_dir = get_lyrics_dir(&app)?;
+    let mut files = Vec::new();
+
+    if let Ok(entries) = fs::read_dir(&lyrics_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                    if ext == "lrc" || ext == "srt" || ext == "json" {
+                        let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
+                        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                        files.push(serde_json::json!({
+                            "filename": path.file_name().and_then(|s| s.to_str()).unwrap_or(""),
+                            "stem": name,
+                            "ext": ext,
+                            "size_bytes": size,
+                            "path": path.to_string_lossy().to_string(),
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(files)
 }
