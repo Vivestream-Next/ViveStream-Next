@@ -282,10 +282,10 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install Linux dependencies
-        if: matrix.os == 'ubuntu-22.04'
+        if: startsWith(matrix.os, 'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf squashfs-tools libfuse2 binutils zstd tar
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libglib2.0-dev patchelf squashfs-tools libfuse2 binutils zstd tar
 
       - name: Install frontend dependencies
         run: bun install
@@ -301,7 +301,7 @@ jobs:
           prerelease: ${{ needs.prepare.outputs.is_prerelease == 'true' }}
 
       - name: Generate & Upload Arch Linux Package (.pkg.tar.zst)
-        if: matrix.os == 'ubuntu-22.04'
+        if: startsWith(matrix.os, 'ubuntu')
         shell: bash
         run: |
           DEB_FILE=$(find src-tauri/target/release/bundle/deb -name "*.deb" | head -n 1)
@@ -351,7 +351,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Attest Build Provenance (Linux)
-        if: matrix.os == 'ubuntu-22.04'
+        if: startsWith(matrix.os, 'ubuntu')
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         timeout-minutes: 5
