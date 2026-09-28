@@ -171,7 +171,7 @@ To workaround WebKitGTK and Linux compositor issues, the application sets or acc
 - **C Build Tools & WebKitGTK** _(Linux only)_:
   ```bash
   # Debian/Ubuntu
-  sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libglib2.0-dev
 
   # Arch Linux
   sudo pacman -S base-devel webkit2gtk-4.1 curl wget unzip
