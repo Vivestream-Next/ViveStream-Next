@@ -166,11 +166,25 @@ pub async fn check_whisper_status(app: AppHandle) -> Result<serde_json::Value, S
         models_info = serde_json::Value::Array(list);
     }
 
+    let full_telemetry = crate::telemetry::scan_full_system();
+    let mut system_val = serde_json::to_value(&full_telemetry).unwrap_or(serde_json::Value::Null);
+
+    if let Some(sys_obj) = system_val.as_object_mut() {
+        if !system_info.is_null() {
+            if let Some(rec) = system_info.get("model_recommendations") {
+                sys_obj.insert("model_recommendations".to_string(), rec.clone());
+            }
+            if let Some(def_m) = system_info.get("recommended_default_model") {
+                sys_obj.insert("recommended_default_model".to_string(), def_m.clone());
+            }
+        }
+    }
+
     Ok(serde_json::json!({
         "binary_installed": binary_installed,
         "binary_path": bin_path.to_string_lossy().to_string(),
         "models_dir": models_dir.to_string_lossy().to_string(),
-        "system": system_info,
+        "system": system_val,
         "models": models_info,
     }))
 }
@@ -480,6 +494,7 @@ pub async fn generate_track_lyrics(
     model: Option<String>,
     task: Option<String>,
     language: Option<String>,
+    device: Option<String>,
 ) -> Result<serde_json::Value, String> {
     if !crate::license::check_license_active(&app) {
         return Err("AI Studio features are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
@@ -496,12 +511,14 @@ pub async fn generate_track_lyrics(
     let model_name = model.unwrap_or_else(|| "base".to_string());
     let task_mode = task.unwrap_or_else(|| "transcribe".to_string());
     let lang = language.unwrap_or_else(|| "auto".to_string());
+    let target_device = device.unwrap_or_else(|| "auto".to_string());
 
     let mut cmd = Command::new(&bin_path);
     cmd.arg(&audio_path);
     cmd.arg("--model").arg(&model_name);
     cmd.arg("--task").arg(&task_mode);
     cmd.arg("--language").arg(&lang);
+    cmd.arg("--device").arg(&target_device);
     cmd.arg("--models-dir").arg(&models_dir);
     cmd.arg("-f").arg("all");
     cmd.arg("-o").arg(&lyrics_dir);
