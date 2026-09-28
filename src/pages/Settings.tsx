@@ -64,6 +64,8 @@ import {
   updateWhisperDefaultTask,
   whisperAutoLinkLyrics,
   toggleWhisperAutoLinkLyrics,
+  whisperComputeDevice,
+  updateWhisperComputeDevice,
 } from "../store";
 import BenchmarkModal from "../components/BenchmarkModal";
 import { APP_VERSION } from "../version";
@@ -1797,6 +1799,41 @@ export default function Settings() {
             <i class={`ph-bold ${isDeployingWhisper() ? "ph-spinner spinIcon" : "ph-download-simple"}`}></i>
             {isDeployingWhisper() ? (whisperDeployMsg() || "Deploying...") : (whisperStatus()?.binary_installed ? "Re-Deploy Engine" : "Install Engine")}
           </button>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Compute Acceleration Device */}
+        <div class="flex-row-between" id="setting-ai-compute-device">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <h3 class="settings-title">Compute Acceleration Device</h3>
+              <Show when={whisperStatus()?.system?.primary_gpu}>
+                <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
+                  <i class="ph-bold ph-lightning"></i> {whisperStatus()?.system?.primary_gpu?.name}
+                </span>
+              </Show>
+            </div>
+            <p class="settings-desc">
+              Target execution hardware for local speech recognition. Dedicated GPUs (Intel Arc, NVIDIA RTX, AMD Radeon) deliver fastest transcription throughput.
+            </p>
+          </div>
+          <div style="min-width: 260px;">
+            <select
+              class="neo-select"
+              value={whisperComputeDevice()}
+              onChange={(e) => updateWhisperComputeDevice(e.currentTarget.value)}
+              style="width: 100%; padding: 8px 12px; font-weight: 700; border-radius: 8px; border: 2px solid var(--border-color); background: rgba(0, 0, 0, 0.2); color: var(--text-color);"
+            >
+              <For each={whisperStatus()?.system?.compute_devices || []}>
+                {(dev: any) => (
+                  <option value={dev.id} style="background: #1e1e24; color: #fff;">
+                    {dev.label}
+                  </option>
+                )}
+              </For>
+            </select>
+          </div>
         </div>
 
         <div class="full-divider"></div>
