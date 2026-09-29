@@ -94,6 +94,7 @@ export default function AI() {
   const [isInstallingEngine, setIsInstallingEngine] = createSignal(false);
   const [engineSetupMsg, setEngineSetupMsg] = createSignal("");
   const [errorMsg, setErrorMsg] = createSignal("");
+  const [copiedError, setCopiedError] = createSignal(false);
 
   // Studio Form State
   const [sourceMode, setSourceMode] = createSignal<"library" | "custom">("library");
@@ -366,6 +367,18 @@ export default function AI() {
     }
   };
 
+  const handleCopyError = async () => {
+    if (!errorMsg()) return;
+    try {
+      await navigator.clipboard.writeText(errorMsg());
+      setCopiedError(true);
+      addToast("Error message copied to clipboard!", "success");
+      setTimeout(() => setCopiedError(false), 2500);
+    } catch {
+      addToast("Failed to copy to clipboard", "error");
+    }
+  };
+
   const handleRunBenchmark = async () => {
     try {
       setIsBenchmarking(true);
@@ -554,14 +567,31 @@ export default function AI() {
 
         {/* Global Error Banner */}
         <Show when={errorMsg()}>
-          <div class="ai-alert-banner error">
+          <div class="ai-alert-banner error" style={{ "user-select": "text", "-webkit-user-select": "text" }}>
             <i class="ph-fill ph-warning-circle" />
-            <div class="ai-alert-content">
+            <div class="ai-alert-content" style={{ "user-select": "text", "-webkit-user-select": "text" }}>
               <strong>Engine Alert:</strong> {errorMsg()}
             </div>
-            <button type="button" class="ai-btn-sm" onClick={() => setErrorMsg("")}>
-              <i class="ph ph-x" />
-            </button>
+            <div class="ai-alert-actions">
+              <button
+                type="button"
+                class="ai-btn-sm"
+                onClick={handleCopyError}
+                title="Copy error message to clipboard"
+                style={{ "display": "inline-flex", "align-items": "center", "gap": "6px", "font-weight": "800" }}
+              >
+                <i class={`ph-bold ${copiedError() ? "ph-check" : "ph-copy"}`} />
+                <span>{copiedError() ? "Copied!" : "Copy Error"}</span>
+              </button>
+              <button
+                type="button"
+                class="ai-btn-sm"
+                onClick={() => setErrorMsg("")}
+                title="Dismiss alert"
+              >
+                <i class="ph ph-x" />
+              </button>
+            </div>
           </div>
         </Show>
 
