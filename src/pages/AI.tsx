@@ -444,9 +444,10 @@ export default function AI() {
           segments,
         });
 
-        const matchTrack = libraryTracks().find((t) => t.id === stem || t.title.includes(stem));
-        if (matchTrack && matchTrack.audio_path) {
-          setActiveAudioPath(matchTrack.audio_path);
+        const matchVideo = libraryVideos().find((v) => v.id === stem || v.title.includes(stem));
+        if (matchVideo) {
+          setSelectedVideoId(matchVideo.id);
+          setSourceMode("library");
         }
 
         addToast(`Loaded cached lyrics for ${stem}`, "info");
