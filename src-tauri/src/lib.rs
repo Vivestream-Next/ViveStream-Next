@@ -212,7 +212,10 @@ pub fn run() {
             activate_lemon_license,
             deactivate_lemon_license,
             get_system_telemetry,
-            get_live_hardware_usage
+            get_live_hardware_usage,
+            run_whisper_benchmark,
+            probe_media_file,
+            get_whisper_capabilities
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
