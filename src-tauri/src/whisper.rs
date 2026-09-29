@@ -600,6 +600,11 @@ pub async fn get_cached_lyrics(
     let lyrics_dir = get_lyrics_dir(&app)?;
     let safe_name = track_title.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
 
+    let json_path = lyrics_dir.join(format!("{}.json", safe_name));
+    let json_val = fs::read_to_string(&json_path)
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+
     let lrc_path = lyrics_dir.join(format!("{}.lrc", safe_name));
     let elrc_path = lyrics_dir.join(format!("{}.enhanced.lrc", safe_name));
     let srt_path = lyrics_dir.join(format!("{}.srt", safe_name));
@@ -608,11 +613,41 @@ pub async fn get_cached_lyrics(
     let enhanced_lrc = fs::read_to_string(&elrc_path).ok();
     let srt = fs::read_to_string(&srt_path).ok();
 
+    let segments = json_val
+        .as_ref()
+        .and_then(|j| j.get("segments"))
+        .cloned()
+        .unwrap_or_else(|| serde_json::Value::Array(Vec::new()));
+
+    let duration = json_val
+        .as_ref()
+        .and_then(|j| j.get("duration"))
+        .and_then(|d| d.as_f64())
+        .unwrap_or(0.0);
+
+    let language = json_val
+        .as_ref()
+        .and_then(|j| j.get("language"))
+        .and_then(|l| l.as_str())
+        .unwrap_or("en")
+        .to_string();
+
+    let text = json_val
+        .as_ref()
+        .and_then(|j| j.get("text"))
+        .and_then(|t| t.as_str())
+        .unwrap_or("")
+        .to_string();
+
     Ok(serde_json::json!({
-        "found": lrc.is_some() || enhanced_lrc.is_some(),
+        "found": lrc.is_some() || enhanced_lrc.is_some() || json_val.is_some(),
         "lrc": lrc,
         "enhanced_lrc": enhanced_lrc,
         "srt": srt,
+        "segments": segments,
+        "duration": duration,
+        "language": language,
+        "text": text,
     }))
 }
 
