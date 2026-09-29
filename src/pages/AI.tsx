@@ -402,15 +402,53 @@ export default function AI() {
     try {
       const res = await invoke<any>("get_cached_lyrics", { trackTitle: stem });
       if (res.found) {
+        let segments = res.segments || [];
+
+        // Fallback: If segments are empty but LRC text is present, parse LRC lines into segments
+        if (segments.length === 0 && (res.lrc || res.enhanced_lrc)) {
+          const lrcRaw = res.lrc || res.enhanced_lrc || "";
+          const lines = lrcRaw.split("\n");
+          let segId = 0;
+          for (const line of lines) {
+            const match = line.match(/^\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)$/);
+            if (match) {
+              const mins = parseInt(match[1], 10);
+              const secs = parseFloat(match[2] + "." + match[3]);
+              const start = mins * 60 + secs;
+              const text = match[4].trim();
+              if (text && !text.startsWith("[by:") && !text.startsWith("[ti:") && !text.startsWith("[ar:")) {
+                segments.push({
+                  id: segId++,
+                  start,
+                  end: start + 4.0,
+                  text,
+                  words: text.split(" ").map((w: string, idx: number) => ({
+                    word: w,
+                    start: start + idx * 0.4,
+                    end: start + (idx + 1) * 0.4,
+                    probability: 0.95,
+                  })),
+                });
+              }
+            }
+          }
+        }
+
         setResult({
-          duration: 0,
-          language: "detected",
-          text: res.lrc || res.enhanced_lrc || "",
+          duration: res.duration || 0,
+          language: res.language || "detected",
+          text: res.text || res.lrc || "",
           lrc: res.lrc || "",
           enhanced_lrc: res.enhanced_lrc || "",
           srt: res.srt || "",
-          segments: [],
+          segments,
         });
+
+        const matchTrack = libraryTracks().find((t) => t.id === stem || t.title.includes(stem));
+        if (matchTrack && matchTrack.audio_path) {
+          setActiveAudioPath(matchTrack.audio_path);
+        }
+
         addToast(`Loaded cached lyrics for ${stem}`, "info");
       }
     } catch (e) {
