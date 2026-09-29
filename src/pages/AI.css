@@ -1678,3 +1678,148 @@
   box-shadow: 2px 2px 0px var(--border-color);
 }
 
+/* Transcribe Live Progress Card */
+.ai-transcribe-progress-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 10px;
+  box-shadow: 3px 3px 0px var(--border-color);
+  animation: fadeIn 0.2s ease;
+}
+
+.ai-progress-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-stage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(46, 196, 182, 0.15);
+  color: #2ec4b6;
+  border: 1.5px solid #2ec4b6;
+  border-radius: 6px;
+  padding: 2px 8px;
+}
+
+.ai-progress-pct {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-color);
+  font-family: monospace;
+}
+
+.ai-progress-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.ai-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9f1c, #f25c54, #2ec4b6);
+  border-radius: 4px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ai-progress-status-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--secondary-text, #888);
+  font-weight: 600;
+}
+
+/* Neural Inference Benchmark Card */
+.ai-benchmark-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--clay-bg);
+  border: 2.5px solid var(--border-color);
+  border-radius: var(--neo-radius, 12px);
+  padding: 20px 24px;
+  box-shadow: 6px 6px 0px var(--border-color);
+  margin-bottom: 22px;
+}
+
+.ai-benchmark-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.ai-benchmark-title {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 900;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ai-benchmark-title i {
+  color: #ff9f1c;
+}
+
+.ai-benchmark-desc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--secondary-text, #888);
+}
+
+.ai-benchmark-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 2px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  animation: fadeIn 0.25s ease;
+}
+
+.ai-benchmark-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ai-benchmark-stat .stat-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  color: var(--secondary-text, #888);
+  text-transform: uppercase;
+}
+
+.ai-benchmark-stat .stat-val {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-color);
+}
+
+.ai-benchmark-stat .stat-val.highlight {
+  color: #2ec4b6;
+  font-size: 16px;
+}
+
+
