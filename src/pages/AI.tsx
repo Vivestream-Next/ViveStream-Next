@@ -61,6 +61,26 @@ interface CachedLyricItem {
   path: string;
 }
 
+interface TranscribeProgress {
+  type: string;
+  stage: string;
+  percent: number;
+  seek_sec: number;
+  total_sec: number;
+  message: string;
+}
+
+interface BenchmarkResult {
+  success: boolean;
+  model: string;
+  device: string;
+  audio_duration_sec: number;
+  model_load_ms: number;
+  inference_ms: number;
+  real_time_factor: number;
+  speedup: string;
+}
+
 export default function AI() {
   // Navigation Workspaces
   const [activeWorkspace, setActiveWorkspace] = createSignal<"studio" | "models" | "hardware">("studio");
@@ -87,6 +107,9 @@ export default function AI() {
   const [liveUsage, setLiveUsage] = createSignal<LiveHardwareUsage | null>(null);
   const [isGenerating, setIsGenerating] = createSignal(false);
   const [genStatusMsg, setGenStatusMsg] = createSignal("");
+  const [transcribeProgress, setTranscribeProgress] = createSignal<TranscribeProgress | null>(null);
+  const [isBenchmarking, setIsBenchmarking] = createSignal(false);
+  const [benchmarkResult, setBenchmarkResult] = createSignal<BenchmarkResult | null>(null);
 
   // Model Download Manager State
   const [downloadingModel, setDownloadingModel] = createSignal<string | null>(null);
@@ -205,10 +228,18 @@ export default function AI() {
       setEngineSetupMsg(event.payload);
     });
 
+    const unlistenTranscribe = listen<TranscribeProgress>("whisper-transcribe-progress", (event) => {
+      setTranscribeProgress(event.payload);
+      if (event.payload.message) {
+        setGenStatusMsg(event.payload.message);
+      }
+    });
+
     onCleanup(async () => {
       clearInterval(liveInterval);
       (await unlistenModel)();
       (await unlistenSetup)();
+      (await unlistenTranscribe)();
     });
   });
 
@@ -304,6 +335,7 @@ export default function AI() {
     try {
       setIsGenerating(true);
       setErrorMsg("");
+      setTranscribeProgress(null);
       setGenStatusMsg(`Transcribing audio with Whisper ${selectedModel().toUpperCase()}...`);
 
       const res = await invoke<LyricsResult>("generate_track_lyrics", {
@@ -330,6 +362,26 @@ export default function AI() {
     } finally {
       setIsGenerating(false);
       setGenStatusMsg("");
+      setTranscribeProgress(null);
+    }
+  };
+
+  const handleRunBenchmark = async () => {
+    try {
+      setIsBenchmarking(true);
+      setBenchmarkResult(null);
+      addToast("Starting Candle Whisper benchmark...", "info");
+      const res = await invoke<BenchmarkResult>("run_whisper_benchmark", {
+        model: selectedModel() || "base",
+        device: selectedDevice() || "auto",
+      });
+      setBenchmarkResult(res);
+      addToast(`Benchmark complete: ${res.speedup}!`, "success");
+    } catch (e: any) {
+      console.error("Benchmark failed:", e);
+      addToast(`Benchmark failed: ${e}`, "error");
+    } finally {
+      setIsBenchmarking(false);
     }
   };
 
@@ -816,6 +868,32 @@ export default function AI() {
                   </>
                 )}
               </button>
+
+              {/* Live Transcribe Progress Card */}
+              <Show when={isGenerating()}>
+                <div class="ai-transcribe-progress-card">
+                  <div class="ai-progress-meta-row">
+                    <span class="ai-stage-badge">
+                      <i class="ph-bold ph-spinner spinIcon" /> {transcribeProgress()?.stage ? transcribeProgress()!.stage.toUpperCase() : "INFERENCE"}
+                    </span>
+                    <span class="ai-progress-pct">
+                      {transcribeProgress()?.percent ? `${transcribeProgress()!.percent}%` : "Processing..."}
+                    </span>
+                  </div>
+                  <div class="ai-progress-track">
+                    <div
+                      class="ai-progress-fill"
+                      style={{ width: `${Math.max(10, transcribeProgress()?.percent || 15)}%` }}
+                    />
+                  </div>
+                  <div class="ai-progress-status-sub">
+                    <span>{transcribeProgress()?.message || genStatusMsg()}</span>
+                    <Show when={transcribeProgress()?.seek_sec && transcribeProgress()!.total_sec > 0}>
+                      <span>{formatTimestamp(transcribeProgress()!.seek_sec)} / {formatTimestamp(transcribeProgress()!.total_sec)}</span>
+                    </Show>
+                  </div>
+                </div>
+              </Show>
             </div>
 
             {/* Right Column: Interactive Player & Output Studio */}
@@ -1390,6 +1468,55 @@ export default function AI() {
                   </div>
                 )}
               </For>
+            </div>
+
+            {/* Section: Whisper Neural Inference Benchmark */}
+            <div class="ai-benchmark-card">
+              <div class="ai-benchmark-header">
+                <div>
+                  <h3 class="ai-benchmark-title">
+                    <i class="ph-bold ph-lightning" /> Neural Inference Benchmark & Speed Test
+                  </h3>
+                  <p class="ai-benchmark-desc">
+                    Evaluates Candle tensor throughput and calculates real-time factor (RTF) using synthetic audio pass on the active compute device.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="ai-btn-primary"
+                  disabled={isBenchmarking() || !status()?.binary_installed || !hasInstalledModel()}
+                  onClick={handleRunBenchmark}
+                  style="min-width: 170px;"
+                >
+                  <i class={`ph-bold ${isBenchmarking() ? "ph-spinner spinIcon" : "ph-play"}`} />
+                  {isBenchmarking() ? "Benchmarking..." : "Run Benchmark"}
+                </button>
+              </div>
+
+              <Show when={benchmarkResult()}>
+                <div class="ai-benchmark-results">
+                  <div class="ai-benchmark-stat">
+                    <span class="stat-label">THROUGHPUT SPEEDUP</span>
+                    <span class="stat-val highlight">{benchmarkResult()!.speedup}</span>
+                  </div>
+                  <div class="ai-benchmark-stat">
+                    <span class="stat-label">REAL-TIME FACTOR</span>
+                    <span class="stat-val">{benchmarkResult()!.real_time_factor}x RTF</span>
+                  </div>
+                  <div class="ai-benchmark-stat">
+                    <span class="stat-label">INFERENCE TIME</span>
+                    <span class="stat-val">{benchmarkResult()!.inference_ms} ms</span>
+                  </div>
+                  <div class="ai-benchmark-stat">
+                    <span class="stat-label">MODEL LOAD LATENCY</span>
+                    <span class="stat-val">{benchmarkResult()!.model_load_ms} ms</span>
+                  </div>
+                  <div class="ai-benchmark-stat">
+                    <span class="stat-label">TARGET ACCELERATOR</span>
+                    <span class="stat-val">{status()?.system?.primary_gpu?.name || "Auto Accelerator"}</span>
+                  </div>
+                </div>
+              </Show>
             </div>
 
             {/* Section 3: Full Host System Specifications */}
