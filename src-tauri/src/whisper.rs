@@ -29,12 +29,7 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
     let bin_dir = get_bin_dir(app)?;
     let app_data_bin = bin_dir.join(bin_name);
 
-    // 1. Check AppData/bin
-    if app_data_bin.is_file() {
-        return Ok(app_data_bin);
-    }
-
-    // 2. Check local workspace candidates during development
+    // 1. Check local workspace candidates during development FIRST
     let mut candidates = Vec::new();
 
     if let Ok(curr) = std::env::current_dir() {
@@ -54,15 +49,35 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    for cand in candidates {
+    for cand in &candidates {
         if cand.is_file() {
-            let _ = fs::create_dir_all(&bin_dir);
-            let _ = fs::copy(&cand, &app_data_bin);
+            // Check if workspace build is newer than installed app_data_bin
+            let is_newer = if app_data_bin.is_file() {
+                let cand_mtime = cand.metadata().and_then(|m| m.modified()).ok();
+                let dest_mtime = app_data_bin.metadata().and_then(|m| m.modified()).ok();
+                match (cand_mtime, dest_mtime) {
+                    (Some(c), Some(d)) => c > d,
+                    _ => false,
+                }
+            } else {
+                true
+            };
+
+            if is_newer {
+                let _ = fs::create_dir_all(&bin_dir);
+                let _ = fs::copy(cand, &app_data_bin);
+            }
+
             if app_data_bin.is_file() {
                 return Ok(app_data_bin);
             }
-            return Ok(cand);
+            return Ok(cand.clone());
         }
+    }
+
+    // 2. Fallback to AppData/bin for packaged production runtime
+    if app_data_bin.is_file() {
+        return Ok(app_data_bin);
     }
 
     Ok(app_data_bin)
