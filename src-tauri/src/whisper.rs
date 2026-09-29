@@ -1,9 +1,9 @@
 use crate::system::{get_base_dir, get_bin_dir};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
-use std::io::Write;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::path::PathBuf;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use tauri::{AppHandle, Emitter};
 
 #[cfg(target_os = "windows")]
@@ -487,6 +487,7 @@ pub async fn delete_whisper_model(app: AppHandle, model_name: String) -> Result<
 }
 
 /// 4. Generate Synchronized Lyrics & Subtitles for Audio/Video File
+/// 4. Generate Synchronized Lyrics & Subtitles for Audio/Video File with real-time progress streaming
 #[tauri::command]
 pub async fn generate_track_lyrics(
     app: AppHandle,
@@ -523,21 +524,55 @@ pub async fn generate_track_lyrics(
     cmd.arg("-f").arg("all");
     cmd.arg("-o").arg(&lyrics_dir);
     cmd.arg("--json");
+    cmd.arg("--progress");
+    cmd.stdout(Stdio::piped());
+    cmd.stderr(Stdio::piped());
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
-    let output = cmd
-        .output()
-        .map_err(|e| format!("Failed to execute whisper engine: {}", e))?;
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| format!("Failed to spawn whisper engine: {}", e))?;
 
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        let out = String::from_utf8_lossy(&output.stdout);
-        return Err(format!("Whisper error: {}\n{}", err, out));
+    let stderr = child.stderr.take();
+    let emit_handle = app.clone();
+
+    // Stream progress events from stderr in real-time
+    let stderr_thread = std::thread::spawn(move || {
+        let mut err_lines = Vec::new();
+        if let Some(err) = stderr {
+            let reader = BufReader::new(err);
+            for line in reader.lines().flatten() {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&line) {
+                    if json.get("type").and_then(|t| t.as_str()) == Some("progress") {
+                        let _ = emit_handle.emit("whisper-transcribe-progress", json);
+                        continue;
+                    }
+                }
+                err_lines.push(line);
+            }
+        }
+        err_lines.join("\n")
+    });
+
+    let mut stdout_buf = Vec::new();
+    if let Some(mut out) = child.stdout.take() {
+        let _ = out.read_to_end(&mut stdout_buf);
     }
 
-    serde_json::from_slice::<serde_json::Value>(&output.stdout)
+    let status = child
+        .wait()
+        .map_err(|e| format!("Error waiting on whisper engine: {}", e))?;
+
+    let stderr_output = stderr_thread.join().unwrap_or_default();
+
+    if !status.success() {
+        let stdout_str = String::from_utf8_lossy(&stdout_buf);
+        return Err(format!("Whisper error: {}\n{}", stderr_output, stdout_str));
+    }
+
+    serde_json::from_slice::<serde_json::Value>(&stdout_buf)
         .map_err(|e| format!("Failed to parse whisper JSON output: {}", e))
 }
 
@@ -629,4 +664,106 @@ pub async fn list_cached_lyrics_files(app: AppHandle) -> Result<Vec<serde_json::
     }
 
     Ok(files)
+}
+
+/// 8. Run synthetic benchmark on a Whisper model and compute device
+#[tauri::command]
+pub async fn run_whisper_benchmark(
+    app: AppHandle,
+    model: Option<String>,
+    device: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let bin_path = get_whisper_bin_path(&app)?;
+    let models_dir = get_whisper_models_dir(&app)?;
+
+    if !bin_path.is_file() {
+        return Err("Whisper engine binary is not installed yet. Please install it from AI Settings.".to_string());
+    }
+
+    let model_name = model.unwrap_or_else(|| "base".to_string());
+    let target_device = device.unwrap_or_else(|| "auto".to_string());
+
+    let mut cmd = Command::new(&bin_path);
+    cmd.arg("--benchmark");
+    cmd.arg("--model").arg(&model_name);
+    cmd.arg("--device").arg(&target_device);
+    cmd.arg("--models-dir").arg(&models_dir);
+    cmd.arg("--json");
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to execute benchmark: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        let out = String::from_utf8_lossy(&output.stdout);
+        return Err(format!("Benchmark failed: {}\n{}", err, out));
+    }
+
+    serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        .map_err(|e| format!("Failed to parse benchmark JSON: {}", e))
+}
+
+/// 9. Probe media file duration, sample rate, channels, and codec without loading model
+#[tauri::command]
+pub async fn probe_media_file(
+    app: AppHandle,
+    media_path: String,
+) -> Result<serde_json::Value, String> {
+    let bin_path = get_whisper_bin_path(&app)?;
+    if !bin_path.is_file() {
+        return Err("Whisper engine binary is not installed yet.".to_string());
+    }
+
+    let mut cmd = Command::new(&bin_path);
+    cmd.arg("--probe");
+    cmd.arg(&media_path);
+    cmd.arg("--json");
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to probe media file: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Probe failed: {}", err));
+    }
+
+    serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        .map_err(|e| format!("Failed to parse probe JSON: {}", e))
+}
+
+/// 10. Query Whisper engine machine-readable capabilities
+#[tauri::command]
+pub async fn get_whisper_capabilities(
+    app: AppHandle,
+) -> Result<serde_json::Value, String> {
+    let bin_path = get_whisper_bin_path(&app)?;
+    if !bin_path.is_file() {
+        return Err("Whisper engine binary is not installed yet.".to_string());
+    }
+
+    let mut cmd = Command::new(&bin_path);
+    cmd.arg("--capabilities");
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd
+        .output()
+        .map_err(|e| format!("Failed to query capabilities: {}", e))?;
+
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(format!("Capabilities query failed: {}", err));
+    }
+
+    serde_json::from_slice::<serde_json::Value>(&output.stdout)
+        .map_err(|e| format!("Failed to parse capabilities JSON: {}", e))
 }
