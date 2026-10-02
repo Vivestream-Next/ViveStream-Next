@@ -33,6 +33,7 @@ rusqlite = "0.31.0"
 warp = "0.3"
 arboard = "3"
 sysinfo = "0.33"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std", "serde"] }
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }
