@@ -22,6 +22,7 @@ import {
   playerContextParams,
   miniplayerDismissed,
   setMiniplayerDismissed,
+  checkLicenseStatus,
 } from "./store";
 import NotificationSystem from "./components/NotificationSystem";
 import ShortcutsModal from "./components/ShortcutsModal";
@@ -211,6 +212,8 @@ const AppLayout: Component<{ children?: any }> = (props) => {
   const navigate = useNavigate();
 
   onMount(() => {
+    checkLicenseStatus().catch(() => {});
+
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       const isInput =
