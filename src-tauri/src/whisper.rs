@@ -207,6 +207,10 @@ pub async fn check_whisper_status(app: AppHandle) -> Result<serde_json::Value, S
 /// 2. Install / Deploy the Whisper Standalone Binary
 #[tauri::command]
 pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("Deploying the Whisper neural engine requires an active 6-Month Pro Subscription. Please activate your license.".to_string());
+    }
+
     let bin_dir = get_bin_dir(&app)?;
     fs::create_dir_all(&bin_dir).map_err(|e| e.to_string())?;
 
@@ -489,6 +493,10 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
 /// 4. Delete a downloaded Whisper Model to free disk space
 #[tauri::command]
 pub async fn delete_whisper_model(app: AppHandle, model_name: String) -> Result<(), String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("AI Studio model management requires an active 6-Month Pro Subscription. Please activate your license.".to_string());
+    }
+
     let models_dir = get_whisper_models_dir(&app)?;
     let target_file = models_dir.join(format!("{}.safetensors", model_name));
     if target_file.is_file() {
@@ -723,6 +731,10 @@ pub async fn run_whisper_benchmark(
     model: Option<String>,
     device: Option<String>,
 ) -> Result<serde_json::Value, String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("AI Studio neural benchmarks are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
+    }
+
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
 
