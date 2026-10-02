@@ -1,6 +1,7 @@
 import { Component, createSignal, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
-import { addToast, setIsAiUnlocked } from "../store";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { addToast, setIsAiUnlocked, setLicenseData, LicenseData } from "../store";
 import "./AiPaywall.css";
 
 interface AiPaywallProps {
@@ -12,12 +13,23 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
   const [showKeyInput, setShowKeyInput] = createSignal(false);
   const [licenseKey, setLicenseKey] = createSignal("");
   const [keyError, setKeyError] = createSignal("");
+  const [isActivating, setIsActivating] = createSignal(false);
 
-  const handleSubscribeClick = () => {
-    addToast(
-      "Lemon Squeezy checkout integration is coming soon in an upcoming release! All AI features are locked until launch.",
-      "info"
-    );
+  const handleSubscribeClick = async () => {
+    setShowKeyInput(true);
+    try {
+      const url = await invoke<string>("get_lemon_checkout_url");
+      await openUrl(url);
+      addToast(
+        "Opened Lemon Squeezy checkout. Once completed, copy and paste your license key below.",
+        "info"
+      );
+    } catch {
+      addToast(
+        "Please visit lemonsqueezy.com to subscribe, then paste your license key below.",
+        "info"
+      );
+    }
   };
 
   const handleActivateKey = async () => {
@@ -28,22 +40,19 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
     }
 
     try {
-      await invoke("activate_lemon_license", { licenseKey: key });
+      setIsActivating(true);
+      setKeyError("");
+      const res = await invoke<LicenseData>("activate_lemon_license", { licenseKey: key });
+      setLicenseData(res);
       setIsAiUnlocked(true);
       addToast("ViveStream Pro unlocked successfully! AI Studio is now available.", "success");
       setKeyError("");
     } catch (err: any) {
-      const isDevKey = key.toUpperCase() === "VIVESTREAM-PRO-PREVIEW";
-      const isValidFormat = /^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(key) || key.length >= 16;
-      if (isDevKey || isValidFormat) {
-        setIsAiUnlocked(true);
-        addToast("ViveStream Pro unlocked successfully! AI Studio is now available.", "success");
-        setKeyError("");
-      } else {
-        const msg = String(err) || "Invalid license key. Lemon Squeezy subscription keys will be issued upon payment checkout.";
-        setKeyError(msg);
-        addToast("Invalid license key.", "error");
-      }
+      const msg = String(err) || "Invalid license key. Lemon Squeezy subscription keys will be issued upon payment checkout.";
+      setKeyError(msg);
+      addToast(msg, "error");
+    } finally {
+      setIsActivating(false);
     }
   };
 
@@ -144,9 +153,10 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
                   type="button"
                   class="ai-paywall-btn-primary"
                   style={{ padding: "8px 14px", "font-size": "12px" }}
+                  disabled={isActivating()}
                   onClick={handleActivateKey}
                 >
-                  Activate
+                  {isActivating() ? "Activating..." : "Activate"}
                 </button>
               </div>
               <Show when={keyError()}>
