@@ -3,6 +3,35 @@ import { render, screen, fireEvent, waitFor } from "@solidjs/testing-library";
 import { AiPaywall } from "../components/AiPaywall";
 import { isAiUnlocked, setIsAiUnlocked } from "../store";
 
+vi.mock("@tauri-apps/api/core", () => ({
+  invoke: vi.fn((cmd: string, args?: any) => {
+    if (cmd === "activate_lemon_license") {
+      if (args?.licenseKey === "VIVESTREAM-PRO-PREVIEW") {
+        return Promise.resolve({
+          license_key: "VIVESTREAM-PRO-PREVIEW",
+          instance_id: "preview-instance",
+          is_active: true,
+          status: "active",
+          plan: "Developer Preview",
+          customer_name: "Developer",
+          customer_email: "dev@vivestream.internal",
+          activated_at: new Date().toISOString(),
+          expires_at: null,
+        });
+      }
+      return Promise.reject(new Error("Invalid license key"));
+    }
+    if (cmd === "get_lemon_checkout_url") {
+      return Promise.resolve("https://vivestream.lemonsqueezy.com/buy/demo");
+    }
+    return Promise.resolve();
+  }),
+}));
+
+vi.mock("@tauri-apps/plugin-opener", () => ({
+  openUrl: vi.fn(() => Promise.resolve()),
+}));
+
 describe("AiPaywall Component", () => {
   beforeEach(() => {
     setIsAiUnlocked(false);
