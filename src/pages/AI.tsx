@@ -5,6 +5,8 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   VideoEntry,
   isAiUnlocked,
+  licenseData,
+  checkLicenseStatus,
   addToast,
   whisperDefaultModel,
   whisperDefaultTask,
@@ -292,6 +294,11 @@ export default function AI() {
   };
 
   const handleDeleteModel = async (modelName: string) => {
+    if (!isAiUnlocked()) {
+      addToast("Model management is locked behind the 6-Month Pro Subscription.", "error");
+      setIsPreviewMode(false);
+      return;
+    }
     try {
       await invoke("delete_whisper_model", { modelName });
       addToast(`Model ${modelName.toUpperCase()} removed`, "info");
@@ -380,6 +387,11 @@ export default function AI() {
   };
 
   const handleRunBenchmark = async () => {
+    if (!isAiUnlocked()) {
+      addToast("Neural benchmarks are locked behind the 6-Month Pro Subscription.", "error");
+      setIsPreviewMode(false);
+      return;
+    }
     try {
       setIsBenchmarking(true);
       setBenchmarkResult(null);
@@ -543,8 +555,8 @@ export default function AI() {
                   </span>
                 }
               >
-                <span class="ai-badge pro">
-                  <i class="ph-fill ph-seal-check" /> Pro Active (6-Month License)
+                <span class="ai-badge pro" title={licenseData()?.customer_email ? `Customer: ${licenseData()!.customer_email}` : "6-Month Subscription"}>
+                  <i class="ph-fill ph-seal-check" /> Pro Active ({licenseData()?.customer_email || "6-Month Plan"})
                 </span>
               </Show>
 
