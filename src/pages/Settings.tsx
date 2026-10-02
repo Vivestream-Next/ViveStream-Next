@@ -58,6 +58,10 @@ import {
   closeGlobalMiniplayer,
   isAiUnlocked,
   setIsAiUnlocked,
+  licenseData,
+  setLicenseData,
+  checkLicenseStatus,
+  LicenseData,
   whisperDefaultModel,
   updateWhisperDefaultModel,
   whisperDefaultTask,
@@ -67,6 +71,7 @@ import {
   whisperComputeDevice,
   updateWhisperComputeDevice,
 } from "../store";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import BenchmarkModal from "../components/BenchmarkModal";
 import { APP_VERSION } from "../version";
 import "./Settings.css";
@@ -115,6 +120,74 @@ export default function Settings() {
   const [loadingWhisperStatus, setLoadingWhisperStatus] = createSignal(false);
   const [isDeployingWhisper, setIsDeployingWhisper] = createSignal(false);
   const [whisperDeployMsg, setWhisperDeployMsg] = createSignal("");
+
+  const [settingsLicenseKey, setSettingsLicenseKey] = createSignal("");
+  const [settingsKeyError, setSettingsKeyError] = createSignal("");
+  const [isActivatingLicense, setIsActivatingLicense] = createSignal(false);
+  const [isVerifyingLicense, setIsVerifyingLicense] = createSignal(false);
+
+  const handleSubscribeLemonSqueezy = async () => {
+    try {
+      const url = await invoke<string>("get_lemon_checkout_url");
+      await openUrl(url);
+      addToast("Opened Lemon Squeezy checkout in your browser.", "info");
+    } catch (e) {
+      console.error("Failed to open checkout URL:", e);
+      addToast("Failed to open checkout link. Please visit lemonsqueezy.com directly.", "error");
+    }
+  };
+
+  const handleActivateInSettings = async () => {
+    const rawKey = settingsLicenseKey().trim();
+    if (!rawKey) {
+      setSettingsKeyError("Please enter a valid license key");
+      return;
+    }
+    setSettingsKeyError("");
+    setIsActivatingLicense(true);
+    try {
+      const result = await invoke<LicenseData>("activate_lemon_license", { licenseKey: rawKey });
+      if (result && result.is_active) {
+        setLicenseData(result);
+        setIsAiUnlocked(true);
+        setSettingsLicenseKey("");
+        addToast("Lemon Squeezy Pro license successfully activated!", "success");
+      } else {
+        setSettingsKeyError("License key is invalid, inactive, or activation limit was reached.");
+      }
+    } catch (err: any) {
+      setSettingsKeyError(typeof err === "string" ? err : err?.message || "Failed to activate license.");
+    } finally {
+      setIsActivatingLicense(false);
+    }
+  };
+
+  const handleVerifyInSettings = async () => {
+    setIsVerifyingLicense(true);
+    try {
+      const active = await checkLicenseStatus();
+      if (active) {
+        addToast("Pro license validated successfully.", "success");
+      } else {
+        addToast("Pro license is no longer valid or has expired.", "error");
+      }
+    } catch (err: any) {
+      addToast(`License verification failed: ${err?.message || err}`, "error");
+    } finally {
+      setIsVerifyingLicense(false);
+    }
+  };
+
+  const handleDeactivateInSettings = async () => {
+    try {
+      await invoke("deactivate_lemon_license");
+      setIsAiUnlocked(false);
+      setLicenseData(null);
+      addToast("License deactivated and removed.", "info");
+    } catch (err: any) {
+      addToast(`Failed to deactivate: ${err?.message || err}`, "error");
+    }
+  };
 
   let cookiesRef: HTMLDivElement | undefined;
   let clientRef: HTMLDivElement | undefined;
@@ -1950,10 +2023,10 @@ export default function Settings() {
         <div class="full-divider"></div>
 
         {/* Pro Subscription Status */}
-        <div class="flex-row-between" id="setting-ai-subscription">
+        <div class="flex-row-between" id="setting-ai-subscription" style="align-items: flex-start;">
           <div>
             <div style="display: flex; align-items: center; gap: 8px;">
-              <h3 class="settings-title">Pro Subscription Tier</h3>
+              <h3 class="settings-title">Lemon Squeezy Pro Subscription</h3>
               <Show
                 when={isAiUnlocked()}
                 fallback={
@@ -1963,38 +2036,87 @@ export default function Settings() {
                 }
               >
                 <span class="hw-badge hw-pass" style="font-size: 0.75rem; padding: 2px 8px;">
-                  <i class="ph-bold ph-seal-check"></i> Pro Active (6-Month Plan)
+                  <i class="ph-bold ph-seal-check"></i> Pro Active
                 </span>
               </Show>
             </div>
             <p class="settings-desc">
               AI Studio features are licensed under the Business Source License (BSL-1.1). Subscriptions renew every 6 months via Lemon Squeezy.
             </p>
+            <Show when={isAiUnlocked() && licenseData()}>
+              <div style="margin-top: 8px; font-size: 0.85rem; color: var(--secondary-text); display: flex; flex-direction: column; gap: 4px;">
+                <span><strong>Plan:</strong> {licenseData()?.plan || "ViveStream AI Studio Pro"}</span>
+                <Show when={licenseData()?.customer_email}>
+                  <span><strong>Customer:</strong> {licenseData()!.customer_email}</span>
+                </Show>
+                <Show when={licenseData()?.expires_at}>
+                  <span><strong>Renewal / Expiry:</strong> {new Date(licenseData()!.expires_at!).toLocaleDateString()}</span>
+                </Show>
+              </div>
+            </Show>
           </div>
-          <div>
+          <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
             <Show
               when={isAiUnlocked()}
               fallback={
-                <button
-                  type="button"
-                  class="command-btn primary"
-                  onClick={() => setIsAiUnlocked(true)}
-                >
-                  <i class="ph-bold ph-key"></i> Activate Pro License
-                </button>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                  <button
+                    type="button"
+                    class="command-btn primary"
+                    onClick={handleSubscribeLemonSqueezy}
+                  >
+                    <i class="ph-bold ph-shopping-cart"></i> Subscribe via Lemon Squeezy
+                  </button>
+                  <div style="display: flex; gap: 6px; margin-top: 4px;">
+                    <input
+                      type="text"
+                      class="settings-input"
+                      placeholder="Enter License Key"
+                      value={settingsLicenseKey()}
+                      onInput={(e) => {
+                        setSettingsLicenseKey(e.currentTarget.value);
+                        setSettingsKeyError("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleActivateInSettings();
+                      }}
+                      style="width: 220px; font-size: 0.8rem; padding: 6px 10px;"
+                    />
+                    <button
+                      type="button"
+                      class="command-btn secondary"
+                      disabled={isActivatingLicense()}
+                      onClick={handleActivateInSettings}
+                      style="font-size: 0.8rem; padding: 6px 12px;"
+                    >
+                      {isActivatingLicense() ? "Activating..." : "Activate"}
+                    </button>
+                  </div>
+                  <Show when={settingsKeyError()}>
+                    <span style="font-size: 0.75rem; color: var(--primary-accent); font-weight: 700;">
+                      {settingsKeyError()}
+                    </span>
+                  </Show>
+                </div>
               }
             >
-              <button
-                type="button"
-                class="command-btn secondary"
-                onClick={() => {
-                  invoke("deactivate_lemon_license").catch(() => {});
-                  setIsAiUnlocked(false);
-                  addToast("Pro access locked for testing.", "info");
-                }}
-              >
-                <i class="ph-bold ph-lock"></i> Deactivate License
-              </button>
+              <div style="display: flex; gap: 8px;">
+                <button
+                  type="button"
+                  class="command-btn secondary"
+                  disabled={isVerifyingLicense()}
+                  onClick={handleVerifyInSettings}
+                >
+                  <i class="ph-bold ph-arrows-clockwise"></i> {isVerifyingLicense() ? "Verifying..." : "Verify Status"}
+                </button>
+                <button
+                  type="button"
+                  class="command-btn secondary"
+                  onClick={handleDeactivateInSettings}
+                >
+                  <i class="ph-bold ph-lock"></i> Deactivate
+                </button>
+              </div>
             </Show>
           </div>
         </div>
