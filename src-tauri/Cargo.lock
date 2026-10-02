@@ -6050,6 +6050,7 @@ name = "vivestream-next"
 version = "2.8.0"
 dependencies = [
  "arboard",
+ "chrono",
  "dirs-next",
  "reqwest 0.12.28",
  "rusqlite",
