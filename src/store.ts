@@ -2,6 +2,18 @@ import { createSignal, createRoot } from "solid-js";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+export interface LicenseData {
+  license_key: string;
+  instance_id?: string;
+  is_active: boolean;
+  status: string;
+  plan: string;
+  customer_name?: string;
+  customer_email?: string;
+  activated_at?: string;
+  expires_at?: string;
+}
+
 const isBrowser =
   typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 
@@ -196,6 +208,8 @@ export const {
   setDesignStyle,
   isAiUnlocked,
   setIsAiUnlocked,
+  licenseData,
+  setLicenseData,
   whisperDefaultModel,
   setWhisperDefaultModel,
   whisperDefaultTask,
@@ -400,6 +414,7 @@ export const {
       window.localStorage.setItem("isAiUnlocked", String(val));
     }
   };
+  const [licenseData, setLicenseData] = createSignal<LicenseData | null>(null);
 
   const [downloadType, setDownloadType] = createSignal(
     getStr("downloadType", "Video"),
@@ -568,6 +583,8 @@ export const {
     setDesignStyle,
     isAiUnlocked,
     setIsAiUnlocked,
+    licenseData,
+    setLicenseData,
     concurrentDownloads,
     setConcurrentDownloads,
     concurrentFragments,
@@ -1102,6 +1119,37 @@ export const toggleWhisperAutoLinkLyrics = (val?: boolean) => {
   const next = typeof val === "boolean" ? val : !whisperAutoLinkLyrics();
   setWhisperAutoLinkLyrics(next);
   if (isBrowser) window.localStorage.setItem("whisperAutoLinkLyrics", next.toString());
+};
+
+export const checkLicenseStatus = async (): Promise<boolean> => {
+  try {
+    const data = await invoke<LicenseData | null>("validate_lemon_license");
+    if (data && data.is_active) {
+      setLicenseData(data);
+      setIsAiUnlocked(true);
+      return true;
+    } else if (data) {
+      setLicenseData(data);
+      setIsAiUnlocked(false);
+      return false;
+    } else {
+      setLicenseData(null);
+      setIsAiUnlocked(false);
+      return false;
+    }
+  } catch (e) {
+    try {
+      const local = await invoke<LicenseData | null>("get_license_status");
+      if (local && local.is_active) {
+        setLicenseData(local);
+        setIsAiUnlocked(true);
+        return true;
+      }
+    } catch {}
+    setLicenseData(null);
+    setIsAiUnlocked(false);
+    return false;
+  }
 };
 
 export const updateWhisperComputeDevice = (val: string) => {
