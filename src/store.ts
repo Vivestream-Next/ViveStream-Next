@@ -304,6 +304,8 @@ export const {
   setHomeVideos,
   showShortcutsModal,
   setShowShortcutsModal,
+  showArcadeModal,
+  setShowArcadeModal,
   activeVideo,
   setActiveVideo,
   isPlaying,
@@ -352,6 +354,7 @@ export const {
   const [toasts, setToasts] = createSignal<Toast[]>([]);
   const [dialogState, setDialogState] = createSignal<DialogState | null>(null);
   const [showShortcutsModal, setShowShortcutsModal] = createSignal(false);
+  const [showArcadeModal, setShowArcadeModal] = createSignal(false);
   const [isFetchingInfo, setIsFetchingInfo] = createSignal(false);
   const [fetchingUrl, setFetchingUrl] = createSignal("");
   const [downloadHistory, setDownloadHistory] = createSignal<
@@ -557,6 +560,8 @@ export const {
     setDialogState,
     showShortcutsModal,
     setShowShortcutsModal,
+    showArcadeModal,
+    setShowArcadeModal,
     useAnimatedIcons,
     setUseAnimatedIcons,
     sidebarHoverMode,
