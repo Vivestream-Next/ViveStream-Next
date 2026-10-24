@@ -14,6 +14,8 @@ import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
   VideoEntry,
   setShowShortcutsModal,
+  showArcadeModal,
+  setShowArcadeModal,
   activeVideo,
   setActiveVideo,
   isPlaying,
@@ -795,6 +797,13 @@ export default function Player() {
     if (e.key === "i" || e.key === "I") {
       e.preventDefault();
       toggleMiniplayerMode();
+      return;
+    }
+
+    // G: Toggle Arcade Minigame
+    if (e.key === "g" || e.key === "G") {
+      e.preventDefault();
+      setShowArcadeModal(!showArcadeModal());
       return;
     }
 
@@ -1641,6 +1650,15 @@ export default function Player() {
                           theaterMode() ? "ph-fill ph-monitor" : "ph ph-monitor"
                         }
                       ></i>
+                    </button>
+
+                    <button
+                      class="control-btn"
+                      onClick={() => setShowArcadeModal(true)}
+                      title="Stream Runner Arcade (G)"
+                      aria-label="Play Stream Runner Arcade"
+                    >
+                      <i class="ph-fill ph-game-controller"></i>
                     </button>
 
                     <button
