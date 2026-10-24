@@ -817,14 +817,19 @@ input:checked + .slider:before {
   padding-bottom: 24px;
 }
 
-.sidebar a {
+.sidebar a,
+.sidebar button.sidebar-nav-btn {
   display: flex;
   align-items: center;
   height: 48px;
+  width: 100%;
   border-radius: var(--neo-radius-sm);
   border: 2px solid transparent;
+  background: transparent;
   text-decoration: none;
   color: var(--secondary-text);
+  font-family: inherit;
+  cursor: pointer;
   transition:
     background 0.15s ease,
     color 0.15s ease,
@@ -835,9 +840,11 @@ input:checked + .slider:before {
   overflow: hidden;
   white-space: nowrap;
   position: relative;
+  text-align: left;
 }
 
-.sidebar a:hover {
+.sidebar a:hover,
+.sidebar button.sidebar-nav-btn:hover {
   background: var(--glass-hover);
   border-color: var(--border-color);
   color: var(--primary-text);
