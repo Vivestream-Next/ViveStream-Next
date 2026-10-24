@@ -1,0 +1,168 @@
+/* ==========================================================================
+   ARCADE MODAL (STREAM RUNNER IN-APP & IN-PLAYER OVERLAY)
+   ========================================================================== */
+
+.arcade-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(10, 11, 15, 0.85);
+  backdrop-filter: blur(4px);
+  animation: arcadeBackdropFadeIn 0.15s ease-out;
+  transition: background 0.2s ease;
+}
+
+.arcade-modal-backdrop.translucent {
+  background: rgba(10, 11, 15, 0.42);
+  backdrop-filter: blur(1.5px);
+}
+
+@keyframes arcadeBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.arcade-modal-window {
+  width: 100%;
+  max-width: 820px;
+  background: var(--clay-bg);
+  border: 2.5px solid var(--border-color);
+  border-radius: var(--neo-radius);
+  box-shadow: 8px 8px 0px var(--border-color);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: arcadeWindowPop 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes arcadeWindowPop {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.arcade-modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--secondary-background);
+  border-bottom: 2px solid var(--border-color);
+  gap: 12px;
+}
+
+.arcade-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.arcade-topbar-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary-text);
+  margin: 0;
+  letter-spacing: 1.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arcade-video-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tertiary-background);
+  border: 1.5px solid var(--border-color);
+  padding: 3px 10px;
+  border-radius: var(--neo-radius-pill);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary-accent);
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.arcade-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.arcade-view-mode-btn {
+  background: var(--tertiary-background);
+  color: var(--primary-text);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 2px 2px 0px var(--border-color);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.arcade-view-mode-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.arcade-view-mode-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: 0px 0px 0px var(--border-color);
+}
+
+.arcade-close-btn {
+  background: #ef233c;
+  color: #ffffff;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 2px 2px 0px var(--border-color);
+  font-size: 15px;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.arcade-close-btn:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.arcade-close-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--border-color);
+}
+
+.arcade-modal-body {
+  padding: 12px;
+  background: var(--primary-background);
+}
+
+.arcade-modal-body .setup-minigame-container {
+  box-shadow: none;
+  border: 2px solid var(--border-color);
+}
