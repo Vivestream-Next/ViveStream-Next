@@ -47,6 +47,8 @@ import {
   showConfirmDialog,
   addToast,
   setShowShortcutsModal,
+  showArcadeModal,
+  setShowArcadeModal,
   defaultSortBy,
   updateDefaultSortBy,
   defaultSortDirection,
@@ -2468,6 +2470,25 @@ export default function Settings() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div class="full-divider"></div>
+
+        <div class="flex-row-between" id="setting-arcade-launcher">
+          <div>
+            <h3 class="settings-title">Stream Runner Arcade Minigame</h3>
+            <p class="settings-desc">
+              Play the built-in 8-bit retro runner anytime to beat your high score, even while videos are streaming in the player.
+            </p>
+          </div>
+          <button
+            type="button"
+            class="clay-btn primary"
+            onClick={() => setShowArcadeModal(true)}
+            style={{ display: "flex", "align-items": "center", gap: "8px" }}
+          >
+            <i class="ph-fill ph-game-controller"></i> Launch Arcade (G)
+          </button>
         </div>
 
         <div class="full-divider"></div>
