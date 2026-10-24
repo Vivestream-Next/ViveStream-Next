@@ -418,3 +418,141 @@
   height: 140px;
   padding: 16px;
 }
+
+/* ==========================================================================
+   SETUP VIEW SWITCHER & MINIGAME INTEGRATION
+   ========================================================================== */
+
+.setup-tabs-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: -12px;
+}
+
+.setup-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--tertiary-background);
+  padding: 4px;
+  border-radius: var(--neo-radius-sm);
+  border: 2px solid var(--border-color);
+  box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.setup-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: var(--secondary-text);
+  cursor: pointer;
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.setup-tab-btn:hover {
+  color: var(--primary-text);
+}
+
+.setup-tab-btn.active {
+  background: var(--secondary-background);
+  color: var(--primary-text);
+  border-color: var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.setup-tab-badge {
+  background: var(--primary-accent);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  padding: 2px 6px;
+  border-radius: var(--neo-radius-pill);
+  border: 1px solid var(--border-color);
+  letter-spacing: 0.5px;
+  animation: badgePulse 1.2s infinite alternate ease-in-out;
+}
+
+@keyframes badgePulse {
+  from {
+    transform: scale(0.96);
+  }
+  to {
+    transform: scale(1.05);
+  }
+}
+
+.setup-game-container {
+  width: 100%;
+  animation: cardEnter 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.setup-arcade-teaser {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--secondary-background);
+  border: 2px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  padding: 8px 16px;
+  box-shadow: 3px 3px 0px var(--border-color);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.setup-arcade-teaser:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px var(--border-color);
+}
+
+.setup-arcade-teaser:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0px 0px 0px var(--border-color);
+}
+
+.setup-teaser-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setup-teaser-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--primary-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border: 1.5px solid var(--border-color);
+}
+
+.setup-teaser-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-text);
+}
+
+.setup-teaser-btn-label {
+  font-size: 12px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  color: var(--primary-accent);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
