@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { setForceSetup } from "../store";
 import { APP_VERSION } from "../version";
+import SetupMinigame from "../components/SetupMinigame";
 import "./Setup.css";
 
 const AnimatedLogo = () => (
@@ -78,6 +79,8 @@ export default function Setup(props: { onComplete?: () => void }) {
   const [showLogs, setShowLogs] = createSignal(false);
   const [logs, setLogs] = createSignal<string[]>([]);
   const [downloadProgress, setDownloadProgress] = createSignal<number>(0);
+  const [activeTab, setActiveTab] = createSignal<"console" | "game">("console");
+  const [showCompletionGame, setShowCompletionGame] = createSignal<boolean>(false);
 
   onMount(async () => {
     try {
@@ -198,7 +201,45 @@ export default function Setup(props: { onComplete?: () => void }) {
                   core media engines.
                 </p>
               </div>
-              <div class="setup-terminal-wrapper">
+              <div class="setup-tabs-wrapper">
+                <div class="setup-tabs" role="tablist">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab() === "console"}
+                    class={`setup-tab-btn ${activeTab() === "console" ? "active" : ""}`}
+                    onClick={() => setActiveTab("console")}
+                  >
+                    <i class="ph ph-terminal-window"></i> Deployment Console
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab() === "game"}
+                    class={`setup-tab-btn ${activeTab() === "game" ? "active" : ""}`}
+                    onClick={() => setActiveTab("game")}
+                  >
+                    <i class="ph-fill ph-game-controller"></i> Stream Runner
+                    <span class="setup-tab-badge">ARCADE</span>
+                  </button>
+                </div>
+              </div>
+
+              <Show when={activeTab() === "game"}>
+                <div class="setup-game-container">
+                  <SetupMinigame
+                    downloadProgress={downloadProgress()}
+                    isCompleted={isCompleted()}
+                    onLaunch={handleLaunch}
+                    onClose={() => setActiveTab("console")}
+                  />
+                </div>
+              </Show>
+
+              <div
+                class="setup-terminal-wrapper"
+                style={activeTab() === "game" ? { display: "none" } : {}}
+              >
                 <div class="terminal-header">
                   <div class="term-dot r"></div>
                   <div class="term-dot y"></div>
@@ -235,6 +276,28 @@ export default function Setup(props: { onComplete?: () => void }) {
                   )}
                 </div>
               </div>
+
+              <Show when={loading() && activeTab() === "console"}>
+                <div
+                  class="setup-arcade-teaser"
+                  onClick={() => setActiveTab("game")}
+                  role="button"
+                  tabIndex={0}
+                  title="Play Minigame"
+                >
+                  <div class="setup-teaser-left">
+                    <div class="setup-teaser-icon">
+                      <i class="ph-fill ph-game-controller"></i>
+                    </div>
+                    <span class="setup-teaser-text">
+                      Engines are deploying! Play Stream Runner while you wait.
+                    </span>
+                  </div>
+                  <span class="setup-teaser-btn-label">
+                    PLAY MINIGAME <i class="ph ph-arrow-right"></i>
+                  </span>
+                </div>
+              </Show>
               <button
                 type="button"
                 class={`setup-btn ${loading() ? "loading" : ""} ${hasError() ? "error-btn" : ""}`}
@@ -343,6 +406,36 @@ export default function Setup(props: { onComplete?: () => void }) {
             <button class="setup-btn setup-launch-btn" onClick={handleLaunch}>
               <i class="ph-fill ph-rocket-launch"></i> LAUNCH VIVESTREAM
             </button>
+
+            <button
+              type="button"
+              class="setup-arcade-teaser"
+              style={{ "margin-top": "6px", width: "100%" }}
+              onClick={() => setShowCompletionGame(!showCompletionGame())}
+            >
+              <div class="setup-teaser-left">
+                <div class="setup-teaser-icon">
+                  <i class="ph-fill ph-game-controller"></i>
+                </div>
+                <span class="setup-teaser-text">
+                  {showCompletionGame() ? "Close Arcade Runner" : "Beat Your High Score in Stream Runner"}
+                </span>
+              </div>
+              <span class="setup-teaser-btn-label">
+                {showCompletionGame() ? "HIDE" : "PLAY ARCADE"} <i class="ph ph-arrow-right"></i>
+              </span>
+            </button>
+
+            <Show when={showCompletionGame()}>
+              <div class="setup-game-container">
+                <SetupMinigame
+                  downloadProgress={100}
+                  isCompleted={true}
+                  onLaunch={handleLaunch}
+                  onClose={() => setShowCompletionGame(false)}
+                />
+              </div>
+            </Show>
 
             <div
               class="setup-log-toggle"
