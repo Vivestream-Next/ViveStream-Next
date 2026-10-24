@@ -13,6 +13,8 @@ import {
   setForceSetup,
   showShortcutsModal,
   setShowShortcutsModal,
+  showArcadeModal,
+  setShowArcadeModal,
   isSearchOpen,
   setIsSearchOpen,
   isSortOpen,
@@ -26,6 +28,7 @@ import {
 } from "./store";
 import NotificationSystem from "./components/NotificationSystem";
 import ShortcutsModal from "./components/ShortcutsModal";
+import ArcadeModal from "./components/ArcadeModal";
 import Miniplayer from "./components/Miniplayer";
 import FPSCounter from "./components/FPSCounter";
 import FloatingSortBar from "./components/FloatingSortBar";
@@ -152,6 +155,10 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
         isOpen={showShortcutsModal()}
         onClose={() => setShowShortcutsModal(false)}
       />
+      <ArcadeModal
+        isOpen={showArcadeModal()}
+        onClose={() => setShowArcadeModal(false)}
+      />
       <FPSCounter />
       <ImmersiveTitleBar />
       <Show
@@ -223,8 +230,13 @@ const AppLayout: Component<{ children?: any }> = (props) => {
           target.tagName === "SELECT" ||
           target.isContentEditable);
 
-      // Escape closes shortcuts modal, sort bar, or search bar
+      // Escape closes arcade modal, shortcuts modal, sort bar, or search bar
       if (e.key === "Escape") {
+        if (showArcadeModal()) {
+          e.preventDefault();
+          setShowArcadeModal(false);
+          return;
+        }
         if (showShortcutsModal()) {
           e.preventDefault();
           setShowShortcutsModal(false);
@@ -301,6 +313,19 @@ const AppLayout: Component<{ children?: any }> = (props) => {
       if (!isInput && (e.key === "?" || (e.shiftKey && e.key === "/"))) {
         e.preventDefault();
         setShowShortcutsModal(!showShortcutsModal());
+        return;
+      }
+
+      // Stream Runner Arcade Shortcut (G) when not in input
+      if (
+        !isInput &&
+        (e.key === "g" || e.key === "G") &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.metaKey
+      ) {
+        e.preventDefault();
+        setShowArcadeModal(!showArcadeModal());
         return;
       }
 
@@ -436,6 +461,20 @@ const AppLayout: Component<{ children?: any }> = (props) => {
           />
         </div>
         <div class="nav-links bottom-links">
+          <button
+            type="button"
+            class="sidebar-nav-btn"
+            onClick={() => setShowArcadeModal(true)}
+            title="Stream Runner Arcade (G)"
+            aria-label="Stream Runner Arcade"
+          >
+            <div class="icon-stack anim-bounce">
+              <i class="ph ph-game-controller icon-outline"></i>
+              <i class="ph-fill ph-game-controller icon-fill"></i>
+            </div>
+            <span class="nav-text">Arcade</span>
+            <span class="nav-badge-pro">PLAY</span>
+          </button>
           <NavItem
             href="/downloads"
             text="Downloads"
