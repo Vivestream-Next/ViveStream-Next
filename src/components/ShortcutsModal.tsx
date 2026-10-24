@@ -46,6 +46,7 @@ const SHORTCUT_CATEGORIES: ShortcutCategory[] = [
       { keys: ["T"], description: "Toggle Theater mode" },
       { keys: ["I"], description: "Toggle Miniplayer (PiP)" },
       { keys: ["C"], description: "Toggle Subtitles / Captions" },
+      { keys: ["G"], description: "Toggle Stream Runner Arcade minigame" },
     ],
   },
   {
