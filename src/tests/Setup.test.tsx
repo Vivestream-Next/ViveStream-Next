@@ -52,4 +52,23 @@ describe("Setup Component", () => {
       expect(invoke).toHaveBeenCalledWith("download_binaries");
     });
   });
+
+  it("should switch between Deployment Console and Stream Runner minigame", async () => {
+    render(() => <Setup />);
+
+    const gameTab = screen.getByRole("tab", { name: /Stream Runner/i });
+    expect(gameTab).toBeInTheDocument();
+
+    fireEvent.click(gameTab);
+
+    // Minigame should now be visible
+    expect(screen.getByText(/STREAM RUNNER \/\/ BIT DASH/i)).toBeInTheDocument();
+
+    // Switch back to console
+    const consoleTab = screen.getByRole("tab", { name: /Deployment Console/i });
+    fireEvent.click(consoleTab);
+
+    expect(consoleTab).toHaveClass("active");
+  });
 });
+
