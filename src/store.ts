@@ -367,10 +367,10 @@ export const {
   const [sidebarHoverMode, setSidebarHoverMode] =
     createSignal(initialHoverState);
   const [alwaysShowSearchBar, setAlwaysShowSearchBar] = createSignal(
-    getBool("alwaysShowSearchBar", false),
+    getBool("alwaysShowSearchBar", true),
   );
   const [alwaysShowSortBar, setAlwaysShowSortBar] = createSignal(
-    getBool("alwaysShowSortBar", false),
+    getBool("alwaysShowSortBar", true),
   );
   const [showFpsCounter, setShowFpsCounter] = createSignal(
     getBool("showFpsCounter", false),
