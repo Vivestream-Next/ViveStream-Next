@@ -522,50 +522,15 @@ pub async fn refresh_po_token(app: AppHandle, video_id: Option<String>) -> Resul
     Ok(clean)
 }
 
-pub async fn get_or_extract_po_token(app: &AppHandle, video_id: &str) -> Result<String, String> {
+pub async fn get_or_extract_po_token(app: &AppHandle, _video_id: &str) -> Result<String, String> {
     // 1. Instant check: In-memory or saved on disk
     if let Some(token) = get_cached_po_token_fast(app) {
         return Ok(token);
     }
 
-    // 2. Check recent failure: don't freeze or spam if YouTube is blocking extraction
-    {
-        if let Ok(guard) = PO_TOKEN_CACHE.lock() {
-            if let Some(failed_at) = guard.last_failure {
-                if failed_at.elapsed() < std::time::Duration::from_secs(60) {
-                    println!("[PO_TOKEN] Extraction temporarily bypassed (recent failure cached within 60s).");
-                    return Err("Recent failure cached".into());
-                }
-            }
-        }
-    }
-
-    // 3. Fast extraction with 6s timeout
-    println!("[PO_TOKEN] No cached token found. Attempting background extraction (max 6s)...");
-    match extract_po_token(app, video_id).await {
-        Ok(token) if !token.trim().is_empty() => {
-            let clean = token.trim().to_string();
-            save_po_token_to_disk(app, &clean);
-            if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
-                guard.token = Some(clean.clone());
-                guard.cached_at = Some(Instant::now());
-                guard.last_failure = None;
-            }
-            Ok(clean)
-        }
-        Err(e) => {
-            if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
-                guard.last_failure = Some(Instant::now());
-            }
-            Err(e)
-        }
-        _ => {
-            if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
-                guard.last_failure = Some(Instant::now());
-            }
-            Err("Empty token".into())
-        }
-    }
+    // 2. If no token is cached, proceed immediately with player_client streaming without blocking
+    println!("[PO_TOKEN] No cached token found. Streaming directly with player client formats (0s delay)...");
+    Err("No cached PO token, streaming directly".into())
 }
 
 #[tauri::command]

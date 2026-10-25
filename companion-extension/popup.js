@@ -108,8 +108,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     copyTokenBtn.disabled = false;
     syncAppBtn.disabled = false;
 
+    const isPo = tokenData.isPoToken !== false && !tokenData.source?.includes("visitor");
     statusDot.className = "status-dot active";
-    statusText.textContent = "TOKEN READY";
+    statusText.textContent = isPo ? "PO TOKEN READY" : "SESSION READY";
+    const tokenHeaderLabel = document.querySelector(".token-header .label");
+    if (tokenHeaderLabel) {
+      tokenHeaderLabel.textContent = isPo ? "CAPTURED PO TOKEN" : "CAPTURED VISITOR SESSION";
+    }
 
     tokenLengthBadge.textContent = `${currentToken.length} chars`;
     renderTokenPreview();
@@ -478,12 +483,15 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Persist telemetry
       await chrome.storage.local.set({ lastDiagnostics: diag });
 
-      if (diag.tokenFound) {
+      const effectiveToken = diag.tokenFound || diag.visitorData;
+      if (effectiveToken) {
+        const isPo = !!diag.tokenFound;
         const tokenData = {
-          token: diag.tokenFound,
+          token: effectiveToken,
+          isPoToken: isPo,
           visitorData: diag.visitorData || null,
           videoId: diag.videoId || null,
-          source: diag.tokenSource || "main_world_scan",
+          source: isPo ? diag.tokenSource : "youtube_visitor_session",
           capturedAt: Date.now(),
           syncStatus: "pending",
         };
@@ -492,7 +500,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateDisplay(tokenData);
 
         await appendLog(
-          `✓ PO Token Extracted (${diag.tokenFound.length} chars) via ${diag.tokenSource}! [Video: ${diag.videoId || "N/A"}]`,
+          `✓ ${isPo ? "PO Token" : "YouTube Visitor Session"} Captured (${effectiveToken.length} chars) via ${tokenData.source}!`,
           "success"
         );
 
@@ -502,21 +510,21 @@ document.addEventListener("DOMContentLoaded", async () => {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              token: diag.tokenFound,
+              token: effectiveToken,
               visitor_data: diag.visitorData,
               video_id: diag.videoId,
-              source: `companion_direct_scan_${diag.tokenSource}`,
+              source: `companion_direct_scan_${tokenData.source}`,
             }),
           });
           if (res.ok) {
             tokenData.syncStatus = "synced";
             await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
-            await appendLog("Synced PO token directly to ViveStream desktop app!", "success");
+            await appendLog("Synced session credentials directly to ViveStream desktop app!", "success");
             checkDesktopAppStatus();
           }
         } catch (_) {}
 
-        scanBtnText.textContent = "TOKEN CAPTURED!";
+        scanBtnText.textContent = isPo ? "PO TOKEN READY!" : "SESSION SYNCED!";
         scanTabBtn.style.borderColor = "#00ffcc";
         scanTabBtn.style.color = "#00ffcc";
         setTimeout(() => {
