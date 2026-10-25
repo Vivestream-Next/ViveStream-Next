@@ -1,7 +1,6 @@
 /**
  * ViveStream PO Token Companion - Content Script
- * Receives intercepted tokens from MAIN world, saves to chrome.storage.local,
- * and pushes directly to ViveStream local server (127.0.0.1:1422) if active.
+ * Relays tokens and diagnostic events from YouTube page to extension storage and desktop app.
  */
 (function () {
   window.addEventListener("message", async (event) => {
@@ -17,17 +16,21 @@
       videoId: payload.videoId || null,
       capturedAt: payload.timestamp || Date.now(),
       sourceUrl: window.location.href,
+      source: payload.source || "page_hook",
       syncStatus: "pending",
     };
 
-    // Store locally in extension storage for the popup UI
+    // Store in extension storage
     try {
       await chrome.storage.local.set({ latestPoToken: tokenData });
-    } catch (e) {
-      console.warn("[ViveStream Companion] Failed to save to chrome.storage:", e);
-    }
+      chrome.runtime.sendMessage({
+        action: "ADD_LOG",
+        message: `Content script received PO token (${payload.token.length} chars) from ${payload.source}`,
+        level: "success",
+      }).catch(() => {});
+    } catch (_) {}
 
-    // Attempt direct loopback push to ViveStream desktop app
+    // Direct push to ViveStream desktop loopback server
     try {
       const response = await fetch("http://127.0.0.1:1422/api/po-token", {
         method: "POST",
@@ -36,20 +39,20 @@
           token: payload.token,
           visitor_data: payload.visitorData,
           video_id: payload.videoId,
-          source: "companion_extension",
+          source: "companion_extension_content_script",
         }),
       });
 
       if (response.ok) {
         tokenData.syncStatus = "synced";
-        await chrome.storage.local.set({
-          latestPoToken: tokenData,
-          lastSyncTime: Date.now(),
-        });
-        console.log("[ViveStream Companion] Successfully auto-synced PO token to ViveStream app!");
+        await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
+        chrome.runtime.sendMessage({
+          action: "ADD_LOG",
+          message: "Synced PO token to ViveStream desktop app (port 1422)",
+          level: "success",
+        }).catch(() => {});
       }
     } catch (_) {
-      // ViveStream desktop app might not be running or listening yet; user can still copy-paste
       tokenData.syncStatus = "ready_for_manual";
       await chrome.storage.local.set({ latestPoToken: tokenData });
     }

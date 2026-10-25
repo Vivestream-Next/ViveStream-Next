@@ -271,7 +271,13 @@ export default function Settings() {
     setOpeningExtensionFolder(true);
     try {
       const folderPath = await invoke<string>("open_companion_extension_folder");
-      addToast(`Opened extension directory: ${folderPath}`, "success");
+      try {
+        await openPath(folderPath);
+      } catch (_) {}
+      try {
+        await navigator.clipboard.writeText(folderPath);
+      } catch (_) {}
+      addToast(`Extension directory: ${folderPath} (Copied path to clipboard)`, "success");
     } catch (e) {
       console.error(e);
       addToast(`Could not open extension folder: ${e}`, "error");

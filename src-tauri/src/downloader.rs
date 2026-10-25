@@ -425,44 +425,73 @@ pub async fn set_manual_po_token(app: AppHandle, token: String) -> Result<(), St
 pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, String> {
     use tauri::Manager;
     let mut candidates = Vec::new();
+
+    // 1. Workspace current directory & parents (for dev mode: 'bun run dev' or 'tauri dev')
     if let Ok(cwd) = std::env::current_dir() {
         candidates.push(cwd.join("companion-extension"));
+        if let Some(p1) = cwd.parent() {
+            candidates.push(p1.join("companion-extension"));
+            if let Some(p2) = p1.parent() {
+                candidates.push(p2.join("companion-extension"));
+            }
+        }
     }
+
+    // 2. Executable parent directories
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(p1) = exe.parent() {
+            candidates.push(p1.join("companion-extension"));
+            if let Some(p2) = p1.parent() {
+                candidates.push(p2.join("companion-extension"));
+                if let Some(p3) = p2.parent() {
+                    candidates.push(p3.join("companion-extension"));
+                }
+            }
+        }
+    }
+
+    // 3. App resource and data dirs
     if let Ok(res_dir) = app.path().resource_dir() {
         candidates.push(res_dir.join("companion-extension"));
     }
     if let Ok(app_dir) = app.path().app_data_dir() {
         candidates.push(app_dir.join("companion-extension"));
     }
+    if let Ok(base_dir) = crate::system::get_base_dir(&app) {
+        candidates.push(base_dir.join("companion-extension"));
+    }
 
+    // Locate the first existing candidate directory
     let target_dir = candidates
         .into_iter()
-        .find(|p| p.exists())
-        .ok_or_else(|| "companion-extension folder not found in workspace or resources".to_string())?;
+        .find(|p| p.exists() && p.is_dir())
+        .ok_or_else(|| "Could not locate companion-extension folder in workspace or application paths".to_string())?;
+
+    let canonical = target_dir.canonicalize().unwrap_or(target_dir);
+    let path_str = canonical.to_string_lossy().to_string();
 
     #[cfg(target_os = "windows")]
     {
-        std::process::Command::new("explorer")
-            .arg(&target_dir)
-            .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+        // Trim extended path prefix '\\?\' if present for explorer compatibility
+        let clean_path = path_str.trim_start_matches(r"\\?\");
+        let _ = std::process::Command::new("explorer")
+            .arg(clean_path)
+            .spawn();
     }
     #[cfg(target_os = "macos")]
     {
-        std::process::Command::new("open")
-            .arg(&target_dir)
-            .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+        let _ = std::process::Command::new("open")
+            .arg(&canonical)
+            .spawn();
     }
     #[cfg(target_os = "linux")]
     {
-        std::process::Command::new("xdg-open")
-            .arg(&target_dir)
-            .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+        let _ = std::process::Command::new("xdg-open")
+            .arg(&canonical)
+            .spawn();
     }
 
-    Ok(target_dir.to_string_lossy().to_string())
+    Ok(path_str.trim_start_matches(r"\\?\").to_string())
 }
 
 #[tauri::command]

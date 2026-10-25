@@ -23,6 +23,18 @@
       </div>
     </header>
 
+    <!-- Diagnostics Status Row -->
+    <div class="diag-status-row">
+      <div class="diag-pill" id="ytStatusPill">
+        <span class="diag-indicator" id="ytIndicator"></span>
+        <span id="ytStatusLabel">Checking Tab...</span>
+      </div>
+      <div class="diag-pill" id="appStatusPill">
+        <span class="diag-indicator" id="appIndicator"></span>
+        <span id="appStatusLabel">Port 1422...</span>
+      </div>
+    </div>
+
     <!-- Main Token Display Card -->
     <main class="card token-card" id="tokenCard">
       <div class="token-header">
@@ -40,6 +52,7 @@
       <div class="token-meta" id="tokenMeta" style="display: none;">
         <span class="meta-item" id="metaAge">Age: --</span>
         <span class="meta-item" id="metaVideo">Video: --</span>
+        <span class="meta-item" id="metaSource">Source: --</span>
       </div>
 
       <!-- Action Buttons -->
@@ -50,7 +63,14 @@
         </button>
         <button class="btn btn-secondary" id="syncAppBtn" disabled>
           <span class="btn-icon">⚡</span>
-          <span id="syncBtnText">SYNC TO VIVESTREAM</span>
+          <span id="syncBtnText">SYNC TO APP</span>
+        </button>
+      </div>
+
+      <div class="action-row" style="margin-top: 8px;">
+        <button class="btn btn-scan" id="scanTabBtn">
+          <span class="btn-icon">🔍</span>
+          <span id="scanBtnText">SCAN ACTIVE YOUTUBE TAB</span>
         </button>
       </div>
 
@@ -60,15 +80,32 @@
     <!-- Empty State Guide -->
     <div class="card empty-guide" id="emptyGuide" style="display: none;">
       <div class="guide-icon">🎵</div>
-      <h3>No Token Detected Yet</h3>
+      <h3>How To Capture</h3>
       <p>
-        Navigate to any video on <strong>youtube.com</strong> and press play for 2 seconds.
-        The BotGuard attestation token will be automatically intercepted here!
+        1. Open <strong>youtube.com</strong> in a tab and play any video for 2 seconds.<br>
+        2. Click <strong>Scan Active YouTube Tab</strong> above to capture immediately.
       </p>
       <button class="btn btn-outline" id="openYtBtn">
         Open YouTube in New Tab
       </button>
     </div>
+
+    <!-- Live Diagnostics & Activity Terminal -->
+    <section class="card log-card">
+      <div class="log-header">
+        <div class="log-title">
+          <span class="terminal-dot"></span>
+          <span>ACTIVITY & DIAGNOSTICS LOG</span>
+        </div>
+        <button class="log-clear-btn" id="clearLogsBtn" title="Clear logs">Clear</button>
+      </div>
+      <div class="log-terminal" id="logTerminal">
+        <div class="log-entry log-entry-info">[--:--:--] Initializing diagnostics monitor...</div>
+      </div>
+      <div class="log-footer">
+        <span>Press <strong>F12</strong> on YouTube to view page console logs</span>
+      </div>
+    </section>
 
     <!-- Scoped Usage Policy -->
     <section class="policy-notice">
@@ -78,22 +115,22 @@
       </div>
       <p class="policy-text">
         Restricted to personal stream playback & music discovery in ViveStream-Next.
-        Bulk scraping, archiving, and mass extraction are prohibited to respect creator & platform integrity.
+        Bulk scraping, archiving, and mass extraction are prohibited.
       </p>
     </section>
 
     <!-- Help Accordion -->
     <details class="help-details">
       <summary class="help-summary">
-        <span>How to use in ViveStream</span>
+        <span>Quick Setup Guide</span>
         <span class="caret">▼</span>
       </summary>
       <div class="help-content">
         <ol>
-          <li>Play any YouTube video in your browser until a token is captured above.</li>
-          <li>Click <strong>Copy PO Token</strong> (or <strong>Sync to ViveStream</strong>).</li>
-          <li>In ViveStream, go to <strong>Settings &rarr; Engine Preferences &rarr; YouTube PO Token</strong>.</li>
-          <li>Paste the token and click <strong>Save Token</strong>. Your high-res 1080p/4K streams are unlocked for 12 hours!</li>
+          <li>Play any YouTube video in your browser.</li>
+          <li>Click <strong>Scan Active YouTube Tab</strong> or copy token once captured.</li>
+          <li>In ViveStream, go to <strong>Settings &rarr; YouTube PO Token</strong> and paste it.</li>
+          <li>Or simply click <strong>Sync To App</strong> to push directly via loopback port 1422.</li>
         </ol>
       </div>
     </details>

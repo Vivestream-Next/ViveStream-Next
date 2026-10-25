@@ -1,10 +1,15 @@
 /**
- * ViveStream PO Token Companion - Popup Logic
+ * ViveStream PO Token Companion - Popup Controller
  */
 document.addEventListener("DOMContentLoaded", async () => {
   const headerStatusBadge = document.getElementById("headerStatusBadge");
   const statusDot = document.getElementById("statusDot");
   const statusText = document.getElementById("statusText");
+
+  const ytIndicator = document.getElementById("ytIndicator");
+  const ytStatusLabel = document.getElementById("ytStatusLabel");
+  const appIndicator = document.getElementById("appIndicator");
+  const appStatusLabel = document.getElementById("appStatusLabel");
 
   const tokenCard = document.getElementById("tokenCard");
   const tokenLengthBadge = document.getElementById("tokenLengthBadge");
@@ -13,15 +18,21 @@ document.addEventListener("DOMContentLoaded", async () => {
   const tokenMeta = document.getElementById("tokenMeta");
   const metaAge = document.getElementById("metaAge");
   const metaVideo = document.getElementById("metaVideo");
+  const metaSource = document.getElementById("metaSource");
 
   const copyTokenBtn = document.getElementById("copyTokenBtn");
   const copyBtnText = document.getElementById("copyBtnText");
   const syncAppBtn = document.getElementById("syncAppBtn");
   const syncBtnText = document.getElementById("syncBtnText");
+  const scanTabBtn = document.getElementById("scanTabBtn");
+  const scanBtnText = document.getElementById("scanBtnText");
   const syncBanner = document.getElementById("syncBanner");
 
   const emptyGuide = document.getElementById("emptyGuide");
   const openYtBtn = document.getElementById("openYtBtn");
+
+  const logTerminal = document.getElementById("logTerminal");
+  const clearLogsBtn = document.getElementById("clearLogsBtn");
 
   let currentToken = null;
   let isMasked = true;
@@ -34,6 +45,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
     return `${hr}h ago`;
+  }
+
+  function renderLogs(logs) {
+    if (!logs || !logs.length) {
+      logTerminal.innerHTML = `<div class="log-entry log-entry-info">[${new Date().toLocaleTimeString()}] Listening for YouTube streams... Play any video to capture.</div>`;
+      return;
+    }
+
+    logTerminal.innerHTML = logs
+      .map((entry) => {
+        const cls =
+          entry.level === "success"
+            ? "log-entry-success"
+            : entry.level === "warning"
+            ? "log-entry-warning"
+            : entry.level === "error"
+            ? "log-entry-error"
+            : "log-entry-info";
+        return `<div class="log-entry ${cls}">[${entry.time}] ${entry.message}</div>`;
+      })
+      .join("");
   }
 
   function updateDisplay(tokenData) {
@@ -65,7 +97,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     renderTokenPreview();
 
     metaAge.textContent = `Age: ${formatTimeAgo(tokenData.capturedAt)}`;
-    metaVideo.textContent = tokenData.videoId ? `Video: ${tokenData.videoId}` : "Global Web Token";
+    metaVideo.textContent = tokenData.videoId ? `Video: ${tokenData.videoId}` : "Web Attestation";
+    metaSource.textContent = `Source: ${tokenData.source || "media_chunk"}`;
   }
 
   function renderTokenPreview() {
@@ -88,6 +121,81 @@ document.addEventListener("DOMContentLoaded", async () => {
   toggleVisibilityBtn.addEventListener("click", () => {
     isMasked = !isMasked;
     renderTokenPreview();
+  });
+
+  // Check Active Tab (YouTube status)
+  async function checkActiveTabStatus() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab?.url?.includes("youtube.com")) {
+        ytIndicator.className = "diag-indicator active";
+        ytStatusLabel.textContent = "YouTube Tab: Active";
+      } else {
+        ytIndicator.className = "diag-indicator";
+        ytStatusLabel.textContent = "YouTube Tab: Not open";
+      }
+    } catch (_) {
+      ytIndicator.className = "diag-indicator";
+      ytStatusLabel.textContent = "YouTube Tab: Unknown";
+    }
+  }
+
+  // Check Desktop Loopback Port 1422
+  async function checkDesktopAppStatus() {
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1000);
+      const res = await fetch("http://127.0.0.1:1422/", { method: "HEAD", signal: controller.signal });
+      clearTimeout(timeout);
+      appIndicator.className = "diag-indicator active";
+      appStatusLabel.textContent = "ViveStream: Online";
+    } catch (_) {
+      appIndicator.className = "diag-indicator inactive";
+      appStatusLabel.textContent = "ViveStream: Offline";
+    }
+  }
+
+  // Scan Active Tab Button
+  scanTabBtn.addEventListener("click", async () => {
+    scanBtnText.textContent = "SCANNING TAB...";
+    scanTabBtn.disabled = true;
+
+    try {
+      const response = await chrome.runtime.sendMessage({ action: "SCAN_ACTIVE_TAB" });
+      if (response?.success) {
+        scanBtnText.textContent = "TOKEN CAPTURED!";
+        scanTabBtn.style.borderColor = "#00ffcc";
+        scanTabBtn.style.color = "#00ffcc";
+        setTimeout(() => {
+          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+          scanTabBtn.disabled = false;
+        }, 1500);
+      } else if (response?.warning) {
+        scanBtnText.textContent = "NO STREAM CHUNKS YET";
+        syncBanner.className = "sync-banner error";
+        syncBanner.textContent = response.warning;
+        syncBanner.style.display = "block";
+        setTimeout(() => {
+          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+          scanTabBtn.disabled = false;
+        }, 2000);
+      } else {
+        scanBtnText.textContent = "SCAN FAILED";
+        syncBanner.className = "sync-banner error";
+        syncBanner.textContent = response?.error || "Make sure a YouTube tab is open and playing!";
+        syncBanner.style.display = "block";
+        setTimeout(() => {
+          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+          scanTabBtn.disabled = false;
+        }, 2000);
+      }
+    } catch (err) {
+      scanBtnText.textContent = "SCAN ERROR";
+      setTimeout(() => {
+        scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+        scanTabBtn.disabled = false;
+      }, 1500);
+    }
   });
 
   // Copy to clipboard
@@ -128,38 +236,51 @@ document.addEventListener("DOMContentLoaded", async () => {
         syncBanner.className = "sync-banner success";
         syncBanner.textContent = "✓ Successfully synced to ViveStream!";
         syncBanner.style.display = "block";
+        checkDesktopAppStatus();
       } else {
-        throw new Error(`Server returned status ${res.status}`);
+        throw new Error(`Server status ${res.status}`);
       }
     } catch (err) {
       syncBanner.className = "sync-banner error";
       syncBanner.textContent =
-        "ViveStream app not detected on 127.0.0.1:1422. (Make sure ViveStream is open or paste manually!)";
+        "ViveStream app not detected on 127.0.0.1:1422. (Make sure ViveStream is open or paste manually into Settings!)";
       syncBanner.style.display = "block";
+      checkDesktopAppStatus();
     } finally {
-      syncBtnText.textContent = "SYNC TO VIVESTREAM";
+      syncBtnText.textContent = "SYNC TO APP";
       syncAppBtn.disabled = false;
     }
   });
 
-  // Open YouTube tab
+  // Clear Logs Button
+  clearLogsBtn.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ action: "CLEAR_LOGS" });
+    renderLogs([]);
+  });
+
+  // Open YouTube Tab
   openYtBtn?.addEventListener("click", () => {
     chrome.tabs.create({ url: "https://www.youtube.com" });
   });
 
-  // Initial load from storage
+  // Initial Data Load
   try {
-    const data = await chrome.storage.local.get("latestPoToken");
+    const data = await chrome.storage.local.get(["latestPoToken", "activityLogs"]);
     updateDisplay(data?.latestPoToken);
+    renderLogs(data?.activityLogs);
   } catch (e) {
     console.error("Storage error:", e);
     updateDisplay(null);
   }
 
-  // Listen for storage changes while popup is open
+  checkActiveTabStatus();
+  checkDesktopAppStatus();
+
+  // Real-time Storage Listener
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === "local" && changes.latestPoToken) {
-      updateDisplay(changes.latestPoToken.newValue);
+    if (area === "local") {
+      if (changes.latestPoToken) updateDisplay(changes.latestPoToken.newValue);
+      if (changes.activityLogs) renderLogs(changes.activityLogs.newValue);
     }
   });
 });
