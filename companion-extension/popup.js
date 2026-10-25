@@ -227,12 +227,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     try {
       if (window.ytcfg) {
         if (window.ytcfg.data_) {
-          diag.ytcfgKeys = Object.keys(window.ytcfg.data_).slice(0, 30);
+          diag.ytcfgKeys = Object.keys(window.ytcfg.data_);
         }
 
         diag.visitorData =
           (typeof window.ytcfg.get === "function" ? window.ytcfg.get("VISITOR_DATA") : null) ||
           window.ytcfg.data_?.INNERTUBE_CONTEXT?.client?.visitorData ||
+          window.ytcfg.data_?.VISITOR_DATA ||
           null;
 
         const sidPo = window.ytcfg.data_?.INNERTUBE_CONTEXT?.serviceIntegrityDimensions?.poToken;
@@ -254,6 +255,50 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (!diag.tokenFound && window.ytcfg.data_?.PLAYER_VARS?.po_token) {
           diag.tokenFound = window.ytcfg.data_.PLAYER_VARS.po_token;
           diag.tokenSource = "ytcfg_player_vars";
+        }
+
+        // Deep search ytcfg.data_ for any string matching potential tokens
+        if (!diag.tokenFound && window.ytcfg.data_) {
+          const queue = [{ obj: window.ytcfg.data_, depth: 0, path: "ytcfg" }];
+          while (queue.length > 0 && queue.length < 500) {
+            const current = queue.shift();
+            if (!current.obj || typeof current.obj !== "object" || current.depth > 5) continue;
+            for (const [key, val] of Object.entries(current.obj)) {
+              const currentPath = `${current.path}.${key}`;
+              if (typeof val === "string") {
+                const lower = key.toLowerCase();
+                if ((lower.includes("po_token") || lower.includes("potoken") || lower === "pot") && val.length >= 16) {
+                  diag.tokenFound = val;
+                  diag.tokenSource = currentPath;
+                  break;
+                }
+              } else if (val && typeof val === "object" && current.depth < 5) {
+                queue.push({ obj: val, depth: current.depth + 1, path: currentPath });
+              }
+            }
+            if (diag.tokenFound) break;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2.5 Inspect window.ytInitialPlayerResponse & window globals
+    try {
+      diag.windowGlobals = Object.keys(window).filter((k) => {
+        const lower = k.toLowerCase();
+        return (
+          lower.includes("botguard") ||
+          lower.includes("webpo") ||
+          lower.includes("attest") ||
+          lower.startsWith("bg_") ||
+          lower === "bg"
+        );
+      });
+
+      const initPlayer = window.ytInitialPlayerResponse;
+      if (initPlayer) {
+        if (initPlayer.attestation?.playerAttestationRenderer?.challenge) {
+          diag.attestationChallenge = (initPlayer.attestation.playerAttestationRenderer.challenge || "").slice(0, 80);
         }
       }
     } catch (_) {}
@@ -645,8 +690,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       `Movie Player Tag:  ${diag.hasMoviePlayer ? "FOUND" : "NOT FOUND"}`,
       `Player Response:   ${diag.hasPlayerResponse ? "AVAILABLE" : "NOT AVAILABLE"}`,
       `ytcfg Global:      ${diag.ytcfgPresent ? `AVAILABLE (${(diag.ytcfgKeys || []).length} keys)` : "NOT AVAILABLE"}`,
-      `Visitor Data:      ${diag.visitorData ? "FOUND" : "NONE"}`,
+      `ytcfg Keys List:   [${(diag.ytcfgKeys || []).join(", ") || "none"}]`,
+      `Visitor Data:      ${diag.visitorData || "NONE"}`,
       `Innertube PO Token:${diag.innertubePoToken ? `FOUND (${diag.innertubePoToken.length} chars)` : "NONE"}`,
+      `Attest Challenge:  ${diag.attestationChallenge || "NONE"}`,
+      `Window Globals:    [${(diag.windowGlobals || []).join(", ") || "none"}]`,
       `Cookies Present:   [${(diag.cookiesPresent || []).join(", ") || "none"}]`,
       `Total Resources:   ${diag.totalResources || 0}`,
       `Googlevideo Chunks:${diag.googlevideoCount || 0}`,
