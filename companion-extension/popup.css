@@ -282,6 +282,19 @@ body {
   transform: translateY(-1px);
 }
 
+.btn-mint {
+  width: 100%;
+  background: #191c26;
+  color: #ffe600;
+  border: 1px solid #ffe600;
+  box-shadow: 2px 2px 0px rgba(255, 230, 0, 0.3);
+}
+
+.btn-mint:hover {
+  background: rgba(255, 230, 0, 0.15);
+  transform: translateY(-1px);
+}
+
 .btn-outline {
   width: 100%;
   margin-top: 10px;

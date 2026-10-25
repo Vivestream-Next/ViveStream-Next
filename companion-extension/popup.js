@@ -27,6 +27,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const syncBtnText = document.getElementById("syncBtnText");
   const scanTabBtn = document.getElementById("scanTabBtn");
   const scanBtnText = document.getElementById("scanBtnText");
+  const mintPoBtn = document.getElementById("mintPoBtn");
+  const mintBtnText = document.getElementById("mintBtnText");
   const syncBanner = document.getElementById("syncBanner");
 
   const emptyGuide = document.getElementById("emptyGuide");
@@ -40,6 +42,34 @@ document.addEventListener("DOMContentLoaded", async () => {
   let currentToken = null;
   let isMasked = true;
   let isAppOnline = false;
+
+  // Implements YouTube Cold Start PO Token algorithm (reverse-engineered from WebPO / BgUtils)
+  function createColdStartToken(contentBinding, clientState = 1) {
+    const bindingBytes = new TextEncoder().encode(contentBinding || "youtube_player");
+    const timestamp = Math.floor(Date.now() / 1000);
+    const r0 = Math.floor(Math.random() * 254) + 1;
+    const r1 = Math.floor(Math.random() * 254) + 1;
+    const header = [
+      r0, r1, 0, clientState,
+      (timestamp >> 24) & 0xFF,
+      (timestamp >> 16) & 0xFF,
+      (timestamp >> 8) & 0xFF,
+      timestamp & 0xFF
+    ];
+    const packet = new Uint8Array(2 + header.length + bindingBytes.length);
+    packet[0] = 34; // Tag
+    packet[1] = header.length + bindingBytes.length;
+    packet.set(header, 2);
+    packet.set(bindingBytes, 10);
+    for (let i = 2; i < 8 + bindingBytes.length; i++) {
+      packet[2 + i] ^= (i % 2 === 0 ? r0 : r1);
+    }
+    let binary = "";
+    for (let i = 0; i < packet.byteLength; i++) {
+      binary += String.fromCharCode(packet[i]);
+    }
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
 
   function formatTimeAgo(timestamp) {
     if (!timestamp) return "Unknown";
@@ -483,56 +513,61 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Persist telemetry
       await chrome.storage.local.set({ lastDiagnostics: diag });
 
-      const effectiveToken = diag.tokenFound || diag.visitorData;
-      if (effectiveToken) {
-        const isPo = !!diag.tokenFound;
-        const tokenData = {
-          token: effectiveToken,
-          isPoToken: isPo,
-          visitorData: diag.visitorData || null,
-          videoId: diag.videoId || null,
-          source: isPo ? diag.tokenSource : "youtube_visitor_session",
-          capturedAt: Date.now(),
-          syncStatus: "pending",
-        };
+      let effectiveToken = diag.tokenFound;
+      let tokenSource = diag.tokenSource;
 
-        await chrome.storage.local.set({ latestPoToken: tokenData });
-        updateDisplay(tokenData);
-
-        await appendLog(
-          `✓ ${isPo ? "PO Token" : "YouTube Visitor Session"} Captured (${effectiveToken.length} chars) via ${tokenData.source}!`,
-          "success"
-        );
-
-        // Direct push to ViveStream port 1422
-        try {
-          const res = await fetch("http://127.0.0.1:1422/api/po-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token: effectiveToken,
-              visitor_data: diag.visitorData,
-              video_id: diag.videoId,
-              source: `companion_direct_scan_${tokenData.source}`,
-            }),
-          });
-          if (res.ok) {
-            tokenData.syncStatus = "synced";
-            await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
-            await appendLog("Synced session credentials directly to ViveStream desktop app!", "success");
-            checkDesktopAppStatus();
-          }
-        } catch (_) {}
-
-        scanBtnText.textContent = isPo ? "PO TOKEN READY!" : "SESSION SYNCED!";
-        scanTabBtn.style.borderColor = "#00ffcc";
-        scanTabBtn.style.color = "#00ffcc";
-        setTimeout(() => {
-          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
-          scanTabBtn.disabled = false;
-        }, 1500);
-        return;
+      if (!effectiveToken) {
+        const binding = diag.videoId || diag.visitorData || "web_player";
+        effectiveToken = createColdStartToken(binding);
+        tokenSource = `bgutils_cold_start_${diag.videoId ? "video" : "visitor"}`;
       }
+
+      const tokenData = {
+        token: effectiveToken,
+        isPoToken: true,
+        visitorData: diag.visitorData || null,
+        videoId: diag.videoId || null,
+        source: tokenSource,
+        capturedAt: Date.now(),
+        syncStatus: "pending",
+      };
+
+      await chrome.storage.local.set({ latestPoToken: tokenData });
+      updateDisplay(tokenData);
+
+      await appendLog(
+        `✓ ${diag.tokenFound ? "Native BotGuard PO Token" : "Cold Start PO Token"} Ready (${effectiveToken.length} chars) via ${tokenSource}!`,
+        "success"
+      );
+
+      // Direct push to ViveStream port 1422
+      try {
+        const res = await fetch("http://127.0.0.1:1422/api/po-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token: effectiveToken,
+            visitor_data: diag.visitorData,
+            video_id: diag.videoId,
+            source: `companion_direct_${tokenSource}`,
+          }),
+        });
+        if (res.ok) {
+          tokenData.syncStatus = "synced";
+          await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
+          await appendLog("Synced PO token directly to ViveStream desktop app!", "success");
+          checkDesktopAppStatus();
+        }
+      } catch (_) {}
+
+      scanBtnText.textContent = "PO TOKEN READY!";
+      scanTabBtn.style.borderColor = "#00ffcc";
+      scanTabBtn.style.color = "#00ffcc";
+      setTimeout(() => {
+        scanBtnText.textContent = "SCAN TAB";
+        scanTabBtn.disabled = false;
+      }, 1500);
+      return;
 
       // Informative logging
       await appendLog(
@@ -563,7 +598,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       setTimeout(() => {
-        scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+        scanBtnText.textContent = "SCAN TAB";
         scanTabBtn.disabled = false;
       }, 2000);
     } catch (err) {
@@ -572,9 +607,92 @@ document.addEventListener("DOMContentLoaded", async () => {
       syncBanner.textContent = err.message || "Scan failed.";
       syncBanner.style.display = "block";
       setTimeout(() => {
-        scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+        scanBtnText.textContent = "SCAN TAB";
         scanTabBtn.disabled = false;
       }, 2000);
+    }
+  });
+
+  // Mint Fresh PO Token Button
+  mintPoBtn?.addEventListener("click", async () => {
+    mintBtnText.textContent = "MINTING...";
+    mintPoBtn.disabled = true;
+
+    try {
+      let activeTab = null;
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        activeTab = tab;
+      } catch (_) {}
+
+      let binding = "web_player";
+      let videoId = null;
+      if (activeTab?.url) {
+        try {
+          const parsed = new URL(activeTab.url);
+          if (parsed.searchParams.has("v")) {
+            videoId = parsed.searchParams.get("v");
+            binding = videoId;
+          }
+        } catch (_) {}
+      }
+
+      if (binding === "web_player") {
+        const stored = await chrome.storage.local.get("latestPoToken");
+        if (stored?.latestPoToken?.visitorData) {
+          binding = stored.latestPoToken.visitorData;
+        }
+      }
+
+      const token = createColdStartToken(binding);
+      const tokenData = {
+        token,
+        isPoToken: true,
+        visitorData: null,
+        videoId,
+        source: `bgutils_mint_${videoId ? "video" : "session"}`,
+        capturedAt: Date.now(),
+        syncStatus: "pending",
+      };
+
+      await chrome.storage.local.set({ latestPoToken: tokenData });
+      updateDisplay(tokenData);
+
+      await appendLog(
+        `✨ Minted fresh Cold Start PO Token (${token.length} chars) bound to ${binding.slice(0, 16)}!`,
+        "success"
+      );
+
+      // Direct push to ViveStream port 1422
+      try {
+        const res = await fetch("http://127.0.0.1:1422/api/po-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            token,
+            video_id: videoId,
+            source: "companion_mint_button",
+          }),
+        });
+        if (res.ok) {
+          tokenData.syncStatus = "synced";
+          await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
+          await appendLog("Synced newly minted PO token to ViveStream desktop app!", "success");
+          checkDesktopAppStatus();
+        }
+      } catch (_) {}
+
+      mintBtnText.textContent = "✓ MINTED!";
+      setTimeout(() => {
+        mintBtnText.textContent = "MINT TOKEN";
+        mintPoBtn.disabled = false;
+      }, 1500);
+    } catch (err) {
+      mintBtnText.textContent = "MINT FAILED";
+      setTimeout(() => {
+        mintBtnText.textContent = "MINT TOKEN";
+        mintPoBtn.disabled = false;
+      }, 1500);
     }
   });
 

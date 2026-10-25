@@ -11,3 +11,5 @@ src/debian-binary
 /src/usr
 *.zst
 ViveStream-Whisper/
+BgUtils/
+

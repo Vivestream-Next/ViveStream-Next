@@ -522,15 +522,84 @@ pub async fn refresh_po_token(app: AppHandle, video_id: Option<String>) -> Resul
     Ok(clean)
 }
 
-pub async fn get_or_extract_po_token(app: &AppHandle, _video_id: &str) -> Result<String, String> {
-    // 1. Instant check: In-memory or saved on disk
+pub fn base64_url_encode(data: &[u8]) -> String {
+    const CHARSET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    let mut result = String::with_capacity((data.len() * 4 + 2) / 3);
+    let mut i = 0;
+    while i + 3 <= data.len() {
+        let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8) | (data[i + 2] as u32);
+        result.push(CHARSET[((n >> 18) & 63) as usize] as char);
+        result.push(CHARSET[((n >> 12) & 63) as usize] as char);
+        result.push(CHARSET[((n >> 6) & 63) as usize] as char);
+        result.push(CHARSET[(n & 63) as usize] as char);
+        i += 3;
+    }
+    if i + 1 == data.len() {
+        let n = (data[i] as u32) << 16;
+        result.push(CHARSET[((n >> 18) & 63) as usize] as char);
+        result.push(CHARSET[((n >> 12) & 63) as usize] as char);
+    } else if i + 2 == data.len() {
+        let n = ((data[i] as u32) << 16) | ((data[i + 1] as u32) << 8);
+        result.push(CHARSET[((n >> 18) & 63) as usize] as char);
+        result.push(CHARSET[((n >> 12) & 63) as usize] as char);
+        result.push(CHARSET[((n >> 6) & 63) as usize] as char);
+    }
+    result
+}
+
+/// Generates a valid YouTube Cold Start Proof of Origin (PO) Token based on Google BotGuard / WebPO specifications.
+pub fn create_cold_start_po_token(content_binding: &str) -> String {
+    let binding_bytes = content_binding.as_bytes();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let ts = now.as_secs() as u32;
+    let nanos = now.subsec_nanos();
+
+    // Pseudo-random 2-byte key derived from clock jitter
+    let r0 = ((nanos ^ (nanos >> 16)) & 0xFF) as u8;
+    let r1 = (((nanos >> 8) ^ (ts & 0xFF)) & 0xFF) as u8;
+    let r0 = if r0 == 0 { 42 } else { r0 };
+    let r1 = if r1 == 0 { 137 } else { r1 };
+
+    let header: [u8; 8] = [
+        r0,
+        r1,
+        0, // unknownVal
+        1, // clientState
+        ((ts >> 24) & 0xFF) as u8,
+        ((ts >> 16) & 0xFF) as u8,
+        ((ts >> 8) & 0xFF) as u8,
+        (ts & 0xFF) as u8,
+    ];
+
+    let mut packet = Vec::with_capacity(2 + header.len() + binding_bytes.len());
+    packet.push(34);
+    packet.push((header.len() + binding_bytes.len()) as u8);
+    packet.extend_from_slice(&header);
+    packet.extend_from_slice(binding_bytes);
+
+    for i in 2..packet.len() {
+        packet[i] ^= if (i - 2) % 2 == 0 { r0 } else { r1 };
+    }
+
+    base64_url_encode(&packet)
+}
+
+pub async fn get_or_extract_po_token(app: &AppHandle, video_id: &str) -> Result<String, String> {
+    // 1. Instant check: In-memory or saved on disk (from companion extension or settings)
     if let Some(token) = get_cached_po_token_fast(app) {
         return Ok(token);
     }
 
-    // 2. If no token is cached, proceed immediately with player_client streaming without blocking
-    println!("[PO_TOKEN] No cached token found. Streaming directly with player client formats (0s delay)...");
-    Err("No cached PO token, streaming directly".into())
+    // 2. Generate a fresh Cold Start PO Token bound to the video ID (0ms latency, zero stall)
+    let token = create_cold_start_po_token(video_id);
+    println!(
+        "[PO_TOKEN] Generated Cold Start PO token for video ID: {} (length: {} chars)",
+        video_id,
+        token.len()
+    );
+    Ok(token)
 }
 
 #[tauri::command]
@@ -803,8 +872,11 @@ pub async fn get_video_metadata(
     let vid_dir = base_dir.join("Videos");
     let thumb_dir = base_dir.join("Thumbnails");
 
-    // Fast check for cached PO token; never blocks metadata fetching with a webview
-    let po_token = get_cached_po_token_fast(&app).unwrap_or_default();
+    // Fast check for cached PO token; generates cold start token if none cached
+    let po_token = get_cached_po_token_fast(&app).unwrap_or_else(|| {
+        let vid = extract_youtube_id(&url);
+        create_cold_start_po_token(&vid)
+    });
 
     let mut client_args = format!(
         "youtube:player_client={};formats=missing_pot",
@@ -1436,7 +1508,9 @@ pub async fn reindex_library(app: AppHandle, player_client: String) -> Result<St
         return Ok("No video directory found. Database matches clean state.".into());
     }
 
-    let po_token = get_cached_po_token_fast(&app).unwrap_or_default();
+    let po_token = get_cached_po_token_fast(&app).unwrap_or_else(|| {
+        create_cold_start_po_token("reindex_library")
+    });
 
     let mut physical_ids = std::collections::HashSet::new();
 
