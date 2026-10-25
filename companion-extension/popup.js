@@ -1,5 +1,6 @@
 /**
  * ViveStream PO Token Companion - Popup Controller
+ * Direct MAIN-world DOM inspection, deep stream telemetry, and instant diagnostics copy.
  */
 document.addEventListener("DOMContentLoaded", async () => {
   const headerStatusBadge = document.getElementById("headerStatusBadge");
@@ -48,6 +49,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
     return `${hr}h ago`;
+  }
+
+  async function appendLog(message, level = "info") {
+    const timeStr = new Date().toLocaleTimeString();
+    const entry = { time: timeStr, message, level, timestamp: Date.now() };
+
+    try {
+      const data = await chrome.storage.local.get("activityLogs");
+      const logs = Array.isArray(data.activityLogs) ? data.activityLogs : [];
+      logs.unshift(entry);
+      if (logs.length > 120) logs.pop();
+      await chrome.storage.local.set({ activityLogs: logs });
+      renderLogs(logs);
+    } catch (_) {}
   }
 
   function renderLogs(logs) {
@@ -133,13 +148,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (tab?.url?.includes("youtube.com")) {
         ytIndicator.className = "diag-indicator active";
         ytStatusLabel.textContent = "YouTube Tab: Active";
+        return tab;
       } else {
         ytIndicator.className = "diag-indicator";
         ytStatusLabel.textContent = "YouTube Tab: Not open";
+        return null;
       }
     } catch (_) {
       ytIndicator.className = "diag-indicator";
       ytStatusLabel.textContent = "YouTube Tab: Unknown";
+      return null;
     }
   }
 
@@ -160,14 +178,299 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // Scan Active Tab Button
+  // Deep inspection function to be executed inside YouTube tab in MAIN world
+  function deepTabInspection() {
+    const diag = {
+      url: window.location.href,
+      title: document.title,
+      videoId: null,
+      isPlaying: false,
+      currentTime: 0,
+      duration: 0,
+      videoSrc: "",
+      ytcfgPresent: !!window.ytcfg,
+      ytcfgKeys: [],
+      visitorData: null,
+      tokenFound: null,
+      tokenSource: null,
+      innertubePoToken: null,
+      totalResources: 0,
+      googlevideoCount: 0,
+      googlevideoParamKeys: [],
+      sampleGooglevideoUrl: null,
+      statsBeaconCount: 0,
+      statsParamKeys: [],
+      trackingUrlsChecked: 0,
+      trackingUrlsList: [],
+      hasMoviePlayer: false,
+      hasPlayerResponse: false,
+      cookiesPresent: [],
+    };
+
+    try {
+      const parsed = new URL(window.location.href);
+      if (parsed.searchParams.has("v")) diag.videoId = parsed.searchParams.get("v");
+    } catch (_) {}
+
+    // 1. Inspect Video Element
+    try {
+      const video = document.querySelector("video");
+      if (video) {
+        diag.isPlaying = !video.paused;
+        diag.currentTime = Math.round(video.currentTime || 0);
+        diag.duration = Math.round(video.duration || 0);
+        diag.videoSrc = (video.currentSrc || "").slice(0, 100);
+      }
+    } catch (_) {}
+
+    // 2. Inspect window.ytcfg
+    try {
+      if (window.ytcfg) {
+        if (window.ytcfg.data_) {
+          diag.ytcfgKeys = Object.keys(window.ytcfg.data_).slice(0, 30);
+        }
+
+        diag.visitorData =
+          (typeof window.ytcfg.get === "function" ? window.ytcfg.get("VISITOR_DATA") : null) ||
+          window.ytcfg.data_?.INNERTUBE_CONTEXT?.client?.visitorData ||
+          null;
+
+        const sidPo = window.ytcfg.data_?.INNERTUBE_CONTEXT?.serviceIntegrityDimensions?.poToken;
+        if (sidPo && typeof sidPo === "string" && sidPo.length >= 16) {
+          diag.innertubePoToken = sidPo;
+          diag.tokenFound = sidPo;
+          diag.tokenSource = "ytcfg_innertube_serviceIntegrityDimensions";
+        }
+
+        const cfgToken =
+          (typeof window.ytcfg.get === "function" ? window.ytcfg.get("PO_TOKEN") : null) ||
+          window.ytcfg.data_?.PO_TOKEN;
+
+        if (!diag.tokenFound && cfgToken && typeof cfgToken === "string" && cfgToken.length >= 16) {
+          diag.tokenFound = cfgToken;
+          diag.tokenSource = "ytcfg_PO_TOKEN";
+        }
+
+        if (!diag.tokenFound && window.ytcfg.data_?.PLAYER_VARS?.po_token) {
+          diag.tokenFound = window.ytcfg.data_.PLAYER_VARS.po_token;
+          diag.tokenSource = "ytcfg_player_vars";
+        }
+      }
+    } catch (_) {}
+
+    // 3. Inspect movie_player element & playerResponse
+    try {
+      const player = document.getElementById("movie_player");
+      if (player) {
+        diag.hasMoviePlayer = true;
+        const videoData = player.getVideoData?.();
+        if (videoData) {
+          diag.videoId = videoData.video_id || diag.videoId;
+          diag.title = videoData.title || diag.title;
+        }
+
+        const playerResponse = player.getPlayerResponse?.();
+        if (playerResponse) {
+          diag.hasPlayerResponse = true;
+
+          const tracking = playerResponse.playbackTracking || {};
+          const trackingUrls = [
+            tracking.videostatsPlaybackUrl?.baseUrl,
+            tracking.videostatsWatchtimeUrl?.baseUrl,
+            tracking.qoeUrl?.baseUrl,
+            tracking.ptrackingUrl?.baseUrl,
+            tracking.atrUrl?.baseUrl,
+          ].filter(Boolean);
+
+          diag.trackingUrlsChecked = trackingUrls.length;
+          diag.trackingUrlsList = trackingUrls.map((u) => {
+            try {
+              return new URL(u).pathname;
+            } catch (_) {
+              return (u || "").slice(0, 30);
+            }
+          });
+
+          for (const trackUrl of trackingUrls) {
+            try {
+              const parsedTrack = new URL(trackUrl);
+              const pot =
+                parsedTrack.searchParams.get("pot") ||
+                parsedTrack.searchParams.get("po_token") ||
+                parsedTrack.searchParams.get("cpo");
+              if (pot && pot.length >= 16 && !diag.tokenFound) {
+                diag.tokenFound = pot;
+                diag.tokenSource = `player_tracking_${parsedTrack.pathname.split("/").pop()}`;
+                break;
+              }
+            } catch (_) {}
+          }
+
+          if (!diag.tokenFound && playerResponse.streamingData?.adaptiveFormats) {
+            for (const fmt of playerResponse.streamingData.adaptiveFormats.slice(0, 5)) {
+              if (fmt.url) {
+                try {
+                  const fmtUrl = new URL(fmt.url);
+                  const pot =
+                    fmtUrl.searchParams.get("pot") ||
+                    fmtUrl.searchParams.get("po_token") ||
+                    fmtUrl.searchParams.get("cpo");
+                  if (pot && pot.length >= 16) {
+                    diag.tokenFound = pot;
+                    diag.tokenSource = "player_adaptive_format_url";
+                    break;
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 4. Inspect Performance Resource Timing
+    try {
+      const resources = performance.getEntriesByType("resource");
+      diag.totalResources = resources.length;
+      const gvKeysSet = new Set();
+      const statsKeysSet = new Set();
+
+      for (let i = resources.length - 1; i >= 0; i--) {
+        const res = resources[i];
+        const name = res.name || "";
+
+        if (name.includes("googlevideo.com") || name.includes("/videoplayback")) {
+          diag.googlevideoCount++;
+          try {
+            const url = new URL(name);
+            if (!diag.sampleGooglevideoUrl) {
+              diag.sampleGooglevideoUrl = `${url.hostname}${url.pathname}?${Array.from(url.searchParams.keys()).slice(0, 8).join("&")}`;
+            }
+            for (const k of url.searchParams.keys()) {
+              gvKeysSet.add(k);
+            }
+
+            if (!diag.tokenFound) {
+              const pot =
+                url.searchParams.get("pot") ||
+                url.searchParams.get("po_token") ||
+                url.searchParams.get("cpo") ||
+                url.searchParams.get("po");
+              if (pot && pot.length >= 16) {
+                diag.tokenFound = pot;
+                diag.tokenSource = "performance_googlevideo_chunk";
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (name.includes("/api/stats/")) {
+          diag.statsBeaconCount++;
+          try {
+            const url = new URL(name);
+            for (const k of url.searchParams.keys()) {
+              statsKeysSet.add(k);
+            }
+            if (!diag.tokenFound) {
+              const pot =
+                url.searchParams.get("pot") ||
+                url.searchParams.get("po_token") ||
+                url.searchParams.get("cpo");
+              if (pot && pot.length >= 16) {
+                diag.tokenFound = pot;
+                diag.tokenSource = `performance_stats_${url.pathname.split("/").pop()}`;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      diag.googlevideoParamKeys = Array.from(gvKeysSet).slice(0, 25);
+      diag.statsParamKeys = Array.from(statsKeysSet).slice(0, 15);
+    } catch (_) {}
+
+    // 5. Inspect Cookies
+    try {
+      const c = document.cookie || "";
+      const names = c.split(";").map((p) => p.trim().split("=")[0]);
+      diag.cookiesPresent = names.filter((n) =>
+        ["VISITOR_INFO1_LIVE", "YSC", "PREF", "GPS", "LOGIN_INFO"].includes(n)
+      );
+    } catch (_) {}
+
+    return diag;
+  }
+
+  // Scan Active Tab Button (Direct MAIN-world execution)
   scanTabBtn.addEventListener("click", async () => {
     scanBtnText.textContent = "SCANNING TAB...";
     scanTabBtn.disabled = true;
+    syncBanner.style.display = "none";
 
     try {
-      const response = await chrome.runtime.sendMessage({ action: "SCAN_ACTIVE_TAB" });
-      if (response?.success) {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id) {
+        throw new Error("No active tab found. Please open YouTube in your browser.");
+      }
+      if (!tab.url || !tab.url.includes("youtube.com")) {
+        throw new Error("Active tab is not YouTube. Please switch to your YouTube tab and play a video!");
+      }
+
+      await appendLog(`Direct scan initiating on tab: ${tab.title?.slice(0, 35)}...`, "info");
+
+      // Execute deep inspection directly in MAIN world
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: "MAIN",
+        func: deepTabInspection,
+      });
+
+      const diag = results?.[0]?.result;
+      if (!diag) {
+        throw new Error("Could not access YouTube tab DOM. Try refreshing the YouTube page (F5).");
+      }
+
+      // Persist telemetry
+      await chrome.storage.local.set({ lastDiagnostics: diag });
+
+      if (diag.tokenFound) {
+        const tokenData = {
+          token: diag.tokenFound,
+          visitorData: diag.visitorData || null,
+          videoId: diag.videoId || null,
+          source: diag.tokenSource || "main_world_scan",
+          capturedAt: Date.now(),
+          syncStatus: "pending",
+        };
+
+        await chrome.storage.local.set({ latestPoToken: tokenData });
+        updateDisplay(tokenData);
+
+        await appendLog(
+          `✓ PO Token Extracted (${diag.tokenFound.length} chars) via ${diag.tokenSource}! [Video: ${diag.videoId || "N/A"}]`,
+          "success"
+        );
+
+        // Direct push to ViveStream port 1422
+        try {
+          const res = await fetch("http://127.0.0.1:1422/api/po-token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: diag.tokenFound,
+              visitor_data: diag.visitorData,
+              video_id: diag.videoId,
+              source: `companion_direct_scan_${diag.tokenSource}`,
+            }),
+          });
+          if (res.ok) {
+            tokenData.syncStatus = "synced";
+            await chrome.storage.local.set({ latestPoToken: tokenData, lastSyncTime: Date.now() });
+            await appendLog("Synced PO token directly to ViveStream desktop app!", "success");
+            checkDesktopAppStatus();
+          }
+        } catch (_) {}
+
         scanBtnText.textContent = "TOKEN CAPTURED!";
         scanTabBtn.style.borderColor = "#00ffcc";
         scanTabBtn.style.color = "#00ffcc";
@@ -175,31 +478,50 @@ document.addEventListener("DOMContentLoaded", async () => {
           scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
           scanTabBtn.disabled = false;
         }, 1500);
-      } else if (response?.warning) {
-        scanBtnText.textContent = "STREAM DETECTED - NO 'POT'";
-        syncBanner.className = "sync-banner error";
-        syncBanner.textContent = response.warning;
-        syncBanner.style.display = "block";
-        setTimeout(() => {
-          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
-          scanTabBtn.disabled = false;
-        }, 2500);
-      } else {
-        scanBtnText.textContent = "SCAN FAILED";
-        syncBanner.className = "sync-banner error";
-        syncBanner.textContent = response?.error || "Make sure a YouTube tab is open and playing!";
-        syncBanner.style.display = "block";
-        setTimeout(() => {
-          scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
-          scanTabBtn.disabled = false;
-        }, 2000);
+        return;
       }
-    } catch (err) {
-      scanBtnText.textContent = "SCAN ERROR";
+
+      // Informative logging
+      await appendLog(
+        `Tab: "${(diag.title || "YouTube").slice(0, 30)}..." | Video: ${diag.videoId || "N/A"} | Playing: ${diag.isPlaying ? "YES" : "NO"} (${diag.currentTime}s)`,
+        diag.isPlaying ? "info" : "warning"
+      );
+
+      await appendLog(
+        `Stream: ${diag.googlevideoCount} media chunks, ${diag.statsBeaconCount} stats beacons. Params seen: [${diag.googlevideoParamKeys.slice(0, 8).join(", ") || "none"}]`,
+        diag.googlevideoCount > 0 ? "info" : "warning"
+      );
+
+      if (diag.trackingUrlsChecked > 0) {
+        await appendLog(
+          `Tracking URLs: ${diag.trackingUrlsChecked} checked (${diag.trackingUrlsList.join(", ")}). ytcfg: ${diag.ytcfgPresent ? "Yes" : "No"}, VisitorData: ${diag.visitorData ? "Yes" : "No"}.`,
+          "info"
+        );
+      }
+
+      if (diag.googlevideoCount === 0) {
+        syncBanner.className = "sync-banner error";
+        syncBanner.textContent = "No media chunks requested yet. Press Play on YouTube for 2-3 seconds!";
+        syncBanner.style.display = "block";
+      } else {
+        syncBanner.className = "sync-banner error";
+        syncBanner.textContent = `Found ${diag.googlevideoCount} media chunks without 'pot'. Let playback continue 2s for BotGuard evaluation!`;
+        syncBanner.style.display = "block";
+      }
+
       setTimeout(() => {
         scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
         scanTabBtn.disabled = false;
-      }, 1500);
+      }, 2000);
+    } catch (err) {
+      await appendLog(`Scan error: ${err.message}`, "error");
+      syncBanner.className = "sync-banner error";
+      syncBanner.textContent = err.message || "Scan failed.";
+      syncBanner.style.display = "block";
+      setTimeout(() => {
+        scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
+        scanTabBtn.disabled = false;
+      }, 2000);
     }
   });
 
@@ -287,7 +609,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "======================================================================",
       "           VIVESTREAM PO TOKEN COMPANION - DIAGNOSTIC REPORT",
       "======================================================================",
-      `Report Generated: ${dateStr}`,
+      `Report Generated:  ${dateStr}`,
       `Extension Version: 1.1.0`,
       "",
       "----------------------------------------------------------------------",
@@ -319,15 +641,20 @@ document.addEventListener("DOMContentLoaded", async () => {
       `Video Playing:     ${diag.isPlaying ? "YES" : "NO"} (Position: ${diag.currentTime || 0}s / ${diag.duration || 0}s)`,
       `Video Title:       ${diag.title || "Unknown"}`,
       `Video ID:          ${diag.videoId || "N/A"}`,
+      `Video Element Src: ${diag.videoSrc || "N/A"}`,
       `Movie Player Tag:  ${diag.hasMoviePlayer ? "FOUND" : "NOT FOUND"}`,
       `Player Response:   ${diag.hasPlayerResponse ? "AVAILABLE" : "NOT AVAILABLE"}`,
-      `ytcfg Global:      ${diag.ytcfgPresent ? "AVAILABLE" : "NOT AVAILABLE"}`,
+      `ytcfg Global:      ${diag.ytcfgPresent ? `AVAILABLE (${(diag.ytcfgKeys || []).length} keys)` : "NOT AVAILABLE"}`,
       `Visitor Data:      ${diag.visitorData ? "FOUND" : "NONE"}`,
-      `Resources Total:   ${diag.totalResources || 0}`,
+      `Innertube PO Token:${diag.innertubePoToken ? `FOUND (${diag.innertubePoToken.length} chars)` : "NONE"}`,
+      `Cookies Present:   [${(diag.cookiesPresent || []).join(", ") || "none"}]`,
+      `Total Resources:   ${diag.totalResources || 0}`,
       `Googlevideo Chunks:${diag.googlevideoCount || 0}`,
+      `Chunk Sample URL:  ${diag.sampleGooglevideoUrl || mediaDiag.host || "None"}`,
       `Chunk Param Keys:  [${(diag.googlevideoParamKeys || []).join(", ") || "none"}]`,
-      `Tracking URLs:     ${diag.trackingUrlsChecked || 0} inspected`,
-      `Recent Media Chunk:${mediaDiag.host ? `${mediaDiag.host}${mediaDiag.pathname} (params: ${(mediaDiag.paramKeys || []).slice(0, 8).join(", ")})` : "None"}`,
+      `Stats Beacons:     ${diag.statsBeaconCount || 0} beacons`,
+      `Stats Param Keys:  [${(diag.statsParamKeys || []).join(", ") || "none"}]`,
+      `Tracking URLs:     ${diag.trackingUrlsChecked || 0} inspected (${(diag.trackingUrlsList || []).join(", ") || "none"})`,
       "",
       "----------------------------------------------------------------------",
       `[5. RECENT ACTIVITY & DIAGNOSTIC LOGS (${logs.length} entries)]`,
@@ -394,11 +721,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 2500);
       }
 
-      chrome.runtime.sendMessage({
-        action: "ADD_LOG",
-        message: `Diagnostic report (${report.length} chars) copied to clipboard. Ready to paste!`,
-        level: "success",
-      });
+      await appendLog(`Diagnostic report (${report.length} chars) copied to clipboard!`, "success");
     } catch (err) {
       console.error("Failed to copy report:", err);
       if (copyReportBtn) copyReportBtn.textContent = "COPY FAILED";
@@ -409,8 +732,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   copyReportBtn?.addEventListener("click", handleCopyReport);
 
   // Clear Logs Button
-  clearLogsBtn.addEventListener("click", () => {
-    chrome.runtime.sendMessage({ action: "CLEAR_LOGS" });
+  clearLogsBtn.addEventListener("click", async () => {
+    await chrome.storage.local.set({ activityLogs: [] });
     renderLogs([]);
   });
 
