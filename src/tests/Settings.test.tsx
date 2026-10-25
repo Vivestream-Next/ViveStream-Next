@@ -8,6 +8,11 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(() => Promise.resolve(() => {})),
+  emit: vi.fn(() => Promise.resolve()),
+}));
+
 // Partially mock the store to override only the dialog and toast functions
 // This ensures all the SolidJS signals in the store remain fully reactive
 vi.mock("../store", async (importOriginal) => {

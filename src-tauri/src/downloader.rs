@@ -333,15 +333,15 @@ pub async fn extract_po_token(app: &AppHandle, video_id: &str) -> Result<String,
 
     let webview = builder.build().map_err(|e| e.to_string())?;
 
-    // Fast timeout of 4s to never cause annoying user delay
-    match tokio::time::timeout(std::time::Duration::from_secs(4), rx).await {
+    // Timeout of 6s to allow BotGuard attestation to initialize without freezing user experience
+    match tokio::time::timeout(std::time::Duration::from_secs(6), rx).await {
         Ok(Ok(token)) => {
             println!("[PO_TOKEN] Extraction successful!");
             let _ = webview.close();
             Ok(token)
         }
         _ => {
-            println!("[PO_TOKEN] Extraction timed out or failed to intercept token within 4s.");
+            println!("[PO_TOKEN] Extraction timed out or failed to intercept token within 6s.");
             let _ = webview.close();
             Err("Timeout".into())
         }
@@ -397,20 +397,72 @@ pub async fn get_po_token_status(app: AppHandle) -> Result<PoTokenStatus, String
     })
 }
 
+pub fn store_po_token(app: &AppHandle, token: &str) {
+    let clean = token.trim();
+    if clean.is_empty() {
+        return;
+    }
+    save_po_token_to_disk(app, clean);
+    if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
+        guard.token = Some(clean.to_string());
+        guard.cached_at = Some(Instant::now());
+        guard.last_failure = None;
+    }
+    println!("[PO_TOKEN] Successfully stored PO Token (length: {})", clean.len());
+}
+
 #[tauri::command]
 pub async fn set_manual_po_token(app: AppHandle, token: String) -> Result<(), String> {
     let clean = token.trim();
     if clean.is_empty() {
         return Err("PO Token cannot be empty.".into());
     }
-    save_po_token_to_disk(&app, clean);
-    if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
-        guard.token = Some(clean.to_string());
-        guard.cached_at = Some(Instant::now());
-        guard.last_failure = None;
-    }
-    println!("[PO_TOKEN] Manually saved PO Token (length: {})", clean.len());
+    store_po_token(&app, clean);
     Ok(())
+}
+
+#[tauri::command]
+pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let mut candidates = Vec::new();
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("companion-extension"));
+    }
+    if let Ok(res_dir) = app.path().resource_dir() {
+        candidates.push(res_dir.join("companion-extension"));
+    }
+    if let Ok(app_dir) = app.path().app_data_dir() {
+        candidates.push(app_dir.join("companion-extension"));
+    }
+
+    let target_dir = candidates
+        .into_iter()
+        .find(|p| p.exists())
+        .ok_or_else(|| "companion-extension folder not found in workspace or resources".to_string())?;
+
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(&target_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&target_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&target_dir)
+            .spawn()
+            .map_err(|e| format!("Failed to open directory: {}", e))?;
+    }
+
+    Ok(target_dir.to_string_lossy().to_string())
 }
 
 #[tauri::command]
@@ -436,12 +488,7 @@ pub async fn refresh_po_token(app: AppHandle, video_id: Option<String>) -> Resul
     let token = extract_po_token(&app, &vid).await?;
     let clean = token.trim().to_string();
     if !clean.is_empty() {
-        save_po_token_to_disk(&app, &clean);
-        if let Ok(mut guard) = PO_TOKEN_CACHE.lock() {
-            guard.token = Some(clean.clone());
-            guard.cached_at = Some(Instant::now());
-            guard.last_failure = None;
-        }
+        store_po_token(&app, &clean);
     }
     Ok(clean)
 }
@@ -456,16 +503,16 @@ pub async fn get_or_extract_po_token(app: &AppHandle, video_id: &str) -> Result<
     {
         if let Ok(guard) = PO_TOKEN_CACHE.lock() {
             if let Some(failed_at) = guard.last_failure {
-                if failed_at.elapsed() < std::time::Duration::from_secs(600) {
-                    println!("[PO_TOKEN] Extraction temporarily bypassed (recent failure cached within 10m).");
+                if failed_at.elapsed() < std::time::Duration::from_secs(60) {
+                    println!("[PO_TOKEN] Extraction temporarily bypassed (recent failure cached within 60s).");
                     return Err("Recent failure cached".into());
                 }
             }
         }
     }
 
-    // 3. Fast extraction with 4s timeout
-    println!("[PO_TOKEN] No cached token found. Attempting fast background extraction (max 4s)...");
+    // 3. Fast extraction with 6s timeout
+    println!("[PO_TOKEN] No cached token found. Attempting background extraction (max 6s)...");
     match extract_po_token(app, video_id).await {
         Ok(token) if !token.trim().is_empty() => {
             let clean = token.trim().to_string();

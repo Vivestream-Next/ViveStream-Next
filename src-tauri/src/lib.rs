@@ -86,7 +86,7 @@ pub fn run() {
             let server_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 if let Ok(base_dir) = crate::system::get_base_dir(&server_handle) {
-                    crate::server::start_server(base_dir).await;
+                    crate::server::start_server(base_dir, server_handle).await;
                 }
             });
 
@@ -199,6 +199,7 @@ pub fn run() {
             set_manual_po_token,
             clear_po_token,
             refresh_po_token,
+            open_companion_extension_folder,
             check_whisper_status,
             install_whisper_binary,
             download_whisper_model,

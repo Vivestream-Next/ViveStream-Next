@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ViveStream PO Token Companion</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-box">V</div>
+        <div class="title-group">
+          <h1>VIVESTREAM</h1>
+          <span class="subtitle">PO TOKEN COMPANION</span>
+        </div>
+      </div>
+      <div class="status-badge" id="headerStatusBadge">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">Checking...</span>
+      </div>
+    </header>
+
+    <!-- Main Token Display Card -->
+    <main class="card token-card" id="tokenCard">
+      <div class="token-header">
+        <span class="label">CAPTURED PO TOKEN</span>
+        <span class="badge" id="tokenLengthBadge">-- chars</span>
+      </div>
+
+      <div class="token-box" id="tokenBox">
+        <span class="token-preview" id="tokenPreview">No token captured yet</span>
+        <button class="toggle-visibility-btn" id="toggleVisibilityBtn" title="Toggle full token" style="display: none;">
+          👁
+        </button>
+      </div>
+
+      <div class="token-meta" id="tokenMeta" style="display: none;">
+        <span class="meta-item" id="metaAge">Age: --</span>
+        <span class="meta-item" id="metaVideo">Video: --</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-grid">
+        <button class="btn btn-primary" id="copyTokenBtn" disabled>
+          <span class="btn-icon">📋</span>
+          <span id="copyBtnText">COPY PO TOKEN</span>
+        </button>
+        <button class="btn btn-secondary" id="syncAppBtn" disabled>
+          <span class="btn-icon">⚡</span>
+          <span id="syncBtnText">SYNC TO VIVESTREAM</span>
+        </button>
+      </div>
+
+      <div class="sync-banner" id="syncBanner" style="display: none;"></div>
+    </main>
+
+    <!-- Empty State Guide -->
+    <div class="card empty-guide" id="emptyGuide" style="display: none;">
+      <div class="guide-icon">🎵</div>
+      <h3>No Token Detected Yet</h3>
+      <p>
+        Navigate to any video on <strong>youtube.com</strong> and press play for 2 seconds.
+        The BotGuard attestation token will be automatically intercepted here!
+      </p>
+      <button class="btn btn-outline" id="openYtBtn">
+        Open YouTube in New Tab
+      </button>
+    </div>
+
+    <!-- Scoped Usage Policy -->
+    <section class="policy-notice">
+      <div class="policy-header">
+        <span class="shield-icon">🛡️</span>
+        <span>Personal Music Stream Scope</span>
+      </div>
+      <p class="policy-text">
+        Restricted to personal stream playback & music discovery in ViveStream-Next.
+        Bulk scraping, archiving, and mass extraction are prohibited to respect creator & platform integrity.
+      </p>
+    </section>
+
+    <!-- Help Accordion -->
+    <details class="help-details">
+      <summary class="help-summary">
+        <span>How to use in ViveStream</span>
+        <span class="caret">▼</span>
+      </summary>
+      <div class="help-content">
+        <ol>
+          <li>Play any YouTube video in your browser until a token is captured above.</li>
+          <li>Click <strong>Copy PO Token</strong> (or <strong>Sync to ViveStream</strong>).</li>
+          <li>In ViveStream, go to <strong>Settings &rarr; Engine Preferences &rarr; YouTube PO Token</strong>.</li>
+          <li>Paste the token and click <strong>Save Token</strong>. Your high-res 1080p/4K streams are unlocked for 12 hours!</li>
+        </ol>
+      </div>
+    </details>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

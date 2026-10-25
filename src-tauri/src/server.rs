@@ -1,12 +1,22 @@
 use std::path::PathBuf;
+use tauri::{AppHandle, Emitter};
 use warp::Filter;
 
-pub async fn start_server(base_dir: PathBuf) {
-    // Highly permissive CORS policy to ensure the Tauri frontend (tauri://localhost or http://localhost:1420)
-    // can request partial media chunks without being blocked by the WebView security model.
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+pub struct PoTokenPayload {
+    pub token: String,
+    pub visitor_data: Option<String>,
+    pub video_id: Option<String>,
+    pub source: Option<String>,
+}
+
+pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
+    // Highly permissive CORS policy to ensure the Tauri frontend and browser extensions
+    // can send PO tokens and request media chunks without being blocked.
     let cors = warp::cors()
         .allow_any_origin()
-        .allow_methods(vec!["GET", "OPTIONS", "HEAD"])
+        .allow_methods(vec!["GET", "POST", "OPTIONS", "HEAD"])
         .allow_headers(vec![
             "Origin",
             "Range",
@@ -22,6 +32,42 @@ pub async fn start_server(base_dir: PathBuf) {
 
     let base_dir_clone = base_dir.clone();
     let base_dir_filter = warp::any().map(move || base_dir_clone.clone());
+
+    // Loopback API endpoint for browser companion extension to sync PO tokens directly
+    let app_for_po = app.clone();
+    let app_filter = warp::any().map(move || app_for_po.clone());
+
+    let po_token_route = warp::path!("api" / "po-token")
+        .and(warp::post())
+        .and(warp::body::json::<PoTokenPayload>())
+        .and(app_filter)
+        .map(|payload: PoTokenPayload, app: AppHandle| {
+            let clean = payload.token.trim().to_string();
+            if !clean.is_empty() {
+                crate::downloader::store_po_token(&app, &clean);
+                let _ = app.emit("po-token-updated", clean.clone());
+                println!(
+                    "[PO_TOKEN Server] Successfully synced PO token via extension loopback API (length: {})",
+                    clean.len()
+                );
+                warp::reply::with_status(
+                    warp::reply::json(&serde_json::json!({
+                        "status": "success",
+                        "message": "PO token synchronized successfully",
+                        "length": clean.len()
+                    })),
+                    warp::http::StatusCode::OK,
+                )
+            } else {
+                warp::reply::with_status(
+                    warp::reply::json(&serde_json::json!({
+                        "status": "error",
+                        "message": "Token cannot be empty"
+                    })),
+                    warp::http::StatusCode::BAD_REQUEST,
+                )
+            }
+        });
 
     // Custom high-performance thumbnail handler with automatic fallback & on-the-fly LQ generation
     let thumbnail_route = warp::path("Thumbnails")
@@ -86,7 +132,7 @@ pub async fn start_server(base_dir: PathBuf) {
         ))
         .with(warp::reply::with::header("Accept-Ranges", "bytes"));
 
-    let routes = thumbnail_route.or(static_files).with(cors);
+    let routes = po_token_route.or(thumbnail_route).or(static_files).with(cors);
 
     // Bind to the exact port requested by the frontend
     warp::serve(routes).run(([127, 0, 0, 1], 1422)).await;

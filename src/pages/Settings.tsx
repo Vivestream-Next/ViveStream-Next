@@ -1,5 +1,6 @@
 import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   appTheme,
   toggleAppTheme,
@@ -264,6 +265,46 @@ export default function Settings() {
     return `${mins}m`;
   };
 
+  const [openingExtensionFolder, setOpeningExtensionFolder] = createSignal(false);
+
+  const handleOpenExtensionFolder = async () => {
+    setOpeningExtensionFolder(true);
+    try {
+      const folderPath = await invoke<string>("open_companion_extension_folder");
+      addToast(`Opened extension directory: ${folderPath}`, "success");
+    } catch (e) {
+      console.error(e);
+      addToast(`Could not open extension folder: ${e}`, "error");
+    } finally {
+      setOpeningExtensionFolder(false);
+    }
+  };
+
+  const handlePasteFromClipboard = async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      const clean = text?.trim() || "";
+      if (clean) {
+        setManualPoToken(clean);
+        addToast("Pasted token from clipboard! Click Save Token to cache it.", "info");
+      } else {
+        addToast("Clipboard is empty.", "warning");
+      }
+    } catch (_) {
+      try {
+        const text = await invoke<string>("get_clipboard_text");
+        if (text?.trim()) {
+          setManualPoToken(text.trim());
+          addToast("Pasted token from clipboard!", "info");
+        } else {
+          addToast("Clipboard is empty.", "warning");
+        }
+      } catch (err) {
+        addToast("Could not access clipboard. Please paste manually into the field.", "error");
+      }
+    }
+  };
+
   const fetchWhisperStatus = async () => {
     try {
       setLoadingWhisperStatus(true);
@@ -302,6 +343,22 @@ export default function Settings() {
   onMount(() => {
     loadPoTokenStatus();
     fetchWhisperStatus();
+
+    let unlistenPo: (() => void) | null = null;
+    try {
+      listen<string>("po-token-updated", (event) => {
+        addToast(
+          `PO Token synced from companion extension (${event.payload.length} chars)!`,
+          "success",
+        );
+        loadPoTokenStatus();
+      })
+        .then((unsub) => {
+          unlistenPo = unsub;
+        })
+        .catch(() => {});
+    } catch (_) {}
+
     const handleClickOutside = (e: MouseEvent) => {
       if (cookiesRef && !cookiesRef.contains(e.target as Node)) {
         setCookiesDropdownOpen(false);
@@ -311,9 +368,10 @@ export default function Settings() {
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    onCleanup(() =>
-      document.removeEventListener("mousedown", handleClickOutside),
-    );
+    onCleanup(() => {
+      if (unlistenPo) unlistenPo();
+      document.removeEventListener("mousedown", handleClickOutside);
+    });
   });
 
   const handleUpdateBinaries = async () => {
@@ -1804,7 +1862,7 @@ export default function Settings() {
           </div>
 
           <div
-            style="display: flex; gap: 8px; align-items: center; background: var(--secondary-background); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color);"
+            style="display: flex; gap: 8px; align-items: center; background: var(--secondary-background); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); flex-wrap: wrap;"
           >
             <i
               class="ph ph-key"
@@ -1813,7 +1871,7 @@ export default function Settings() {
             <input
               type="text"
               class="settings-input"
-              style="flex: 1; background: transparent; border: none; outline: none; font-family: monospace; font-size: 0.85rem;"
+              style="flex: 1; min-width: 220px; background: transparent; border: none; outline: none; font-family: monospace; font-size: 0.85rem;"
               placeholder={
                 poStatus()?.active
                   ? `Active token: ${poStatus()!.token.slice(0, 16)}... (${poStatus()!.token.length} chars)`
@@ -1826,6 +1884,15 @@ export default function Settings() {
               }}
             />
             <button
+              type="button"
+              onClick={handlePasteFromClipboard}
+              class="command-btn secondary"
+              style="padding: 6px 12px; font-size: 0.85rem;"
+              title="Paste token from clipboard"
+            >
+              <i class="ph-bold ph-clipboard"></i> Paste
+            </button>
+            <button
               onClick={handleSaveManualToken}
               disabled={!manualPoToken().trim()}
               class="command-btn primary"
@@ -1833,6 +1900,79 @@ export default function Settings() {
             >
               <i class="ph-bold ph-floppy-disk"></i> Save Token
             </button>
+          </div>
+
+          {/* Browser Companion Extension Card */}
+          <div
+            style="margin-top: 14px; background: rgba(0, 255, 204, 0.04); border: 1px dashed var(--accent-color); border-radius: 8px; padding: 12px 14px;"
+          >
+            <div
+              style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;"
+            >
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <i
+                  class="ph-fill ph-puzzle-piece"
+                  style="color: var(--accent-color); font-size: 1.25rem;"
+                ></i>
+                <div>
+                  <div
+                    style="font-weight: 700; font-size: 0.95rem; color: var(--text-color);"
+                  >
+                    Companion Browser Extension (Recommended)
+                  </div>
+                  <div
+                    style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 1px;"
+                  >
+                    Auto-captures authentic tokens from Chrome, Edge & Brave with loopback sync
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleOpenExtensionFolder}
+                disabled={openingExtensionFolder()}
+                class="command-btn secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; background: var(--secondary-background);"
+                title="Open the extension folder in your file explorer to load unpacked"
+              >
+                <i
+                  class={`ph-bold ${openingExtensionFolder() ? "ph-spinner spinIcon" : "ph-folder-open"}`}
+                ></i>
+                {openingExtensionFolder()
+                  ? "Opening..."
+                  : "Open Extension Folder"}
+              </button>
+            </div>
+
+            <p
+              style="margin: 8px 0 8px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;"
+            >
+              YouTube embed players often block official music videos from generating tokens.
+              Load our bundled companion extension in your browser, play any video on YouTube for 2 seconds, and it will automatically capture and sync your token here via local loopback!
+            </p>
+
+            <div
+              style="display: flex; gap: 12px; font-size: 0.78rem; color: var(--text-secondary); flex-wrap: wrap; background: var(--primary-background); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"
+            >
+              <div>
+                <strong style="color: var(--accent-color);">1.</strong> Click{" "}
+                <strong>Open Extension Folder</strong>
+              </div>
+              <div>
+                <strong style="color: var(--accent-color);">2.</strong> In
+                browser, visit <code>chrome://extensions</code> & toggle{" "}
+                <strong>Developer mode</strong>
+              </div>
+              <div>
+                <strong style="color: var(--accent-color);">3.</strong> Click{" "}
+                <strong>Load unpacked</strong> & choose{" "}
+                <code>companion-extension</code>
+              </div>
+              <div>
+                <strong style="color: var(--accent-color);">4.</strong> Play any
+                YouTube video to auto-extract & sync your token!
+              </div>
+            </div>
           </div>
         </div>
       </div>
