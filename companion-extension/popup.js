@@ -33,9 +33,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const logTerminal = document.getElementById("logTerminal");
   const clearLogsBtn = document.getElementById("clearLogsBtn");
+  const copyLogsBtn = document.getElementById("copyLogsBtn");
+  const copyReportBtn = document.getElementById("copyReportBtn");
 
   let currentToken = null;
   let isMasked = true;
+  let isAppOnline = false;
 
   function formatTimeAgo(timestamp) {
     if (!timestamp) return "Unknown";
@@ -147,9 +150,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const timeout = setTimeout(() => controller.abort(), 1000);
       const res = await fetch("http://127.0.0.1:1422/", { method: "HEAD", signal: controller.signal });
       clearTimeout(timeout);
+      isAppOnline = true;
       appIndicator.className = "diag-indicator active";
       appStatusLabel.textContent = "ViveStream: Online";
     } catch (_) {
+      isAppOnline = false;
       appIndicator.className = "diag-indicator inactive";
       appStatusLabel.textContent = "ViveStream: Offline";
     }
@@ -171,14 +176,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           scanTabBtn.disabled = false;
         }, 1500);
       } else if (response?.warning) {
-        scanBtnText.textContent = "NO STREAM CHUNKS YET";
+        scanBtnText.textContent = "STREAM DETECTED - NO 'POT'";
         syncBanner.className = "sync-banner error";
         syncBanner.textContent = response.warning;
         syncBanner.style.display = "block";
         setTimeout(() => {
           scanBtnText.textContent = "SCAN ACTIVE YOUTUBE TAB";
           scanTabBtn.disabled = false;
-        }, 2000);
+        }, 2500);
       } else {
         scanBtnText.textContent = "SCAN FAILED";
         syncBanner.className = "sync-banner error";
@@ -198,7 +203,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
-  // Copy to clipboard
+  // Copy PO Token to clipboard
   copyTokenBtn.addEventListener("click", async () => {
     if (!currentToken) return;
     try {
@@ -251,6 +256,157 @@ document.addEventListener("DOMContentLoaded", async () => {
       syncAppBtn.disabled = false;
     }
   });
+
+  // Build Comprehensive Diagnostic Report
+  async function generateDiagnosticReport() {
+    const data = await chrome.storage.local.get([
+      "latestPoToken",
+      "activityLogs",
+      "lastDiagnostics",
+      "lastMediaChunkDiag",
+    ]);
+
+    let activeTab = null;
+    try {
+      const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+      activeTab = t;
+    } catch (_) {}
+
+    const token = data?.latestPoToken;
+    const diag = data?.lastDiagnostics || {};
+    const mediaDiag = data?.lastMediaChunkDiag || {};
+    const logs = data?.activityLogs || [];
+
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(
+      now.getHours()
+    )}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+
+    const lines = [
+      "======================================================================",
+      "           VIVESTREAM PO TOKEN COMPANION - DIAGNOSTIC REPORT",
+      "======================================================================",
+      `Report Generated: ${dateStr}`,
+      `Extension Version: 1.1.0`,
+      "",
+      "----------------------------------------------------------------------",
+      "[1. PO TOKEN STATUS]",
+      "----------------------------------------------------------------------",
+      `Token Captured:    ${token?.token ? "YES" : "NO"}`,
+      `Token Length:      ${token?.token ? `${token.token.length} characters` : "N/A"}`,
+      `Token Preview:     ${token?.token ? `${token.token.slice(0, 16)}...${token.token.slice(-10)}` : "None"}`,
+      `Captured Video ID: ${token?.videoId || "N/A"}`,
+      `Token Source:      ${token?.source || "N/A"}`,
+      `Age:               ${token?.capturedAt ? formatTimeAgo(token.capturedAt) : "N/A"}`,
+      `Sync Status:       ${token?.syncStatus || "N/A"}`,
+      "",
+      "----------------------------------------------------------------------",
+      "[2. DESKTOP APP CONNECTIVITY]",
+      "----------------------------------------------------------------------",
+      `ViveStream (127.0.0.1:1422): ${isAppOnline ? "ONLINE (Connected)" : "OFFLINE / NOT RUNNING"}`,
+      "",
+      "----------------------------------------------------------------------",
+      "[3. ACTIVE BROWSER TAB]",
+      "----------------------------------------------------------------------",
+      `Tab Title:         ${activeTab?.title || "Unknown"}`,
+      `Tab URL:           ${activeTab?.url || "Unknown"}`,
+      `Is YouTube:        ${activeTab?.url?.includes("youtube.com") ? "YES" : "NO"}`,
+      "",
+      "----------------------------------------------------------------------",
+      "[4. TAB TELEMETRY & MEDIA STREAM DIAGNOSTICS]",
+      "----------------------------------------------------------------------",
+      `Video Playing:     ${diag.isPlaying ? "YES" : "NO"} (Position: ${diag.currentTime || 0}s / ${diag.duration || 0}s)`,
+      `Video Title:       ${diag.title || "Unknown"}`,
+      `Video ID:          ${diag.videoId || "N/A"}`,
+      `Movie Player Tag:  ${diag.hasMoviePlayer ? "FOUND" : "NOT FOUND"}`,
+      `Player Response:   ${diag.hasPlayerResponse ? "AVAILABLE" : "NOT AVAILABLE"}`,
+      `ytcfg Global:      ${diag.ytcfgPresent ? "AVAILABLE" : "NOT AVAILABLE"}`,
+      `Visitor Data:      ${diag.visitorData ? "FOUND" : "NONE"}`,
+      `Resources Total:   ${diag.totalResources || 0}`,
+      `Googlevideo Chunks:${diag.googlevideoCount || 0}`,
+      `Chunk Param Keys:  [${(diag.googlevideoParamKeys || []).join(", ") || "none"}]`,
+      `Tracking URLs:     ${diag.trackingUrlsChecked || 0} inspected`,
+      `Recent Media Chunk:${mediaDiag.host ? `${mediaDiag.host}${mediaDiag.pathname} (params: ${(mediaDiag.paramKeys || []).slice(0, 8).join(", ")})` : "None"}`,
+      "",
+      "----------------------------------------------------------------------",
+      `[5. RECENT ACTIVITY & DIAGNOSTIC LOGS (${logs.length} entries)]`,
+      "----------------------------------------------------------------------",
+    ];
+
+    if (logs.length === 0) {
+      lines.push("No logs recorded yet.");
+    } else {
+      for (const log of logs) {
+        lines.push(`[${log.time}] [${(log.level || "info").toUpperCase()}] ${log.message}`);
+      }
+    }
+
+    lines.push("======================================================================");
+    lines.push("                     END OF DIAGNOSTIC REPORT");
+    lines.push("======================================================================");
+
+    return lines.join("\n");
+  }
+
+  // Copy full diagnostic report to clipboard
+  async function handleCopyReport() {
+    try {
+      const report = await generateDiagnosticReport();
+
+      let copied = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(report);
+          copied = true;
+        } catch (_) {}
+      }
+
+      // Fallback
+      if (!copied) {
+        const textarea = document.createElement("textarea");
+        textarea.value = report;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        copied = true;
+      }
+
+      // Visual feedback on both buttons
+      if (copyLogsBtn) {
+        copyLogsBtn.textContent = "✓ Copied!";
+        copyLogsBtn.classList.add("copied");
+        setTimeout(() => {
+          copyLogsBtn.textContent = "📋 Copy Logs";
+          copyLogsBtn.classList.remove("copied");
+        }, 2500);
+      }
+
+      if (copyReportBtn) {
+        copyReportBtn.textContent = "✓ REPORT COPIED TO CLIPBOARD!";
+        copyReportBtn.classList.add("copied");
+        setTimeout(() => {
+          copyReportBtn.textContent = "📋 COPY FULL DIAGNOSTIC REPORT";
+          copyReportBtn.classList.remove("copied");
+        }, 2500);
+      }
+
+      chrome.runtime.sendMessage({
+        action: "ADD_LOG",
+        message: `Diagnostic report (${report.length} chars) copied to clipboard. Ready to paste!`,
+        level: "success",
+      });
+    } catch (err) {
+      console.error("Failed to copy report:", err);
+      if (copyReportBtn) copyReportBtn.textContent = "COPY FAILED";
+    }
+  }
+
+  copyLogsBtn?.addEventListener("click", handleCopyReport);
+  copyReportBtn?.addEventListener("click", handleCopyReport);
 
   // Clear Logs Button
   clearLogsBtn.addEventListener("click", () => {

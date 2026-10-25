@@ -97,13 +97,22 @@
           <span class="terminal-dot"></span>
           <span>ACTIVITY & DIAGNOSTICS LOG</span>
         </div>
-        <button class="log-clear-btn" id="clearLogsBtn" title="Clear logs">Clear</button>
+        <div class="log-header-actions">
+          <button class="log-action-btn copy" id="copyLogsBtn" title="Copy all logs and diagnostics to clipboard">
+            📋 Copy Logs
+          </button>
+          <button class="log-action-btn clear" id="clearLogsBtn" title="Clear logs">
+            Clear
+          </button>
+        </div>
       </div>
       <div class="log-terminal" id="logTerminal">
         <div class="log-entry log-entry-info">[--:--:--] Initializing diagnostics monitor...</div>
       </div>
       <div class="log-footer">
-        <span>Press <strong>F12</strong> on YouTube to view page console logs</span>
+        <button class="btn btn-copy-report" id="copyReportBtn" title="Copy full diagnostics & logs to share with developer">
+          📋 COPY FULL DIAGNOSTIC REPORT
+        </button>
       </div>
     </section>
 

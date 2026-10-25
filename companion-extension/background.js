@@ -1,19 +1,19 @@
 /**
  * ViveStream PO Token Companion - Service Worker (Background Script)
- * System-wide interception of YouTube BotGuard PO tokens via webRequest and tab inspection.
+ * System-wide interception of YouTube BotGuard PO tokens via webRequest, stats beacons, and MAIN-world DOM inspection.
  */
 
 // In-memory log buffer (persisted to chrome.storage.local)
 async function addLog(message, level = "info") {
   const timeStr = new Date().toLocaleTimeString();
-  const entry = { time: timeStr, message, level };
+  const entry = { time: timeStr, message, level, timestamp: Date.now() };
   console.log(`[ViveStream SW] [${level.toUpperCase()}] ${message}`);
 
   try {
     const data = await chrome.storage.local.get("activityLogs");
     const logs = Array.isArray(data.activityLogs) ? data.activityLogs : [];
     logs.unshift(entry);
-    if (logs.length > 60) logs.pop();
+    if (logs.length > 120) logs.pop();
     await chrome.storage.local.set({ activityLogs: logs });
   } catch (_) {}
 }
@@ -40,7 +40,10 @@ async function handleCapturedToken(token, source, videoId = null, url = null) {
   };
 
   await chrome.storage.local.set({ latestPoToken: tokenData });
-  await addLog(`Captured PO Token (${clean.length} chars) from ${source}${videoId ? ` [Video: ${videoId}]` : ""}`, "success");
+  await addLog(
+    `Captured PO Token (${clean.length} chars) from ${source}${videoId ? ` [Video: ${videoId}]` : ""}`,
+    "success"
+  );
 
   // Attempt sync to ViveStream loopback
   try {
@@ -70,24 +73,63 @@ async function handleCapturedToken(token, source, videoId = null, url = null) {
   }
 }
 
-// 1. WebRequest Interceptor: Catches googlevideo.com and youtube.com requests
+// Helper: extract video ID from URL
+function extractVideoId(rawUrl) {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.searchParams.has("v")) return parsed.searchParams.get("v");
+    if (parsed.searchParams.has("docid")) return parsed.searchParams.get("docid");
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if ((parts[0] === "shorts" || parts[0] === "embed" || parts[0] === "watch") && parts[1]) {
+      return parts[1];
+    }
+  } catch (_) {}
+  return null;
+}
+
+// 1. WebRequest Interceptor: Catches googlevideo.com, stats beacons, and Innertube requests
 chrome.webRequest.onBeforeRequest.addListener(
   (details) => {
     try {
       const url = new URL(details.url);
 
-      // Check googlevideo.com media playback requests (every video chunk has pot=)
-      if (url.hostname.includes("googlevideo.com")) {
-        const pot = url.searchParams.get("pot") || url.searchParams.get("po_token");
-        if (pot && pot.length >= 16) {
-          const docUrl = details.initiator || details.documentUrl || "";
-          let videoId = null;
-          try {
-            const parsedDoc = new URL(docUrl);
-            videoId = parsedDoc.searchParams.get("v");
-          } catch (_) {}
+      // Check googlevideo.com media playback requests (video/audio chunks)
+      if (url.hostname.includes("googlevideo.com") || url.pathname.includes("/videoplayback")) {
+        const pot =
+          url.searchParams.get("pot") ||
+          url.searchParams.get("po_token") ||
+          url.searchParams.get("cpo");
 
+        const videoId = extractVideoId(details.initiator || details.documentUrl || details.url);
+
+        if (pot && pot.length >= 16) {
           handleCapturedToken(pot, "googlevideo_media_chunk", videoId, details.url);
+          return;
+        }
+
+        // Keep track of observed query keys for diagnostics
+        const paramKeys = Array.from(url.searchParams.keys());
+        chrome.storage.local.set({
+          lastMediaChunkDiag: {
+            host: url.hostname,
+            pathname: url.pathname,
+            paramKeys: paramKeys.slice(0, 20),
+            hasPot: !!pot,
+            time: Date.now(),
+          },
+        });
+        return;
+      }
+
+      // Check YouTube Stats Beacons (/api/stats/playback, /api/stats/watchtime, /api/stats/qoe)
+      if (url.pathname.includes("/api/stats/")) {
+        const pot =
+          url.searchParams.get("pot") ||
+          url.searchParams.get("po_token") ||
+          url.searchParams.get("cpo");
+        if (pot && pot.length >= 16) {
+          const videoId = url.searchParams.get("docid") || extractVideoId(details.initiator || details.documentUrl || "");
+          handleCapturedToken(pot, `stats_beacon_${url.pathname.split("/").pop()}`, videoId, details.url);
           return;
         }
       }
@@ -150,7 +192,7 @@ chrome.runtime.onInstalled.addListener(() => {
   injectOpenTabs();
 });
 
-// 3. Deep scanner function executed inside active tab
+// 3. Deep scanner function executed inside active tab in MAIN world
 async function scanActiveTabNow() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab || !tab.id) {
@@ -165,71 +207,235 @@ async function scanActiveTabNow() {
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
+      world: "MAIN", // Crucial for ytcfg, movie_player, and playerResponse
       func: () => {
-        // 1. Scan Performance Resource Timing for googlevideo chunks
-        const resources = performance.getEntriesByType("resource");
-        for (let i = resources.length - 1; i >= 0; i--) {
-          const res = resources[i];
-          if (res.name && res.name.includes("googlevideo.com")) {
-            try {
-              const url = new URL(res.name);
-              const pot = url.searchParams.get("pot") || url.searchParams.get("po_token");
-              if (pot && pot.length >= 16) {
-                return {
-                  token: pot,
-                  source: "performance_resource_buffer",
-                  chunkUrl: res.name.slice(0, 80) + "...",
-                };
-              }
-            } catch (_) {}
-          }
+        const diag = {
+          url: window.location.href,
+          title: document.title,
+          videoId: null,
+          isPlaying: false,
+          currentTime: 0,
+          duration: 0,
+          ytcfgPresent: !!window.ytcfg,
+          visitorData: null,
+          tokenFound: null,
+          tokenSource: null,
+          totalResources: 0,
+          googlevideoCount: 0,
+          googlevideoParamKeys: [],
+          trackingUrlsChecked: 0,
+          hasMoviePlayer: false,
+          hasPlayerResponse: false,
+        };
+
+        // Extract video ID from URL
+        try {
+          const parsed = new URL(window.location.href);
+          if (parsed.searchParams.has("v")) diag.videoId = parsed.searchParams.get("v");
+        } catch (_) {}
+
+        // 1. Inspect Video Element
+        const video = document.querySelector("video");
+        if (video) {
+          diag.isPlaying = !video.paused;
+          diag.currentTime = Math.round(video.currentTime || 0);
+          diag.duration = Math.round(video.duration || 0);
         }
 
-        // 2. Check window.ytcfg
+        // 2. Inspect window.ytcfg
         try {
           if (window.ytcfg) {
-            const tok =
+            diag.visitorData =
+              (typeof window.ytcfg.get === "function" ? window.ytcfg.get("VISITOR_DATA") : null) ||
+              window.ytcfg.data_?.INNERTUBE_CONTEXT?.client?.visitorData ||
+              null;
+
+            const cfgToken =
               (typeof window.ytcfg.get === "function" ? window.ytcfg.get("PO_TOKEN") : null) ||
               window.ytcfg.data_?.PO_TOKEN ||
               window.ytcfg.data_?.INNERTUBE_CONTEXT?.serviceIntegrityDimensions?.poToken;
-            if (tok && typeof tok === "string" && tok.length >= 16) {
-              return { token: tok, source: "ytcfg" };
+
+            if (cfgToken && typeof cfgToken === "string" && cfgToken.length >= 16) {
+              diag.tokenFound = cfgToken;
+              diag.tokenSource = "ytcfg_direct";
             }
           }
         } catch (_) {}
 
-        // 3. Check video element & player state
-        const video = document.querySelector("video");
-        const isPlaying = video ? !video.paused : false;
+        // 3. Inspect movie_player element & playerResponse
+        try {
+          const player = document.getElementById("movie_player");
+          if (player) {
+            diag.hasMoviePlayer = true;
+            const videoData = player.getVideoData?.();
+            if (videoData) {
+              diag.videoId = videoData.video_id || diag.videoId;
+              diag.title = videoData.title || diag.title;
+            }
 
-        return {
-          notFound: true,
-          isPlaying,
-          resourcesChecked: resources.length,
-          url: window.location.href,
-        };
+            const playerResponse = player.getPlayerResponse?.();
+            if (playerResponse) {
+              diag.hasPlayerResponse = true;
+
+              // Check tracking URLs in playbackTracking
+              const tracking = playerResponse.playbackTracking || {};
+              const trackingUrls = [
+                tracking.videostatsPlaybackUrl?.baseUrl,
+                tracking.videostatsWatchtimeUrl?.baseUrl,
+                tracking.qoeUrl?.baseUrl,
+                tracking.ptrackingUrl?.baseUrl,
+                tracking.atrUrl?.baseUrl,
+              ].filter(Boolean);
+
+              diag.trackingUrlsChecked = trackingUrls.length;
+
+              for (const trackUrl of trackingUrls) {
+                try {
+                  const parsedTrack = new URL(trackUrl);
+                  const pot =
+                    parsedTrack.searchParams.get("pot") ||
+                    parsedTrack.searchParams.get("po_token") ||
+                    parsedTrack.searchParams.get("cpo");
+                  if (pot && pot.length >= 16 && !diag.tokenFound) {
+                    diag.tokenFound = pot;
+                    diag.tokenSource = `player_tracking_${parsedTrack.pathname.split("/").pop()}`;
+                    break;
+                  }
+                } catch (_) {}
+              }
+
+              // Check streamingData format URLs if still not found
+              if (!diag.tokenFound && playerResponse.streamingData?.adaptiveFormats) {
+                for (const fmt of playerResponse.streamingData.adaptiveFormats.slice(0, 5)) {
+                  if (fmt.url) {
+                    try {
+                      const fmtUrl = new URL(fmt.url);
+                      const pot = fmtUrl.searchParams.get("pot") || fmtUrl.searchParams.get("po_token");
+                      if (pot && pot.length >= 16) {
+                        diag.tokenFound = pot;
+                        diag.tokenSource = "player_adaptive_format_url";
+                        break;
+                      }
+                    } catch (_) {}
+                  }
+                }
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 4. Inspect Performance Resource Timing
+        try {
+          const resources = performance.getEntriesByType("resource");
+          diag.totalResources = resources.length;
+          const paramKeysSet = new Set();
+
+          for (let i = resources.length - 1; i >= 0; i--) {
+            const res = resources[i];
+            const name = res.name || "";
+
+            // Check googlevideo.com chunks
+            if (name.includes("googlevideo.com") || name.includes("/videoplayback")) {
+              diag.googlevideoCount++;
+              try {
+                const url = new URL(name);
+                for (const k of url.searchParams.keys()) {
+                  paramKeysSet.add(k);
+                }
+
+                if (!diag.tokenFound) {
+                  const pot =
+                    url.searchParams.get("pot") ||
+                    url.searchParams.get("po_token") ||
+                    url.searchParams.get("cpo");
+                  if (pot && pot.length >= 16) {
+                    diag.tokenFound = pot;
+                    diag.tokenSource = "performance_googlevideo_chunk";
+                  }
+                }
+              } catch (_) {}
+            }
+
+            // Check stats beacons
+            if (name.includes("/api/stats/")) {
+              try {
+                const url = new URL(name);
+                if (!diag.tokenFound) {
+                  const pot =
+                    url.searchParams.get("pot") ||
+                    url.searchParams.get("po_token") ||
+                    url.searchParams.get("cpo");
+                  if (pot && pot.length >= 16) {
+                    diag.tokenFound = pot;
+                    diag.tokenSource = "performance_stats_beacon";
+                  }
+                }
+              } catch (_) {}
+            }
+          }
+
+          diag.googlevideoParamKeys = Array.from(paramKeysSet).slice(0, 25);
+        } catch (_) {}
+
+        return diag;
       },
     });
 
-    const result = results?.[0]?.result;
-    if (result?.token) {
-      const url = new URL(tab.url);
-      const videoId = url.searchParams.get("v");
-      await handleCapturedToken(result.token, result.source, videoId, tab.url);
-      return { success: true, token: result.token, source: result.source };
+    const diag = results?.[0]?.result;
+    if (!diag) {
+      await addLog("Scan failed: could not execute script in active tab.", "error");
+      return { error: "Could not read tab state" };
     }
 
-    if (result?.notFound) {
+    // Persist full diagnostics
+    await chrome.storage.local.set({ lastDiagnostics: diag });
+
+    // If token found, process and store
+    if (diag.tokenFound) {
+      await handleCapturedToken(diag.tokenFound, diag.tokenSource, diag.videoId, tab.url);
       await addLog(
-        `Tab scanned (${result.resourcesChecked} network resources). Video is ${result.isPlaying ? "PLAYING" : "PAUSED"}. Let it play 2s to request media chunks.`,
+        `✓ Token successfully extracted via ${diag.tokenSource} (${diag.tokenFound.length} chars)`,
+        "success"
+      );
+      return { success: true, token: diag.tokenFound, source: diag.tokenSource, diag };
+    }
+
+    // Informative logs for developer and user
+    await addLog(
+      `Scan: Tab "${(diag.title || "YouTube").slice(0, 30)}..." | Video: ${diag.videoId || "N/A"} | Playing: ${diag.isPlaying ? "YES" : "NO"} (${diag.currentTime}s)`,
+      diag.isPlaying ? "info" : "warning"
+    );
+
+    await addLog(
+      `Scan: ${diag.googlevideoCount} googlevideo chunks, ${diag.totalResources} total resources. Params: [${diag.googlevideoParamKeys.slice(0, 8).join(", ") || "none"}]`,
+      diag.googlevideoCount > 0 ? "info" : "warning"
+    );
+
+    if (diag.trackingUrlsChecked > 0) {
+      await addLog(
+        `Scan: Checked ${diag.trackingUrlsChecked} player tracking URLs and ytcfg (VisitorData: ${diag.visitorData ? "found" : "none"}).`,
+        "info"
+      );
+    }
+
+    if (diag.googlevideoCount === 0) {
+      await addLog("No googlevideo chunks detected yet. Ensure the video is playing with sound.", "warning");
+      return {
+        warning: "Video is not requesting stream chunks yet. Let it play 2 seconds, then scan again.",
+        diag,
+      };
+    } else {
+      await addLog(
+        `Media chunks are active without 'pot' param (keys: [${diag.googlevideoParamKeys.slice(0, 6).join(", ")}]). BotGuard may be generating token.`,
         "warning"
       );
-      return { warning: "No media chunks with PO token detected yet. Make sure video is playing!" };
+      return {
+        warning: `Observed ${diag.googlevideoCount} media chunks without 'pot'. Let playback continue 2-3s for BotGuard evaluation.`,
+        diag,
+      };
     }
-
-    return { error: "Could not read tab state" };
   } catch (err) {
-    await addLog(`Scan failed: ${err.message}`, "error");
+    await addLog(`Scan error: ${err.message}`, "error");
     return { error: err.message };
   }
 }
@@ -249,6 +455,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "ADD_LOG") {
     addLog(request.message, request.level || "info").then(() => {
       sendResponse({ success: true });
+    });
+    return true;
+  }
+  if (request.action === "GET_DIAGNOSTICS") {
+    chrome.storage.local.get(["latestPoToken", "activityLogs", "lastDiagnostics", "lastMediaChunkDiag"]).then((data) => {
+      sendResponse(data);
     });
     return true;
   }

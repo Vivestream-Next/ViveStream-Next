@@ -61,17 +61,17 @@
     );
   }
 
-  // 1. Scan Performance Resource Timing for active stream chunks
+  // 1. Scan Performance Resource Timing for active stream chunks and stats beacons
   function scanResourceTiming() {
     try {
       const entries = performance.getEntriesByType("resource");
       for (let i = entries.length - 1; i >= 0; i--) {
         const name = entries[i].name;
-        if (name && name.includes("googlevideo.com")) {
+        if (name && (name.includes("googlevideo.com") || name.includes("/videoplayback") || name.includes("/api/stats/"))) {
           const url = new URL(name);
-          const pot = url.searchParams.get("pot") || url.searchParams.get("po_token");
+          const pot = url.searchParams.get("pot") || url.searchParams.get("po_token") || url.searchParams.get("cpo");
           if (pot && pot.length >= 16) {
-            notifyToken(pot, "performance_buffer_chunk");
+            notifyToken(pot, name.includes("/api/stats/") ? "performance_stats_beacon" : "performance_buffer_chunk");
             return true;
           }
         }
@@ -91,8 +91,10 @@
       const urlStr = typeof resource === "string" ? resource : resource?.url;
       if (urlStr) {
         const url = new URL(urlStr, window.location.origin);
-        const pot = url.searchParams.get("pot") || url.searchParams.get("po_token");
-        if (pot) notifyToken(pot, "fetch_url_param");
+        const pot = url.searchParams.get("pot") || url.searchParams.get("po_token") || url.searchParams.get("cpo");
+        if (pot && pot.length >= 16) {
+          notifyToken(pot, "fetch_url_param");
+        }
       }
 
       if (init && init.body && typeof init.body === "string") {
@@ -116,8 +118,8 @@
     return originalSend.apply(this, arguments);
   };
 
-  // 4. Check window.ytcfg
-  function checkYtcfg() {
+  // 4. Check window.ytcfg and movie_player
+  function checkYtcfgAndPlayer() {
     try {
       if (window.ytcfg) {
         const tok =
@@ -126,14 +128,39 @@
           window.ytcfg.data_?.INNERTUBE_CONTEXT?.serviceIntegrityDimensions?.poToken;
         if (tok && typeof tok === "string" && tok.length >= 16) {
           notifyToken(tok, "ytcfg");
+          return;
+        }
+      }
+
+      const player = document.getElementById("movie_player");
+      if (player && typeof player.getPlayerResponse === "function") {
+        const resp = player.getPlayerResponse();
+        const tracking = resp?.playbackTracking || {};
+        const trackingUrls = [
+          tracking.videostatsPlaybackUrl?.baseUrl,
+          tracking.videostatsWatchtimeUrl?.baseUrl,
+          tracking.qoeUrl?.baseUrl,
+          tracking.ptrackingUrl?.baseUrl,
+          tracking.atrUrl?.baseUrl,
+        ].filter(Boolean);
+
+        for (const trackUrl of trackingUrls) {
+          try {
+            const parsed = new URL(trackUrl);
+            const pot = parsed.searchParams.get("pot") || parsed.searchParams.get("po_token") || parsed.searchParams.get("cpo");
+            if (pot && pot.length >= 16) {
+              notifyToken(pot, `player_tracking_${parsed.pathname.split("/").pop()}`);
+              return;
+            }
+          } catch (_) {}
         }
       }
     } catch (_) {}
   }
 
-  checkYtcfg();
+  checkYtcfgAndPlayer();
   window.addEventListener("yt-navigate-finish", () => {
     setTimeout(scanResourceTiming, 500);
-    setTimeout(checkYtcfg, 1000);
+    setTimeout(checkYtcfgAndPlayer, 1000);
   });
 })();
