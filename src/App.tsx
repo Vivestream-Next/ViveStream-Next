@@ -304,6 +304,7 @@ const AppLayout: Component<{ children?: any }> = (props) => {
         e.key >= " " &&
         e.key <= "~"
       ) {
+        e.preventDefault();
         setIsSearchOpen(true);
         setGlobalSearchQuery((prev) => prev + e.key);
         return;
