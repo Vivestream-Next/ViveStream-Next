@@ -151,7 +151,7 @@ export default function App() {
             <div>
               <div class="app-name">ViveStream Next</div>
               <div style="margin-top: 4px;">
-                <span class="version-tag">v3.5.2</span>
+                <span class="version-tag">v3.7.0</span>
               </div>
             </div>
           </div>

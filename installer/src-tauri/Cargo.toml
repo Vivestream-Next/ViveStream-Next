@@ -1,6 +1,6 @@
 [package]
 name = "vivestream-next-setup"
-version = "3.5.2"
+version = "3.7.0"
 description = "Immersive Setup Installer for ViveStream Next"
 authors = ["LocalGhost"]
 edition = "2021"
