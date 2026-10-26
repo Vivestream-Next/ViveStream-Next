@@ -162,11 +162,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         tokenPreview.textContent = "••••••••••••••••";
       }
-      toggleVisibilityBtn.textContent = "👁";
+      toggleVisibilityBtn.innerHTML = '<i class="ph-bold ph-eye"></i>';
       toggleVisibilityBtn.title = "Show full token";
     } else {
       tokenPreview.textContent = currentToken;
-      toggleVisibilityBtn.textContent = "🔒";
+      toggleVisibilityBtn.innerHTML = '<i class="ph-bold ph-eye-slash"></i>';
       toggleVisibilityBtn.title = "Hide token";
     }
   }
@@ -781,7 +781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "           VIVESTREAM PO TOKEN COMPANION - DIAGNOSTIC REPORT",
       "======================================================================",
       `Report Generated:  ${dateStr}`,
-      `Extension Version: 1.1.0`,
+      `Extension Version: 1.2.0`,
       "",
       "----------------------------------------------------------------------",
       "[1. PO TOKEN STATUS]",
