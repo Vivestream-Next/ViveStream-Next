@@ -1163,6 +1163,8 @@ async fn download_video_inner(
         "--convert-thumbnails".to_string(),
         "jpg".to_string(),
         "--write-description".to_string(),
+        "--ignore-errors".to_string(),
+        "--no-abort-on-error".to_string(),
     ];
 
     if concurrent_fragments > 1 {
@@ -1177,9 +1179,11 @@ async fn download_video_inner(
 
     if auto_subs || dl_subs {
         yt_args.push("--sub-format".to_string());
+        yt_args.push("vtt/best".to_string());
+        yt_args.push("--convert-subs".to_string());
         yt_args.push("vtt".to_string());
         yt_args.push("--sub-langs".to_string());
-        yt_args.push("en.*".to_string());
+        yt_args.push("en.*,all,-live_chat".to_string());
         if auto_subs {
             yt_args.push("--write-auto-subs".to_string());
         }
@@ -1249,8 +1253,30 @@ async fn download_video_inner(
         }
     }
 
-    if !child.wait().map_err(|e| e.to_string())?.success() {
+    let exit_status = child.wait().map_err(|e| e.to_string())?;
+
+    // Check if the media stream was downloaded regardless of subtitle / postprocessing warnings
+    let raw_media_downloaded = if is_audio {
+        temp_path.with_extension("m4a").exists()
+            || temp_path.with_extension("mp4").exists()
+            || temp_path.with_extension("webm").exists()
+            || temp_path.exists()
+    } else {
+        temp_path.exists()
+            || vid_dir.join(format!("raw_{}.mp4", metadata.id)).exists()
+            || vid_dir.join(format!("raw_{}.webm", metadata.id)).exists()
+            || vid_dir.join(format!("raw_{}.mkv", metadata.id)).exists()
+    };
+
+    if !exit_status.success() && !raw_media_downloaded {
         return Err("yt-dlp download failed. Check logs for details.".into());
+    }
+
+    if !exit_status.success() && raw_media_downloaded {
+        let _ = app.emit(
+            &progress_event,
+            "Notice: Subtitle track not available or skipped, proceeding with downloaded media...",
+        );
     }
 
     let raw_thumb = thumb_dir.join(format!("raw_{}.jpg", metadata.id));
@@ -1303,7 +1329,16 @@ async fn download_video_inner(
         if !final_path.exists() {
             let _ = fs::rename(&temp_path.with_extension("mp4"), &final_path);
         }
-        transcode_success = true;
+        if !final_path.exists() {
+            let _ = fs::rename(&temp_path.with_extension("webm"), &final_path);
+        }
+        if !final_path.exists() {
+            let _ = fs::rename(&temp_path.with_extension("opus"), &final_path);
+        }
+        if !final_path.exists() {
+            let _ = fs::rename(&temp_path, &final_path);
+        }
+        transcode_success = final_path.exists();
     } else {
         let _ = app.emit(&progress_event, "Step 2: Processing Video (Stream Optimization)...");
 
