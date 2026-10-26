@@ -395,7 +395,7 @@ export default function GlobalSearch() {
     if (isSearchOpen()) {
       setTimeout(() => {
         const el = alwaysShowSearchBar() ? inputRef : spotlightInputRef;
-        if (el) {
+        if (el && document.activeElement !== el) {
           el.focus();
           const len = el.value.length;
           el.setSelectionRange(len, len);
@@ -818,7 +818,10 @@ export default function GlobalSearch() {
         >
           <div
             class="floating-search-bar"
-            onClick={() => !isSearchOpen() && setIsSearchOpen(true)}
+            onClick={() => {
+              if (!isSearchOpen()) setIsSearchOpen(true);
+              inputRef?.focus();
+            }}
           >
             <i class="ph ph-magnifying-glass floating-search-icon"></i>
 
