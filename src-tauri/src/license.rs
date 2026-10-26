@@ -136,7 +136,7 @@ pub async fn activate_lemon_license(
     // 2. Query Lemon Squeezy License Activation API
     let instance_name = format!("ViveStream Desktop ({})", get_machine_name());
     let client = reqwest::Client::builder()
-        .user_agent("ViveStream-Next/2.8.0")
+        .user_agent(format!("ViveStream-Next/{}", env!("CARGO_PKG_VERSION")))
         .timeout(std::time::Duration::from_secs(12))
         .build()
         .map_err(|e| format!("Failed to initialize HTTP client: {}", e))?;
@@ -215,7 +215,7 @@ pub async fn validate_lemon_license(app: AppHandle) -> Result<Option<LicenseData
 
     if let Some(ref inst_id) = data.instance_id {
         let client = reqwest::Client::builder()
-            .user_agent("ViveStream-Next/2.8.0")
+            .user_agent(format!("ViveStream-Next/{}", env!("CARGO_PKG_VERSION")))
             .timeout(std::time::Duration::from_secs(8))
             .build()
             .map_err(|e| e.to_string())?;
@@ -271,7 +271,7 @@ pub async fn deactivate_lemon_license(app: AppHandle) -> Result<(), String> {
                 if !data.license_key.eq_ignore_ascii_case("VIVESTREAM-PRO-PREVIEW") {
                     if let Some(ref inst_id) = data.instance_id {
                         let client = reqwest::Client::builder()
-                            .user_agent("ViveStream-Next/2.8.0")
+                            .user_agent(format!("ViveStream-Next/{}", env!("CARGO_PKG_VERSION")))
                             .timeout(std::time::Duration::from_secs(6))
                             .build()
                             .ok();
