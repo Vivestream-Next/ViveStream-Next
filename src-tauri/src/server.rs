@@ -86,8 +86,22 @@ pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
                     // Trigger background generation for future requests
                     let orig_clone = original_file.clone();
                     let target_clone = target_file.clone();
+                    let bin_dir = base.join("Bin");
+                    let (_, ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
+                    let ffmpeg_cmd = if ffmpeg_path.exists() {
+                        ffmpeg_path
+                    } else {
+                        PathBuf::from("ffmpeg")
+                    };
                     tokio::task::spawn_blocking(move || {
-                        let _ = std::process::Command::new("ffmpeg")
+                        let mut cmd = std::process::Command::new(&ffmpeg_cmd);
+                        #[cfg(target_os = "windows")]
+                        {
+                            #[allow(unused_imports)]
+                            use std::os::windows::process::CommandExt;
+                            cmd.creation_flags(0x08000000);
+                        }
+                        let _ = cmd
                             .args([
                                 "-y",
                                 "-i",

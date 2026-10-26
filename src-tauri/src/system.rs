@@ -273,16 +273,25 @@ pub async fn extract_video_dominant_colors(
     }
 
     let bin_dir = get_bin_dir(&app)?;
-    let ffmpeg_bin = bin_dir.join("ffmpeg");
-    let ffmpeg_cmd = if ffmpeg_bin.exists() {
-        ffmpeg_bin.to_string_lossy().to_string()
+    let (_, ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
+    let ffmpeg_cmd = if ffmpeg_path.exists() {
+        ffmpeg_path
     } else {
-        "ffmpeg".to_string()
+        std::path::PathBuf::from("ffmpeg")
     };
 
     tokio::task::spawn_blocking(move || {
         let ts_str = format!("{:.3}", timestamp.max(0.0));
-        let output = std::process::Command::new(ffmpeg_cmd)
+        let mut cmd = std::process::Command::new(&ffmpeg_cmd);
+
+        #[cfg(target_os = "windows")]
+        {
+            #[allow(unused_imports)]
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(0x08000000);
+        }
+
+        let output = cmd
             .args([
                 "-ss",
                 &ts_str,
