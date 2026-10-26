@@ -26,10 +26,12 @@
     <!-- Diagnostics Status Row -->
     <div class="diag-status-row">
       <div class="diag-pill" id="ytStatusPill">
+        <i class="ph-bold ph-youtube-logo diag-icon"></i>
         <span class="diag-indicator" id="ytIndicator"></span>
         <span id="ytStatusLabel">Checking Tab...</span>
       </div>
       <div class="diag-pill" id="appStatusPill">
+        <i class="ph-bold ph-broadcast diag-icon"></i>
         <span class="diag-indicator" id="appIndicator"></span>
         <span id="appStatusLabel">Port 1422...</span>
       </div>
@@ -38,14 +40,17 @@
     <!-- Main Token Display Card -->
     <main class="card token-card" id="tokenCard">
       <div class="token-header">
-        <span class="label">CAPTURED PO TOKEN</span>
+        <div class="token-header-title">
+          <i class="ph-bold ph-key token-key-icon"></i>
+          <span class="label">CAPTURED PO TOKEN</span>
+        </div>
         <span class="badge" id="tokenLengthBadge">-- chars</span>
       </div>
 
       <div class="token-box" id="tokenBox">
         <span class="token-preview" id="tokenPreview">No token captured yet</span>
         <button class="toggle-visibility-btn" id="toggleVisibilityBtn" title="Toggle full token" style="display: none;">
-          👁
+          <i class="ph-bold ph-eye"></i>
         </button>
       </div>
 
@@ -58,22 +63,22 @@
       <!-- Action Buttons -->
       <div class="action-grid">
         <button class="btn btn-primary" id="copyTokenBtn" disabled>
-          <span class="btn-icon">📋</span>
+          <i class="ph-bold ph-copy btn-icon"></i>
           <span id="copyBtnText">COPY PO TOKEN</span>
         </button>
         <button class="btn btn-secondary" id="syncAppBtn" disabled>
-          <span class="btn-icon">⚡</span>
+          <i class="ph-bold ph-lightning btn-icon"></i>
           <span id="syncBtnText">SYNC TO APP</span>
         </button>
       </div>
 
-      <div class="action-row" style="margin-top: 8px; display: flex; gap: 8px;">
+      <div class="action-row" style="margin-top: 10px; display: flex; gap: 8px;">
         <button class="btn btn-scan" id="scanTabBtn" style="flex: 1.2;">
-          <span class="btn-icon">🔍</span>
+          <i class="ph-bold ph-magnifying-glass btn-icon"></i>
           <span id="scanBtnText">SCAN TAB</span>
         </button>
         <button class="btn btn-mint" id="mintPoBtn" style="flex: 1;" title="Mint a fresh Cold Start / BotGuard PO Token">
-          <span class="btn-icon">✨</span>
+          <i class="ph-bold ph-sparkle btn-icon"></i>
           <span id="mintBtnText">MINT TOKEN</span>
         </button>
       </div>
@@ -83,14 +88,17 @@
 
     <!-- Empty State Guide -->
     <div class="card empty-guide" id="emptyGuide" style="display: none;">
-      <div class="guide-icon">🎵</div>
-      <h3>How To Capture</h3>
-      <p>
-        1. Open <strong>youtube.com</strong> in a tab and play any video for 2 seconds.<br>
-        2. Click <strong>Scan Active YouTube Tab</strong> above to capture immediately.
+      <div class="guide-header">
+        <i class="ph-bold ph-music-notes guide-icon"></i>
+        <h3>How To Capture</h3>
+      </div>
+      <p class="guide-steps">
+        1. Open <strong>youtube.com</strong> in a browser tab and play any video for 2 seconds.<br>
+        2. Click <strong>SCAN TAB</strong> above to capture or <strong>MINT TOKEN</strong> instantly.
       </p>
       <button class="btn btn-outline" id="openYtBtn">
-        Open YouTube in New Tab
+        <i class="ph-bold ph-arrow-square-out btn-icon"></i>
+        <span>Open YouTube in New Tab</span>
       </button>
     </div>
 
@@ -98,12 +106,12 @@
     <section class="card log-card">
       <div class="log-header">
         <div class="log-title">
-          <span class="terminal-dot"></span>
-          <span>ACTIVITY & DIAGNOSTICS LOG</span>
+          <i class="ph-bold ph-terminal-window terminal-icon"></i>
+          <span>ACTIVITY &amp; DIAGNOSTICS</span>
         </div>
         <div class="log-header-actions">
           <button class="log-action-btn copy" id="copyLogsBtn" title="Copy all logs and diagnostics to clipboard">
-            📋 Copy Logs
+            <i class="ph-bold ph-copy-simple"></i> Copy Logs
           </button>
           <button class="log-action-btn clear" id="clearLogsBtn" title="Clear logs">
             Clear
@@ -115,7 +123,8 @@
       </div>
       <div class="log-footer">
         <button class="btn btn-copy-report" id="copyReportBtn" title="Copy full diagnostics & logs to share with developer">
-          📋 COPY FULL DIAGNOSTIC REPORT
+          <i class="ph-bold ph-clipboard-text btn-icon"></i>
+          <span>COPY FULL DIAGNOSTIC REPORT</span>
         </button>
       </div>
     </section>
@@ -123,30 +132,37 @@
     <!-- Scoped Usage Policy -->
     <section class="policy-notice">
       <div class="policy-header">
-        <span class="shield-icon">🛡️</span>
+        <i class="ph-bold ph-shield-check shield-icon"></i>
         <span>Personal Music Stream Scope</span>
       </div>
       <p class="policy-text">
-        Restricted to personal stream playback & music discovery in ViveStream-Next.
-        Bulk scraping, archiving, and mass extraction are prohibited.
+        Restricted to personal stream playback &amp; music discovery in ViveStream-Next.
+        Bulk scraping and automated mass extraction are prohibited.
       </p>
     </section>
 
     <!-- Help Accordion -->
     <details class="help-details">
       <summary class="help-summary">
-        <span>Quick Setup Guide</span>
-        <span class="caret">▼</span>
+        <span class="help-summary-title">
+          <i class="ph-bold ph-question"></i>
+          <span>Quick Setup Guide</span>
+        </span>
+        <i class="ph-bold ph-caret-down caret-icon"></i>
       </summary>
       <div class="help-content">
         <ol>
-          <li>Play any YouTube video in your browser.</li>
-          <li>Click <strong>Scan Active YouTube Tab</strong> or copy token once captured.</li>
-          <li>In ViveStream, go to <strong>Settings &rarr; YouTube PO Token</strong> and paste it.</li>
-          <li>Or simply click <strong>Sync To App</strong> to push directly via loopback port 1422.</li>
+          <li>Play any YouTube video in your browser tab.</li>
+          <li>Click <strong>SCAN TAB</strong> or <strong>MINT TOKEN</strong> to acquire a token.</li>
+          <li>Click <strong>SYNC TO APP</strong> to send it to ViveStream on port 1422.</li>
+          <li>Or click <strong>COPY PO TOKEN</strong> and paste into <strong>Settings &rarr; YouTube PO Token</strong>.</li>
         </ol>
       </div>
     </details>
+
+    <footer class="popup-footer">
+      <span>ViveStream-Next Companion &bull; Offline Ready</span>
+    </footer>
   </div>
 
   <script src="popup.js"></script>
