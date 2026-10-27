@@ -360,13 +360,32 @@ jobs:
             src-tauri/target/release/bundle/deb/*.deb
             *.pkg.tar.zst
 
+      - name: Build & Upload Custom Windows Installer (.exe)
+        if: contains(matrix.os, 'windows')
+        shell: bash
+        run: |
+          cd installer && bun install && cd ..
+          bun ./scripts/build-packages.js --exe
+          SETUP_EXE="pkg/vivestream-next_${{ needs.prepare.outputs.app_version }}_x64-setup.exe"
+          if [ -f "$SETUP_EXE" ]; then
+            echo "Uploading custom installer: $SETUP_EXE"
+            gh release upload "${{ needs.prepare.outputs.tag_name }}" "$SETUP_EXE" --clobber
+          else
+            echo "::error::Custom setup executable not found at $SETUP_EXE"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Attest Build Provenance (Windows)
         if: contains(matrix.os, 'windows')
         uses: actions/attest-build-provenance@v2
         continue-on-error: true
         timeout-minutes: 5
         with:
-          subject-path: "src-tauri/target/release/bundle/nsis/*.exe"
+          subject-path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            pkg/*.exe
 
   # ============================================================================
   # STAGE 3: PUBLISH RELEASE (Undrafts when all matrix builds succeed)
