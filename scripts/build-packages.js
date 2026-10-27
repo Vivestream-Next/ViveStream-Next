@@ -28,11 +28,12 @@ let buildArch =
   flags.has("--linux") ||
   flags.has("--all");
 let buildRpm = flags.has("--rpm") || flags.has("--linux") || flags.has("--all");
+let buildNsis = flags.has("--nsis");
 let buildExe =
   flags.has("--exe") ||
-  flags.has("--nsis") ||
   flags.has("--win") ||
   flags.has("--windows") ||
+  flags.has("--installer") ||
   flags.has("--all");
 let buildMsi =
   flags.has("--msi") ||
@@ -236,9 +237,62 @@ if (buildRpm) {
   }
 }
 
-// 5. Build Windows NSIS Setup (.exe)
+// 5. Build Windows Custom Immersive Setup Installer (.exe)
 if (buildExe) {
-  console.log("\n📦 Building Windows NSIS Setup (.exe)...");
+  console.log("\n📦 Building Windows Immersive Setup Installer (.exe)...");
+  try {
+    const mainExePath = path.join(
+      rootDir,
+      "src-tauri",
+      "target",
+      "release",
+      "vivestream-next.exe",
+    );
+    if (!fs.existsSync(mainExePath)) {
+      console.log("⚡ Building main application release binary...");
+      runCmd("bun run build");
+      runCmd("cargo build --release --manifest-path src-tauri/Cargo.toml");
+    }
+
+    // Compress application into installer payload
+    console.log("⚡ Packaging application payload for installer...");
+    const payloadZip = path.join(
+      rootDir,
+      "installer",
+      "src-tauri",
+      "app_payload.zip",
+    );
+    if (process.platform === "win32") {
+      runCmd(
+        `powershell -NoProfile -Command "Compress-Archive -Path '${mainExePath}' -DestinationPath '${payloadZip}' -Force"`,
+      );
+    } else {
+      runCmd(`zip -j -9 "${payloadZip}" "${mainExePath}"`);
+    }
+
+    // Build installer frontend and release binary with baked-in assets
+    console.log("⚡ Compiling custom installer frontend & binary...");
+    const installerDir = path.join(rootDir, "installer");
+    runCmd("bun tauri build --no-bundle", installerDir);
+
+    const installerExe = path.join(
+      installerDir,
+      "src-tauri",
+      "target",
+      "release",
+      "vivestream-next-setup.exe",
+    );
+    const exeName = `vivestream-next_${version}_x64-setup.exe`;
+    const res = copyArtifact(installerExe, exeName);
+    if (res) results.push(res);
+  } catch (e) {
+    console.error("❌ Error building Windows custom installer:", e.message);
+  }
+}
+
+// 5b. Build Legacy Windows NSIS Setup (.exe) if specifically requested
+if (buildNsis) {
+  console.log("\n📦 Building Legacy Windows NSIS Setup (.exe)...");
   try {
     runCmd("bun tauri build --bundles nsis");
     const nsisDir = path.join(
@@ -251,12 +305,12 @@ if (buildExe) {
     );
     const exeFiles = fs.readdirSync(nsisDir).filter((f) => f.endsWith(".exe"));
     if (exeFiles.length > 0) {
-      const exeName = `vivestream-next_${version}_x64-setup.exe`;
+      const exeName = `vivestream-next_${version}_x64-nsis.exe`;
       const res = copyArtifact(path.join(nsisDir, exeFiles[0]), exeName);
       if (res) results.push(res);
     }
   } catch (e) {
-    console.error("❌ Error building Windows NSIS installer:", e.message);
+    console.error("❌ Error building Legacy NSIS installer:", e.message);
   }
 }
 
