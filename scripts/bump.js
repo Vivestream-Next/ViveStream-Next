@@ -13,6 +13,9 @@ const files = {
   packageJson: path.join(rootDir, "package.json"),
   cargoToml: path.join(rootDir, "src-tauri", "Cargo.toml"),
   tauriConf: path.join(rootDir, "src-tauri", "tauri.conf.json"),
+  installerPackageJson: path.join(rootDir, "installer", "package.json"),
+  installerCargoToml: path.join(rootDir, "installer", "src-tauri", "Cargo.toml"),
+  installerTauriConf: path.join(rootDir, "installer", "src-tauri", "tauri.conf.json"),
 };
 
 function getCurrentVersion() {
@@ -58,7 +61,7 @@ function updateFiles(newVersion) {
   // 1. VERSION
   fs.writeFileSync(files.versionFile, `${newVersion}\n`, "utf-8");
 
-  // 2. package.json
+  // 2. Main package.json
   const pkg = JSON.parse(fs.readFileSync(files.packageJson, "utf-8"));
   pkg.version = newVersion;
   fs.writeFileSync(
@@ -67,7 +70,7 @@ function updateFiles(newVersion) {
     "utf-8",
   );
 
-  // 3. Cargo.toml
+  // 3. Main Cargo.toml
   let cargo = fs.readFileSync(files.cargoToml, "utf-8");
   cargo = cargo.replace(
     /(\[package\][\s\S]*?version\s*=\s*)"[^"]+"/,
@@ -75,7 +78,7 @@ function updateFiles(newVersion) {
   );
   fs.writeFileSync(files.cargoToml, cargo, "utf-8");
 
-  // 4. tauri.conf.json
+  // 4. Main tauri.conf.json
   const tauri = JSON.parse(fs.readFileSync(files.tauriConf, "utf-8"));
   tauri.version = newVersion;
   fs.writeFileSync(
@@ -83,6 +86,38 @@ function updateFiles(newVersion) {
     JSON.stringify(tauri, null, 2) + "\n",
     "utf-8",
   );
+
+  // 5. Installer package.json
+  if (fs.existsSync(files.installerPackageJson)) {
+    const instPkg = JSON.parse(fs.readFileSync(files.installerPackageJson, "utf-8"));
+    instPkg.version = newVersion;
+    fs.writeFileSync(
+      files.installerPackageJson,
+      JSON.stringify(instPkg, null, 2) + "\n",
+      "utf-8",
+    );
+  }
+
+  // 6. Installer Cargo.toml
+  if (fs.existsSync(files.installerCargoToml)) {
+    let instCargo = fs.readFileSync(files.installerCargoToml, "utf-8");
+    instCargo = instCargo.replace(
+      /(\[package\][\s\S]*?version\s*=\s*)"[^"]+"/,
+      `$1"${newVersion}"`,
+    );
+    fs.writeFileSync(files.installerCargoToml, instCargo, "utf-8");
+  }
+
+  // 7. Installer tauri.conf.json
+  if (fs.existsSync(files.installerTauriConf)) {
+    const instTauri = JSON.parse(fs.readFileSync(files.installerTauriConf, "utf-8"));
+    instTauri.version = newVersion;
+    fs.writeFileSync(
+      files.installerTauriConf,
+      JSON.stringify(instTauri, null, 2) + "\n",
+      "utf-8",
+    );
+  }
 }
 
 function main() {
@@ -106,8 +141,11 @@ function main() {
   console.log("✔ Updated package.json");
   console.log("✔ Updated src-tauri/Cargo.toml");
   console.log("✔ Updated src-tauri/tauri.conf.json");
+  console.log("✔ Updated installer/package.json");
+  console.log("✔ Updated installer/src-tauri/Cargo.toml");
+  console.log("✔ Updated installer/src-tauri/tauri.conf.json");
 
-  // Synchronize Cargo.lock
+  // Synchronize Cargo.locks
   try {
     execSync("cargo check", {
       cwd: path.join(rootDir, "src-tauri"),
@@ -118,11 +156,21 @@ function main() {
     // If cargo is unavailable, continue
   }
 
+  try {
+    execSync("cargo check", {
+      cwd: path.join(rootDir, "installer", "src-tauri"),
+      stdio: "ignore",
+    });
+    console.log("✔ Updated installer/src-tauri/Cargo.lock");
+  } catch {
+    // If cargo is unavailable, continue
+  }
+
   if (shouldGitCommit) {
     try {
       console.log("\n📦 Creating Git commit...");
       execSync(
-        `git add VERSION package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json`,
+        `git add VERSION package.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json installer/package.json installer/src-tauri/Cargo.toml installer/src-tauri/Cargo.lock installer/src-tauri/tauri.conf.json`,
         {
           cwd: rootDir,
           stdio: "inherit",
