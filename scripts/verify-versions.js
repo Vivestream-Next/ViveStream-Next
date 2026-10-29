@@ -12,6 +12,9 @@ const files = {
   packageJson: path.join(rootDir, "package.json"),
   cargoToml: path.join(rootDir, "src-tauri", "Cargo.toml"),
   tauriConf: path.join(rootDir, "src-tauri", "tauri.conf.json"),
+  installerPackageJson: path.join(rootDir, "installer", "package.json"),
+  installerCargoToml: path.join(rootDir, "installer", "src-tauri", "Cargo.toml"),
+  installerTauriConf: path.join(rootDir, "installer", "src-tauri", "tauri.conf.json"),
 };
 
 function readVersion() {
@@ -21,42 +24,51 @@ function readVersion() {
   return fs.readFileSync(files.versionFile, "utf-8").trim();
 }
 
-function readPackageJsonVersion() {
-  const data = JSON.parse(fs.readFileSync(files.packageJson, "utf-8"));
+function readPackageJsonVersion(filePath) {
+  const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   return data.version;
 }
 
-function readCargoTomlVersion() {
-  const content = fs.readFileSync(files.cargoToml, "utf-8");
+function readCargoTomlVersion(filePath) {
+  const content = fs.readFileSync(filePath, "utf-8");
   const match = content.match(/\[package\][\s\S]*?version\s*=\s*"([^"]+)"/);
   if (!match) {
-    throw new Error(`Could not find version in ${files.cargoToml}`);
+    throw new Error(`Could not find version in ${filePath}`);
   }
   return match[1];
 }
 
-function readTauriConfVersion() {
-  const data = JSON.parse(fs.readFileSync(files.tauriConf, "utf-8"));
+function readTauriConfVersion(filePath) {
+  const data = JSON.parse(fs.readFileSync(filePath, "utf-8"));
   return data.version;
 }
 
 function verifyVersions() {
   const v_version = readVersion();
-  const v_pkg = readPackageJsonVersion();
-  const v_cargo = readCargoTomlVersion();
-  const v_tauri = readTauriConfVersion();
+  const v_pkg = readPackageJsonVersion(files.packageJson);
+  const v_cargo = readCargoTomlVersion(files.cargoToml);
+  const v_tauri = readTauriConfVersion(files.tauriConf);
+  const v_inst_pkg = readPackageJsonVersion(files.installerPackageJson);
+  const v_inst_cargo = readCargoTomlVersion(files.installerCargoToml);
+  const v_inst_tauri = readTauriConfVersion(files.installerTauriConf);
 
   console.log("🔍 Checking ViveStream project version synchronization...");
-  console.log(`  - VERSION:               ${v_version}`);
-  console.log(`  - package.json:          ${v_pkg}`);
-  console.log(`  - src-tauri/Cargo.toml:  ${v_cargo}`);
-  console.log(`  - src-tauri/tauri.conf:  ${v_tauri}`);
+  console.log(`  - VERSION:                      ${v_version}`);
+  console.log(`  - package.json:                 ${v_pkg}`);
+  console.log(`  - src-tauri/Cargo.toml:         ${v_cargo}`);
+  console.log(`  - src-tauri/tauri.conf:         ${v_tauri}`);
+  console.log(`  - installer/package.json:        ${v_inst_pkg}`);
+  console.log(`  - installer/src-tauri/Cargo:    ${v_inst_cargo}`);
+  console.log(`  - installer/src-tauri/tauri:    ${v_inst_tauri}`);
 
   const versions = [
     { name: "VERSION", ver: v_version },
     { name: "package.json", ver: v_pkg },
     { name: "src-tauri/Cargo.toml", ver: v_cargo },
     { name: "src-tauri/tauri.conf.json", ver: v_tauri },
+    { name: "installer/package.json", ver: v_inst_pkg },
+    { name: "installer/src-tauri/Cargo.toml", ver: v_inst_cargo },
+    { name: "installer/src-tauri/tauri.conf.json", ver: v_inst_tauri },
   ];
 
   const mismatches = versions.filter((f) => f.ver !== v_version);
