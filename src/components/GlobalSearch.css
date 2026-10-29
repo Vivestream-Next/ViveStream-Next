@@ -14,7 +14,6 @@
 .floating-search-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
   z-index: 9400;
   animation: searchBackdropFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
@@ -23,6 +22,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -173,6 +173,7 @@
     opacity: 0;
     transform: translateY(-6px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -205,6 +206,7 @@
     opacity: 0;
     transform: translate(-50%, -10px);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, 0);
@@ -567,10 +569,12 @@
     box-shadow: 0 0 0 0 rgba(var(--primary-accent-rgb), 0.6);
     border-color: var(--primary-accent);
   }
+
   50% {
     box-shadow: 0 0 0 6px rgba(var(--primary-accent-rgb), 0);
     border-color: var(--primary-accent);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(var(--primary-accent-rgb), 0);
   }
