@@ -69,6 +69,9 @@ function copyArtifact(srcPath, destName) {
     console.warn(`⚠️ Warning: Source artifact not found at ${srcPath}`);
     return null;
   }
+    if (!fs.existsSync(pkgDir)) {
+    fs.mkdirSync(pkgDir, { recursive: true });
+  }
   const destPath = path.join(pkgDir, destName);
   fs.copyFileSync(srcPath, destPath);
   const stats = fs.statSync(destPath);
@@ -248,11 +251,8 @@ if (buildExe) {
       "release",
       "vivestream-next.exe",
     );
-    if (!fs.existsSync(mainExePath)) {
-      console.log("⚡ Building main application release binary...");
-      runCmd("bun run build");
-      runCmd("cargo build --release --manifest-path src-tauri/Cargo.toml");
-    }
+    console.log("⚡ Building main application release binary...");
+    runCmd("bun tauri build --no-bundle");
 
     // Compress application into installer payload
     console.log("⚡ Packaging application payload for installer...");
