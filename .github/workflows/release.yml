@@ -291,6 +291,7 @@ jobs:
         run: bun install
 
       - name: Build Tauri Bundle
+        if: contains(matrix.os, 'ubuntu') || contains(matrix.os, 'linux')
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -369,6 +370,7 @@ jobs:
           SETUP_EXE="pkg/vivestream-next_${{ needs.prepare.outputs.app_version }}_x64-setup.exe"
           if [ -f "$SETUP_EXE" ]; then
             echo "Uploading custom installer: $SETUP_EXE"
+            gh release delete-asset "${{ needs.prepare.outputs.tag_name }}" "vivestream-next_${{ needs.prepare.outputs.app_version }}_x64-setup.exe" --yes 2>/dev/null || true
             gh release upload "${{ needs.prepare.outputs.tag_name }}" "$SETUP_EXE" --clobber
           else
             echo "::error::Custom setup executable not found at $SETUP_EXE"
@@ -384,7 +386,6 @@ jobs:
         timeout-minutes: 5
         with:
           subject-path: |
-            src-tauri/target/release/bundle/nsis/*.exe
             pkg/*.exe
 
   # ============================================================================
