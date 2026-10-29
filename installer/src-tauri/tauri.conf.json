@@ -13,9 +13,9 @@
     "windows": [
       {
         "label": "main",
-        "title": "ViveStream Next Setup",
-        "width": 680,
-        "height": 440,
+        "title": "ViveStream Setup",
+        "width": 860,
+        "height": 520,
         "resizable": false,
         "decorations": false,
         "transparent": false,
