@@ -94,9 +94,11 @@ async fn start_installation(
 
 #[tauri::command]
 fn launch_installed_app(install_path: String) -> Result<(), String> {
-    let exe = PathBuf::from(install_path).join("vivestream-next.exe");
+    let install_dir = PathBuf::from(&install_path);
+    let exe = install_dir.join("vivestream-next.exe");
     if exe.exists() {
         let mut cmd = std::process::Command::new(exe);
+        cmd.current_dir(&install_dir);
         #[cfg(target_os = "windows")]
         {
             use std::os::windows::process::CommandExt;
