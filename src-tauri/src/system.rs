@@ -113,7 +113,39 @@ pub fn auto_migrate_legacy_data(app: &AppHandle) {
     let _ = fs::remove_dir(&legacy_dir);
 }
 
-/// Reliably deletes a file with retries and clearing readonly flags on Windows
+/// Kills any child or engine background processes (FFmpeg, yt-dlp, Deno, Whisper)
+/// to ensure they release open file descriptors before destructive deletion.
+pub fn kill_child_engines(_app: &AppHandle) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let engines = [
+            "ffmpeg.exe",
+            "ffprobe.exe",
+            "yt-dlp.exe",
+            "deno.exe",
+            "vivestream-whisper.exe",
+        ];
+        for engine in &engines {
+            let mut cmd = std::process::Command::new("taskkill");
+            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+            let _ = cmd.args(["/F", "/IM", engine, "/T"]).output();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        let engines = ["ffmpeg", "ffprobe", "yt-dlp", "deno", "vivestream-whisper"];
+        for engine in &engines {
+            let _ = std::process::Command::new("pkill")
+                .args(["-9", "-f", engine])
+                .output();
+        }
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+}
+
+/// Reliably deletes a file with retries, clearing readonly/system flags, and shell fallback on Windows
 pub fn safe_remove_file(path: &std::path::Path) -> bool {
     if !path.exists() {
         return true;
@@ -128,15 +160,46 @@ pub fn safe_remove_file(path: &std::path::Path) -> bool {
             }
         }
     }
-    for attempt in 0..5 {
-        if fs::remove_file(path).is_ok() {
+    for attempt in 0..6 {
+        if fs::remove_file(path).is_ok() || !path.exists() {
             return true;
         }
-        if attempt < 4 {
-            std::thread::sleep(std::time::Duration::from_millis(100));
+        if attempt < 5 {
+            std::thread::sleep(std::time::Duration::from_millis(80 * (attempt + 1) as u64));
         }
     }
-    false
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let path_str = path.to_string_lossy().to_string();
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        let _ = cmd.args(["/C", "del", "/f", "/q", "/a", &path_str]).output();
+    }
+    !path.exists()
+}
+
+/// Reliably removes a directory and all of its contents
+pub fn safe_remove_dir_all(dir: &std::path::Path) -> bool {
+    if !dir.exists() {
+        return true;
+    }
+    clean_directory_contents(dir);
+    for _ in 0..5 {
+        if fs::remove_dir_all(dir).is_ok() || !dir.exists() {
+            return true;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let dir_str = dir.to_string_lossy().to_string();
+        let mut cmd = std::process::Command::new("cmd");
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        let _ = cmd.args(["/C", "rmdir", "/s", "/q", &dir_str]).output();
+    }
+    !dir.exists()
 }
 
 /// Recursively empties all files and subdirectories from a directory.
@@ -158,16 +221,31 @@ pub fn clean_directory_contents(dir: &std::path::Path) -> usize {
             }
         }
     }
+    #[cfg(target_os = "windows")]
+    {
+        // Double check if any stubbornly locked files remain, force delete with cmd
+        if let Ok(mut remaining) = fs::read_dir(dir) {
+            if remaining.next().is_some() {
+                use std::os::windows::process::CommandExt;
+                let dir_str = dir.to_string_lossy().to_string();
+                let mut cmd = std::process::Command::new("cmd");
+                cmd.creation_flags(0x08000000);
+                let _ = cmd
+                    .args(["/C", "del", "/f", "/s", "/q", "/a", &format!(r"{}\*", dir_str)])
+                    .output();
+            }
+        }
+    }
     count
 }
 
 #[tauri::command]
 pub async fn wipe_dependencies(app: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
+        kill_child_engines(&app);
         let bin_dir = get_bin_dir(&app)?;
         if bin_dir.exists() {
-            clean_directory_contents(&bin_dir);
-            let _ = fs::remove_dir_all(&bin_dir);
+            safe_remove_dir_all(&bin_dir);
         }
         Ok(())
     })
@@ -178,6 +256,8 @@ pub async fn wipe_dependencies(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn clean_database_and_media(app: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
+        kill_child_engines(&app);
+
         if let Ok(conn) = get_db_connection(&app) {
             let _ = conn.execute_batch(
                 "DELETE FROM Playlist_Videos; DELETE FROM Playlists; DELETE FROM Videos; DELETE FROM Artists; DELETE FROM DownloadHistory;",
@@ -186,11 +266,19 @@ pub async fn clean_database_and_media(app: AppHandle) -> Result<(), String> {
 
         let base_dir = get_base_dir(&app)?;
         if base_dir.exists() {
-            let folders = ["Videos", "Thumbnails", "Descriptions", "Avatars", "Lyrics"];
+            let folders = ["Videos", "Thumbnails", "Descriptions", "Avatars", "Lyrics", "AI"];
             for folder in &folders {
                 let target = base_dir.join(folder);
                 clean_directory_contents(&target);
                 let _ = fs::create_dir_all(&target);
+            }
+            if let Ok(entries) = fs::read_dir(&base_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        safe_remove_file(&path);
+                    }
+                }
             }
         }
         Ok(())
@@ -202,23 +290,35 @@ pub async fn clean_database_and_media(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn nuclear_wipe(app: AppHandle) -> Result<(), String> {
     tokio::task::spawn_blocking(move || {
-        let bin_dir = get_bin_dir(&app)?;
-        if bin_dir.exists() {
-            clean_directory_contents(&bin_dir);
-            let _ = fs::remove_dir_all(&bin_dir);
-        }
+        kill_child_engines(&app);
 
         if let Ok(conn) = get_db_connection(&app) {
             let _ = conn.execute_batch(
                 "DELETE FROM Playlist_Videos; DELETE FROM Playlists; DELETE FROM Videos; DELETE FROM Artists; DELETE FROM DownloadHistory;",
             );
+            drop(conn);
+        }
+
+        if let Ok(config_dir) = app.path().app_config_dir() {
+            if config_dir.exists() {
+                safe_remove_file(&config_dir.join("ViveStream-Next.db"));
+                safe_remove_file(&config_dir.join("ViveStream-Next.db-wal"));
+                safe_remove_file(&config_dir.join("ViveStream-Next.db-shm"));
+                safe_remove_file(&config_dir.join("po_token.json"));
+            }
+        }
+
+        if let Ok(bin_dir) = get_bin_dir(&app) {
+            if bin_dir.exists() {
+                safe_remove_dir_all(&bin_dir);
+            }
         }
 
         let base_dir = get_base_dir(&app)?;
         if base_dir.exists() {
-            clean_directory_contents(&base_dir);
-            let _ = fs::remove_dir_all(&base_dir);
+            safe_remove_dir_all(&base_dir);
         }
+
         Ok(())
     })
     .await
