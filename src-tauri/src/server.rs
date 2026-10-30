@@ -139,6 +139,44 @@ pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
             }
         });
 
+    // Video format fallback resolver: If a specific extension was requested (like .mp4)
+    // but the file on disk is an audio stream (.m4a, .webm, .opus), redirect to the real file.
+    let base_dir_for_video = base_dir.clone();
+    let video_redirect_route = warp::path("Videos")
+        .and(warp::path::param::<String>())
+        .and(warp::any().map(move || base_dir_for_video.clone()))
+        .and_then(|filename: String, base: PathBuf| async move {
+            let vid_dir = base.join("Videos");
+            let target_file = vid_dir.join(&filename);
+
+            if target_file.exists() {
+                // Let static_files handle existing files directly
+                return Err(warp::reject::not_found());
+            }
+
+            let stem = std::path::Path::new(&filename)
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+
+            if stem.is_empty() {
+                return Err(warp::reject::not_found());
+            }
+
+            for cand_ext in &["m4a", "webm", "mp4", "mkv", "opus", "mp3", "ogg", "wav"] {
+                let cand_file = vid_dir.join(format!("{}.{}", stem, cand_ext));
+                if cand_file.exists() {
+                    let redirect_uri = format!("/Videos/{}.{}", stem, cand_ext);
+                    if let Ok(uri) = redirect_uri.parse::<warp::http::Uri>() {
+                        return Ok::<_, warp::Rejection>(warp::redirect::temporary(uri));
+                    }
+                }
+            }
+
+            Err(warp::reject::not_found())
+        });
+
     let static_files = warp::fs::dir(base_dir)
         .with(warp::reply::with::header(
             "Cache-Control",
@@ -146,7 +184,11 @@ pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
         ))
         .with(warp::reply::with::header("Accept-Ranges", "bytes"));
 
-    let routes = po_token_route.or(thumbnail_route).or(static_files).with(cors);
+    let routes = po_token_route
+        .or(thumbnail_route)
+        .or(video_redirect_route)
+        .or(static_files)
+        .with(cors);
 
     // Bind to the exact port requested by the frontend
     warp::serve(routes).run(([127, 0, 0, 1], 1422)).await;
