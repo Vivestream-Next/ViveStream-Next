@@ -1549,13 +1549,18 @@ pub async fn reindex_library(app: AppHandle, player_client: String) -> Result<St
 
     let mut physical_ids = std::collections::HashSet::new();
 
+    let supported_media_exts = ["mp4", "m4a", "webm", "mkv", "opus", "mp3", "ogg", "wav"];
     if let Ok(entries) = fs::read_dir(&vid_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() && path.extension().map_or(false, |ext| ext == "mp4") {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    if !stem.starts_with("raw_") {
-                        physical_ids.insert(stem.to_string());
+            if path.is_file() {
+                if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+                    if supported_media_exts.contains(&ext.to_lowercase().as_str()) {
+                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                            if !stem.starts_with("raw_") {
+                                physical_ids.insert(stem.to_string());
+                            }
+                        }
                     }
                 }
             }
