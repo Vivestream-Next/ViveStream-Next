@@ -556,6 +556,15 @@ pub async fn delete_video(app: AppHandle, video_id: String) -> Result<(), String
         let base_dir = get_base_dir(&app)?;
         let mut conn = get_db_connection(&app)?;
 
+        // Query channel_name prior to deletion to check if artist avatar should be cleaned
+        let channel_name: Option<String> = conn
+            .query_row(
+                "SELECT channel_name FROM Videos WHERE id = ?1",
+                [&video_id],
+                |row| row.get(0),
+            )
+            .ok();
+
         let tx = conn.transaction().map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM Playlist_Videos WHERE video_id = ?1", [&video_id]).map_err(|e| e.to_string())?;
         tx.execute("DELETE FROM Videos WHERE id = ?1", [&video_id]).map_err(|e| e.to_string())?;
@@ -566,15 +575,15 @@ pub async fn delete_video(app: AppHandle, video_id: String) -> Result<(), String
         let thumb_dir = base_dir.join("Thumbnails");
         let desc_dir = base_dir.join("Descriptions");
         let lyrics_dir = base_dir.join("Lyrics");
+        let av_dir = base_dir.join("Avatars");
 
-        // Media files
-        let exts = ["mp4", "m4a", "webm", "mkv", "vtt"];
+        // 1. Media files in Videos folder
+        let exts = ["mp4", "m4a", "webm", "mkv", "opus", "mp3", "ogg", "wav", "vtt", "part", "ytdl"];
         for ext in &exts {
             crate::system::safe_remove_file(&vid_dir.join(format!("{}.{}", video_id, ext)));
             crate::system::safe_remove_file(&vid_dir.join(format!("raw_{}.{}", video_id, ext)));
         }
 
-        // Clean any partial or remaining files matching video_id in Videos
         if let Ok(entries) = std::fs::read_dir(&vid_dir) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();
@@ -584,18 +593,58 @@ pub async fn delete_video(app: AppHandle, video_id: String) -> Result<(), String
             }
         }
 
-        // Thumbnails
+        // 2. Thumbnails
         crate::system::safe_remove_file(&thumb_dir.join(format!("{}.jpg", video_id)));
         crate::system::safe_remove_file(&thumb_dir.join(format!("{}_lq.jpg", video_id)));
         crate::system::safe_remove_file(&thumb_dir.join(format!("raw_{}.jpg", video_id)));
+        if let Ok(entries) = std::fs::read_dir(&thumb_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.contains(&video_id) {
+                    crate::system::safe_remove_file(&entry.path());
+                }
+            }
+        }
 
-        // Description
+        // 3. Descriptions
         crate::system::safe_remove_file(&desc_dir.join(format!("{}.txt", video_id)));
+        if let Ok(entries) = std::fs::read_dir(&desc_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.contains(&video_id) {
+                    crate::system::safe_remove_file(&entry.path());
+                }
+            }
+        }
 
-        // Lyrics
+        // 4. Lyrics and subtitles
         let lyric_exts = ["lrc", "enhanced.lrc", "srt", "vtt", "json"];
         for ext in &lyric_exts {
             crate::system::safe_remove_file(&lyrics_dir.join(format!("{}.{}", video_id, ext)));
+        }
+        if let Ok(entries) = std::fs::read_dir(&lyrics_dir) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.contains(&video_id) {
+                    crate::system::safe_remove_file(&entry.path());
+                }
+            }
+        }
+
+        // 5. Clean up artist avatar if artist was removed
+        if let Some(channel) = channel_name {
+            let artist_exists: bool = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM Artists WHERE name = ?1",
+                    [&channel],
+                    |row| row.get::<_, i64>(0),
+                )
+                .map(|c| c > 0)
+                .unwrap_or(false);
+
+            if !artist_exists {
+                crate::system::safe_remove_file(&av_dir.join(format!("{}.jpg", channel)));
+            }
         }
 
         Ok(())
