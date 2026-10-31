@@ -3,7 +3,52 @@
 mod install;
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri::{AppHandle, Emitter};
+
+static IS_UNINSTALL_MODE: AtomicBool = AtomicBool::new(false);
+static IS_TEMP_UNINSTALLER: AtomicBool = AtomicBool::new(false);
+static CUSTOM_INSTALL_DIR: Mutex<Option<String>> = Mutex::new(None);
+
+#[tauri::command]
+fn get_app_mode() -> String {
+    if IS_UNINSTALL_MODE.load(Ordering::SeqCst) {
+        "uninstall".to_string()
+    } else {
+        "install".to_string()
+    }
+}
+
+#[tauri::command]
+fn get_uninstall_info() -> install::UninstallInfo {
+    let custom_dir = CUSTOM_INSTALL_DIR.lock().unwrap().clone();
+    install::get_uninstall_info(custom_dir)
+}
+
+#[tauri::command]
+async fn start_uninstallation(app: AppHandle, delete_app_data: bool) -> Result<(), String> {
+    let custom_dir = CUSTOM_INSTALL_DIR.lock().unwrap().clone();
+    install::execute_uninstallation(&app, delete_app_data, custom_dir).await
+}
+
+#[tauri::command]
+fn close_uninstaller(window: tauri::Window) {
+    if IS_TEMP_UNINSTALLER.load(Ordering::SeqCst) {
+        if let Ok(current_exe) = std::env::current_exe() {
+            let exe_str = current_exe.to_string_lossy().to_string();
+            let script = format!("timeout /t 1 /nobreak > NUL & del /f /q \"{}\"", exe_str);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                let mut cmd = std::process::Command::new("cmd");
+                cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+                let _ = cmd.args(["/C", &script]).spawn();
+            }
+        }
+    }
+    let _ = window.close();
+}
 
 #[tauri::command]
 fn get_default_install_path() -> String {
@@ -120,15 +165,65 @@ fn minimize_installer(window: tauri::Window) {
 }
 
 fn main() {
-    // If launched with --uninstall, perform cleanup and exit without launching GUI
     let args: Vec<String> = std::env::args().collect();
-    if args.iter().any(|arg| arg == "--uninstall") {
-        let _ = install::perform_uninstall();
-        return;
+    let current_exe = std::env::current_exe().unwrap_or_default();
+    let exe_name = current_exe
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .to_lowercase();
+
+    let is_uninstall = exe_name.contains("uninstall") || args.iter().any(|arg| arg == "--uninstall");
+    let is_temp = args.iter().any(|arg| arg == "--temp-uninstaller");
+
+    // Check if custom install dir was passed
+    for i in 0..args.len() {
+        if args[i] == "--install-dir" && i + 1 < args.len() {
+            *CUSTOM_INSTALL_DIR.lock().unwrap() = Some(args[i + 1].clone());
+        }
+    }
+
+    if is_uninstall {
+        IS_UNINSTALL_MODE.store(true, Ordering::SeqCst);
+
+        // If not running from temp, copy self to TEMP and relaunch so the installed directory is completely unlocked
+        if !is_temp {
+            let temp_dir = std::env::temp_dir();
+            let temp_uninstaller = temp_dir.join("vivestream-uninstaller.exe");
+            let install_dir = current_exe
+                .parent()
+                .unwrap_or(&current_exe)
+                .to_string_lossy()
+                .to_string();
+
+            if std::fs::copy(&current_exe, &temp_uninstaller).is_ok() {
+                let mut cmd = std::process::Command::new(&temp_uninstaller);
+                cmd.args([
+                    "--uninstall",
+                    "--temp-uninstaller",
+                    "--install-dir",
+                    &install_dir,
+                ]);
+                #[cfg(target_os = "windows")]
+                {
+                    use std::os::windows::process::CommandExt;
+                    cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+                }
+                if cmd.spawn().is_ok() {
+                    return; // Exit original process immediately
+                }
+            }
+        } else {
+            IS_TEMP_UNINSTALLER.store(true, Ordering::SeqCst);
+        }
     }
 
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
+            get_app_mode,
+            get_uninstall_info,
+            start_uninstallation,
+            close_uninstaller,
             get_default_install_path,
             select_folder,
             start_installation,
