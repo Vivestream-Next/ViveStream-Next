@@ -1,3 +1,9 @@
+import {
+  applyMaterialTheme,
+  resolveSeedColor,
+  generateMaterialPalette,
+  type MaterialTonalPalette,
+} from "./utils/themeEngine";
 import { createSignal, createRoot } from "solid-js";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -41,6 +47,7 @@ const initialAnimState = getBool("useAnimatedIcons", true);
 const initialHoverState = getBool("sidebarHoverMode", true);
 const initialTheme = getStr("appTheme", "dark");
 const initialPalette = getStr("appPalette", "sunset");
+const initialCustomColor = getStr("customAccentColor", "#f25c54");
 const initialStyle =
   (getStr("designStyle", "neo-brutalism") as
     "neo-brutalism" | "claymorphism") || "neo-brutalism";
@@ -49,6 +56,8 @@ if (isBrowser) {
   document.documentElement.setAttribute("data-theme", initialTheme);
   document.documentElement.setAttribute("data-palette", initialPalette);
   document.documentElement.setAttribute("data-style", initialStyle);
+  const seed = resolveSeedColor(initialPalette, initialCustomColor);
+  applyMaterialTheme(seed, initialPalette);
 }
 
 export interface Toast {
@@ -204,6 +213,10 @@ export const {
   setAppTheme,
   appPalette,
   setAppPalette,
+  customAccentColor,
+  setCustomAccentColorState,
+  activeTonalPalette,
+  setActiveTonalPalette,
   designStyle,
   setDesignStyle,
   isAiUnlocked,
@@ -384,6 +397,10 @@ export const {
   const [globalSearchQuery, setGlobalSearchQuery] = createSignal("");
   const [appTheme, setAppTheme] = createSignal(initialTheme);
   const [appPalette, setAppPalette] = createSignal(initialPalette);
+  const [customAccentColor, setCustomAccentColorState] = createSignal(initialCustomColor);
+  const [activeTonalPalette, setActiveTonalPalette] = createSignal<MaterialTonalPalette>(
+    generateMaterialPalette(resolveSeedColor(initialPalette, initialCustomColor)),
+  );
   const [designStyle, setDesignStyle] = createSignal<
     "neo-brutalism" | "claymorphism"
   >(initialStyle);
@@ -584,6 +601,10 @@ export const {
     setAppTheme,
     appPalette,
     setAppPalette,
+    customAccentColor,
+    setCustomAccentColorState,
+    activeTonalPalette,
+    setActiveTonalPalette,
     designStyle,
     setDesignStyle,
     isAiUnlocked,
@@ -980,12 +1001,25 @@ export const toggleAppTheme = (theme: "light" | "dark") => {
   }
 };
 
-export const toggleAppPalette = (palette: string) => {
+export const toggleAppPalette = (palette: string, customHex?: string) => {
   setAppPalette(palette);
+  if (customHex) {
+    setCustomAccentColorState(customHex);
+  }
+  const seed = resolveSeedColor(palette, customHex || customAccentColor());
+  const computed = applyMaterialTheme(seed, palette);
+  setActiveTonalPalette(computed);
+
   if (isBrowser) {
     window.localStorage.setItem("appPalette", palette);
-    document.documentElement.setAttribute("data-palette", palette);
+    if (customHex) {
+      window.localStorage.setItem("customAccentColor", customHex);
+    }
   }
+};
+
+export const setCustomAccentColor = (hex: string) => {
+  toggleAppPalette("custom", hex);
 };
 
 export const toggleDesignStyle = (style: "neo-brutalism" | "claymorphism") => {
