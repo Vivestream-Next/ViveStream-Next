@@ -431,6 +431,16 @@ body, html {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
+.btn-primary.danger-btn {
+  background: linear-gradient(135deg, #e11d48 0%, #f43f5e 100%);
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.35);
+}
+
+.btn-primary.danger-btn:hover {
+  box-shadow: 0 8px 26px rgba(225, 29, 72, 0.55);
+  filter: brightness(1.06);
+}
+
 /* Installing State: Clean Minimalist Progress */
 .install-card {
   width: 100%;
