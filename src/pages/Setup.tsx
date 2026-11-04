@@ -54,7 +54,7 @@ const AnimatedLogo = () => (
     />
     <path
       d="M95 125 L250 385 L405 125"
-      stroke="#f1f1f1"
+      stroke="var(--logo-inner, #f1f1f1)"
       stroke-width="30"
       fill="none"
       stroke-linecap="round"
@@ -63,7 +63,7 @@ const AnimatedLogo = () => (
     <path
       class="animated-wave"
       d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-      stroke="#ffffff"
+      stroke="var(--logo-wave, #ffffff)"
       stroke-width="8"
       fill="none"
       stroke-linecap="round"
