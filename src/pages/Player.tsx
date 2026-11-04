@@ -1238,7 +1238,7 @@ export default function Player() {
                   setShowCCMenu(false);
                   togglePlay();
                 }}
-                src={`http://127.0.0.1:1422/Videos/${video()!.id}.mp4`}
+                src={`http://127.0.0.1:1422/Videos/${video()!.id}.${video()?.video_path ? video()!.video_path.split('.').pop() || 'mp4' : 'mp4'}`}
               >
                 <track
                   kind="captions"
