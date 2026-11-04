@@ -1,3 +1,4 @@
+import { PRESET_PALETTES } from "../utils/themeEngine";
 import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -6,6 +7,9 @@ import {
   toggleAppTheme,
   appPalette,
   toggleAppPalette,
+  customAccentColor,
+  setCustomAccentColor,
+  activeTonalPalette,
   designStyle,
   toggleDesignStyle,
   playerAmbientMode,
@@ -824,110 +828,187 @@ export default function Settings() {
 
         <div class="full-divider"></div>
 
-        {/* Color Palette (Sunset vs Crimson) */}
+        {/* Material You Dynamic Theming */}
         <div class="theme-setting-container" id="setting-appearance-palette">
           <div class="flex-row-between theme-setting-header">
             <div>
-              <h3 class="settings-title">Color Palette</h3>
+              <div class="theme-title-with-badge">
+                <h3 class="settings-title">Material You Theming</h3>
+                <span class="m3-version-badge">v4.0 Dynamic Color</span>
+              </div>
               <p class="settings-desc">
-                Select a primary color scheme and vibrant brand accents.
+                Pick any primary seed color or select a curated tonal harmony. All app buttons, surfaces, highlight accents, and the ViveStream brand logo adapt dynamically.
               </p>
+            </div>
+            <div class="theme-header-active-pill" style={{ background: "var(--primary-container)", color: "var(--primary-accent)", border: "1.5px solid var(--primary-accent)" }}>
+              <span class="theme-indicator-dot" style={{ background: "var(--primary-accent)" }}></span>
+              <span>Theme: {appPalette() === "custom" ? `Custom (${customAccentColor().toUpperCase()})` : (PRESET_PALETTES.find(p => p.id === appPalette())?.name || "Adaptive")}</span>
             </div>
           </div>
 
-          <div class="theme-side-by-side-grid">
-            {/* Sunset Palette Card */}
-            <div
-              class={`theme-preview-card palette-sunset-preview ${appPalette() === "sunset" ? "selected" : ""}`}
-              onClick={() => toggleAppPalette("sunset")}
-            >
-              <div class="theme-preview-mockup palette-sunset-mockup">
-                <div class="mockup-sidebar sunset-mock-side">
-                  <div class="mockup-bar mockup-logo sunset-mock-logo"></div>
-                  <div class="mockup-bar sunset-mock-bar"></div>
-                  <div class="mockup-bar sunset-mock-bar"></div>
-                  <div class="mockup-bar sunset-mock-bar"></div>
-                </div>
-                <div class="mockup-main">
-                  <div class="mockup-topbar sunset-mock-topbar">
-                    <div class="mockup-search sunset-mock-search"></div>
-                  </div>
-                  <div class="mockup-grid">
-                    <div class="mockup-card sunset-mock-card">
-                      <div class="mockup-card-thumb sunset-mock-thumb"></div>
-                      <div class="mockup-card-line sunset-mock-line"></div>
-                      <div class="mockup-card-line sunset-mock-line short"></div>
+          {/* Curated Presets Grid */}
+          <div class="m3-presets-grid">
+            <For each={PRESET_PALETTES}>
+              {(preset) => (
+                <div
+                  class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
+                  onClick={() => toggleAppPalette(preset.id)}
+                >
+                  <div class="theme-preview-mockup m3-mockup-wrapper">
+                    <div class="mockup-sidebar" style={{ "border-right": "2px solid #000000" }}>
+                      <div class="mockup-bar mockup-logo" style={{ background: preset.seed }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
                     </div>
-                    <div class="mockup-card sunset-mock-card">
-                      <div class="mockup-card-thumb sunset-mock-thumb"></div>
-                      <div class="mockup-card-line sunset-mock-line"></div>
-                      <div class="mockup-card-line sunset-mock-line short"></div>
+                    <div class="mockup-main">
+                      <div class="mockup-topbar">
+                        <div class="mockup-search" style={{ opacity: "0.6" }}></div>
+                      </div>
+                      <div class="mockup-grid">
+                        <div class="mockup-card">
+                          <div class="mockup-card-thumb" style={{ background: preset.seed }}></div>
+                          <div class="mockup-card-line"></div>
+                          <div class="mockup-card-line short"></div>
+                        </div>
+                        <div class="mockup-card">
+                          <div class="mockup-card-thumb" style={{ background: preset.seed }}></div>
+                          <div class="mockup-card-line"></div>
+                          <div class="mockup-card-line short"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="theme-card-footer">
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span class="preset-color-dot" style={{ background: preset.seed }}></span>
+                        <span class="theme-card-name">{preset.name}</span>
+                      </div>
+                      <span class="theme-card-desc">{preset.description}</span>
+                    </div>
+                    <div class="theme-radio-indicator">
+                      <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
                     </div>
                   </div>
                 </div>
+              )}
+            </For>
+          </div>
+
+          {/* Custom Color Studio (Freeform Seed Picker) */}
+          <div class="custom-color-studio-card">
+            <div class="custom-color-studio-header">
+              <div class="custom-color-info">
+                <div class="custom-color-title-row">
+                  <i class="ph-fill ph-eyedropper"></i>
+                  <span class="custom-color-title">Custom Seed Color (Android Material You)</span>
+                  <span class="custom-color-badge">Dynamic Harmonizer</span>
+                </div>
+                <p class="custom-color-desc">
+                  Input any HEX code or use the native color picker. Our dynamic engine generates complete WCAG-compliant tones, surface containers, and adaptive logo contrasts.
+                </p>
               </div>
-              <div class="theme-card-footer">
-                <div class="theme-card-info">
-                  <div class="theme-card-title-row">
-                    <i class="ph-fill ph-sun-horizon"></i>
-                    <span class="theme-card-name">Sunset</span>
-                  </div>
-                  <span class="theme-card-desc">
-                    Warm Tangerine & Coral energized highlights
-                  </span>
+
+              <div class="custom-color-actions">
+                <div class="color-picker-input-wrapper">
+                  <input
+                    type="color"
+                    id="m3-custom-color-picker"
+                    class="m3-native-color-picker"
+                    value={customAccentColor()}
+                    onInput={(e) => setCustomAccentColor(e.currentTarget.value)}
+                  />
+                  <label for="m3-custom-color-picker" class="m3-color-picker-trigger" style={{ background: customAccentColor() }}>
+                    <i class="ph-bold ph-paint-bucket" style={{ color: activeTonalPalette().onPrimary }}></i>
+                  </label>
                 </div>
-                <div class="theme-radio-indicator">
-                  <i
-                    class={appPalette() === "sunset" ? "ph-bold ph-check" : ""}
-                  ></i>
+
+                <div class="custom-hex-input-group">
+                  <span class="hex-hash-prefix">#</span>
+                  <input
+                    type="text"
+                    class="setting-input custom-hex-field"
+                    value={customAccentColor().replace("#", "")}
+                    placeholder="F25C54"
+                    maxLength={6}
+                    onInput={(e) => {
+                      const val = e.currentTarget.value.trim().replace("#", "");
+                      if (val.length === 6 || val.length === 3) {
+                        setCustomAccentColor(`#${val}`);
+                      }
+                    }}
+                  />
                 </div>
+
+                <button
+                  class={`clay-btn ${appPalette() === "custom" ? "primary" : ""}`}
+                  onClick={() => setCustomAccentColor(customAccentColor())}
+                >
+                  <i class="ph-bold ph-check"></i>
+                  <span>Apply Seed</span>
+                </button>
               </div>
             </div>
 
-            {/* Crimson Palette Card */}
-            <div
-              class={`theme-preview-card palette-crimson-preview ${appPalette() === "crimson" ? "selected" : ""}`}
-              onClick={() => toggleAppPalette("crimson")}
-            >
-              <div class="theme-preview-mockup palette-crimson-mockup">
-                <div class="mockup-sidebar crimson-mock-side">
-                  <div class="mockup-bar mockup-logo crimson-mock-logo"></div>
-                  <div class="mockup-bar crimson-mock-bar"></div>
-                  <div class="mockup-bar crimson-mock-bar"></div>
-                  <div class="mockup-bar crimson-mock-bar"></div>
-                </div>
-                <div class="mockup-main">
-                  <div class="mockup-topbar crimson-mock-topbar">
-                    <div class="mockup-search crimson-mock-search"></div>
+            {/* Live Harmonic Tonal Palette & Logo Preview */}
+            <div class="custom-palette-preview-panel">
+              <div class="palette-swatch-strip">
+                <div class="tonal-swatch-item">
+                  <div class="tonal-swatch-box" style={{ background: "var(--primary-accent)", color: "var(--on-primary)" }}>
+                    <span class="tonal-swatch-label">Primary</span>
+                    <span class="tonal-swatch-value">{activeTonalPalette().primary}</span>
                   </div>
-                  <div class="mockup-grid">
-                    <div class="mockup-card crimson-mock-card">
-                      <div class="mockup-card-thumb crimson-mock-thumb"></div>
-                      <div class="mockup-card-line crimson-mock-line"></div>
-                      <div class="mockup-card-line crimson-mock-line short"></div>
-                    </div>
-                    <div class="mockup-card crimson-mock-card">
-                      <div class="mockup-card-thumb crimson-mock-thumb"></div>
-                      <div class="mockup-card-line crimson-mock-line"></div>
-                      <div class="mockup-card-line crimson-mock-line short"></div>
-                    </div>
+                </div>
+                <div class="tonal-swatch-item">
+                  <div class="tonal-swatch-box" style={{ background: "var(--primary-accent-dark)", color: "var(--on-primary)" }}>
+                    <span class="tonal-swatch-label">Dark</span>
+                    <span class="tonal-swatch-value">{activeTonalPalette().primaryDark}</span>
+                  </div>
+                </div>
+                <div class="tonal-swatch-item">
+                  <div class="tonal-swatch-box" style={{ background: "var(--primary-accent-light)", color: "var(--on-primary)" }}>
+                    <span class="tonal-swatch-label">Light</span>
+                    <span class="tonal-swatch-value">{activeTonalPalette().primaryLight}</span>
+                  </div>
+                </div>
+                <div class="tonal-swatch-item">
+                  <div class="tonal-swatch-box" style={{ background: "var(--primary-container)", color: "var(--primary-accent)", border: "1.5px solid var(--primary-accent)" }}>
+                    <span class="tonal-swatch-label">Container</span>
+                    <span class="tonal-swatch-value">16% Tint</span>
                   </div>
                 </div>
               </div>
-              <div class="theme-card-footer">
-                <div class="theme-card-info">
-                  <div class="theme-card-title-row">
-                    <i class="ph-fill ph-fire"></i>
-                    <span class="theme-card-name">Crimson</span>
+
+              {/* Live Adaptive Logo Preview */}
+              <div class="live-logo-preview-badge">
+                <div class="live-logo-preview-box">
+                  <svg width="40" height="40" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                      fill="var(--primary-accent)"
+                      d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"
+                    />
+                    <path
+                      d="M95 125 L250 385 L405 125"
+                      stroke="var(--logo-inner, #f1f1f1)"
+                      stroke-width="30"
+                      fill="none"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                    <path
+                      d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
+                      stroke="var(--logo-wave, #ffffff)"
+                      stroke-width="6"
+                      fill="none"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    />
+                  </svg>
+                  <div class="live-logo-info">
+                    <span class="live-logo-title">Adaptive Logo Output</span>
+                    <span class="live-logo-desc">Contrast: <strong>{activeTonalPalette().logoInner === "#121212" ? "Dark Glyph" : "Light Glyph"}</strong> ({activeTonalPalette().onPrimary})</span>
                   </div>
-                  <span class="theme-card-desc">
-                    Bold Scarlet & Ruby intense high-contrast tones
-                  </span>
-                </div>
-                <div class="theme-radio-indicator">
-                  <i
-                    class={appPalette() === "crimson" ? "ph-bold ph-check" : ""}
-                  ></i>
                 </div>
               </div>
             </div>
@@ -2549,7 +2630,7 @@ export default function Settings() {
               />
               <path
                 d="M95 125 L250 385 L405 125"
-                stroke="#f1f1f1"
+                stroke="var(--logo-inner, #f1f1f1)"
                 stroke-width="30"
                 fill="none"
                 stroke-linecap="round"
@@ -2557,7 +2638,7 @@ export default function Settings() {
               />
               <path
                 d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-                stroke="#ffffff"
+                stroke="var(--logo-wave, #ffffff)"
                 stroke-width="6"
                 fill="none"
                 stroke-linecap="round"
