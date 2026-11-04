@@ -577,7 +577,7 @@ export const Miniplayer: Component = () => {
             <video
               ref={videoRef}
               class="miniplayer-video-element"
-              src={`http://127.0.0.1:1422/Videos/${activeVideo()!.id}.mp4`}
+              src={`http://127.0.0.1:1422/Videos/${activeVideo()!.id}.${activeVideo()?.video_path ? activeVideo()!.video_path.split('.').pop() || 'mp4' : 'mp4'}`}
               preload="auto"
               autoplay
               crossOrigin="anonymous"
