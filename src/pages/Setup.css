@@ -426,7 +426,7 @@
 .setup-tabs-wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   gap: 12px;
   width: 100%;
   margin-bottom: -12px;
