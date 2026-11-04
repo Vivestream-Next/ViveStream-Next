@@ -30,7 +30,16 @@
     sans-serif;
   --primary-accent: #f25c54;
   --primary-accent-dark: #e04b43;
+  --primary-accent-light: #f78d87;
   --primary-accent-rgb: 242, 92, 84;
+  --primary-container: rgba(242, 92, 84, 0.16);
+  --on-primary: #ffffff;
+  --on-primary-container: #e04b43;
+  --logo-inner: #f1f1f1;
+  --logo-wave: #ffffff;
+  --logo-glow: rgba(242, 92, 84, 0.5);
+  --surface-tint: rgba(242, 92, 84, 0.06);
+  --focus-ring: rgba(242, 92, 84, 0.45);
   --sidebar-collapsed-width: 72px;
   --sidebar-expanded-width: 240px;
   --transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
@@ -543,13 +552,13 @@ input:checked + .slider:before {
 
 .clay-btn.primary {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border: var(--app-border);
 }
 
 .primary-btn {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-radius: var(--neo-radius-sm);
   border: var(--app-border);
   padding: 10px 22px;
