@@ -368,10 +368,11 @@
 }
 
 .light-theme-preview .mockup-logo {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 10px;
   border-radius: 2px;
   border: 1.5px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .light-theme-preview .mockup-bar {
@@ -418,15 +419,22 @@
   border: 1.5px solid #000000;
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px #000000;
+  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.light-theme-preview.selected .mockup-card {
+  border-color: var(--primary-accent);
+  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
 }
 
 .light-theme-preview .mockup-card-thumb {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
   border: 1px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .light-theme-preview .mockup-card-line {
@@ -456,10 +464,11 @@
 }
 
 .dark-theme-preview .mockup-logo {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 10px;
   border-radius: 2px;
   border: 1.5px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .dark-theme-preview .mockup-bar {
@@ -506,15 +515,22 @@
   border: 1.5px solid #000000;
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px #000000;
+  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.35);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dark-theme-preview.selected .mockup-card {
+  border-color: var(--primary-accent);
+  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
 }
 
 .dark-theme-preview .mockup-card-thumb {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
   border: 1px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .dark-theme-preview .mockup-card-line {
@@ -614,10 +630,11 @@
 }
 
 .neo-mock-logo {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 10px;
   border-radius: 2px;
   border: 1.5px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .neo-mock-bar {
@@ -650,15 +667,22 @@
   border: 1.5px solid #000000;
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px #000000;
+  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.4);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.style-neo-preview.selected .neo-mock-card {
+  border-color: var(--primary-accent);
+  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
 }
 
 .neo-mock-thumb {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
   border: 1px solid #000000;
+  transition: background 0.2s ease;
 }
 
 .neo-mock-line {
@@ -689,12 +713,13 @@
 }
 
 .clay-mock-logo {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 10px;
   border-radius: 8px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    0 2px 6px rgba(242, 92, 84, 0.4);
+    0 2px 6px rgba(var(--primary-accent-rgb), 0.4);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .clay-mock-bar {
@@ -728,19 +753,29 @@
   background: #25262c;
   border-radius: 10px;
   padding: 5px;
+  border: 1px solid rgba(var(--primary-accent-rgb), 0.25);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 6px 16px rgba(0, 0, 0, 0.4);
+    0 6px 16px rgba(var(--primary-accent-rgb), 0.2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.style-clay-preview.selected .clay-mock-card {
+  border-color: var(--primary-accent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 8px 20px rgba(var(--primary-accent-rgb), 0.35);
 }
 
 .clay-mock-thumb {
-  background: #f25c54;
+  background: var(--primary-accent);
   height: 34px;
   border-radius: 8px;
   margin-bottom: 4px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 4px 10px rgba(242, 92, 84, 0.35);
+    0 4px 10px rgba(var(--primary-accent-rgb), 0.35);
+  transition: background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .clay-mock-line {
@@ -1944,6 +1979,20 @@
   height: 95px;
 }
 
+.m3-preset-card .mockup-card {
+  background: var(--card-bg, #25262c);
+  border: 1.5px solid #000000;
+  border-radius: 4px;
+  padding: 5px;
+  box-shadow: 1.5px 1.5px 0px #000000;
+  transition: all 0.2s ease;
+}
+
+.m3-preset-card.selected .mockup-card {
+  border-color: var(--primary-accent);
+  box-shadow: 2px 2px 0px var(--primary-accent);
+}
+
 .preset-color-dot {
   width: 12px;
   height: 12px;
@@ -2164,4 +2213,41 @@
 .live-logo-desc {
   font-size: 11px;
   color: var(--secondary-text);
+}
+
+.live-mockup-preview-badge {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background: var(--secondary-background);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.live-mockup-card-mini {
+  width: 58px;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+.live-mockup-thumb-mini {
+  height: 24px;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #000000;
+  transition: background 0.2s ease;
+}
+
+.live-mockup-body-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
