@@ -857,22 +857,34 @@ export default function Settings() {
                   <div class="theme-preview-mockup m3-mockup-wrapper">
                     <div class="mockup-sidebar" style={{ "border-right": "2px solid #000000" }}>
                       <div class="mockup-bar mockup-logo" style={{ background: preset.seed }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.5" }}></div>
+                      <div class="mockup-bar" style={{ background: preset.seed, opacity: "0.55" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                     </div>
                     <div class="mockup-main">
                       <div class="mockup-topbar">
                         <div class="mockup-search" style={{ opacity: "0.6" }}></div>
                       </div>
-                      <div class="mockup-grid">
-                        <div class="mockup-card">
+                                            <div class="mockup-grid">
+                        <div
+                          class="mockup-card"
+                          style={{
+                            "border-color": preset.seed,
+                            "box-shadow": `1.5px 1.5px 0px ${preset.seed}`,
+                          }}
+                        >
                           <div class="mockup-card-thumb" style={{ background: preset.seed }}></div>
                           <div class="mockup-card-line"></div>
-                          <div class="mockup-card-line short"></div>
+                          <div class="mockup-card-line short" style={{ background: preset.seed, width: "45%" }}></div>
                         </div>
-                        <div class="mockup-card">
-                          <div class="mockup-card-thumb" style={{ background: preset.seed }}></div>
+                        <div
+                          class="mockup-card"
+                          style={{
+                            "border-color": appPalette() === preset.id ? preset.seed : "#000000",
+                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${preset.seed}` : "1.5px 1.5px 0px #000000",
+                          }}
+                        >
+                          <div class="mockup-card-thumb" style={{ background: preset.seed, opacity: "0.8" }}></div>
                           <div class="mockup-card-line"></div>
                           <div class="mockup-card-line short"></div>
                         </div>
@@ -1005,9 +1017,58 @@ export default function Settings() {
                       stroke-linejoin="round"
                     />
                   </svg>
-                  <div class="live-logo-info">
+                                    <div class="live-logo-info">
                     <span class="live-logo-title">Adaptive Logo Output</span>
                     <span class="live-logo-desc">Contrast: <strong>{activeTonalPalette().logoInner === "#121212" ? "Dark Glyph" : "Light Glyph"}</strong> ({activeTonalPalette().onPrimary})</span>
+                  </div>
+                </div>
+
+                {/* Live Adaptive Mockup Card Preview */}
+                <div class="live-mockup-preview-badge">
+                  <div
+                    class="live-mockup-card-mini"
+                    style={{
+                      border: "1.5px solid var(--primary-accent)",
+                      "box-shadow": "2.5px 2.5px 0px var(--primary-accent)",
+                      background: "var(--card-bg, #25262c)",
+                    }}
+                  >
+                    <div
+                      class="live-mockup-thumb-mini"
+                      style={{
+                        background: "var(--primary-accent)",
+                        color: "var(--on-primary)",
+                      }}
+                    >
+                      <i class="ph-fill ph-play" style={{ "font-size": "13px" }}></i>
+                    </div>
+                    <div class="live-mockup-body-mini">
+                      <div
+                        class="mockup-card-line"
+                        style={{
+                          width: "85%",
+                          height: "4px",
+                          background: "var(--text-color, #ffffff)",
+                          "border-radius": "2px",
+                          "margin-bottom": "3px",
+                        }}
+                      ></div>
+                      <div
+                        class="mockup-card-line short"
+                        style={{
+                          width: "50%",
+                          height: "3px",
+                          background: "var(--primary-accent)",
+                          "border-radius": "2px",
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="live-logo-info">
+                    <span class="live-logo-title">Mockup Card Accents</span>
+                    <span class="live-logo-desc">
+                      Adapts with <strong>{activeTonalPalette().primary}</strong>
+                    </span>
                   </div>
                 </div>
               </div>
