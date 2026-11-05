@@ -1,4 +1,4 @@
-import { createSignal, createEffect, onMount, For, Show } from "solid-js";
+import { createSignal, createEffect, onMount, onCleanup, For, Show } from "solid-js";
 import { useLocation, useNavigate } from "@solidjs/router";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import {
@@ -290,6 +290,8 @@ export default function GlobalSearch() {
   const navigate = useNavigate();
   let inputRef: HTMLInputElement | undefined;
   let spotlightInputRef: HTMLInputElement | undefined;
+  let containerRef: HTMLDivElement | undefined;
+  let spotlightContainerRef: HTMLDivElement | undefined;
 
   const [videos, setVideos] = createSignal<VideoEntry[]>([]);
   const [playlists, setPlaylists] = createSignal<PlaylistEntry[]>([]);
@@ -380,8 +382,34 @@ export default function GlobalSearch() {
     }
   };
 
-  onMount(() => {
+    onMount(() => {
     loadSearchData();
+
+    const handlePointerDown = (e: MouseEvent | PointerEvent) => {
+      const target = e.target as Node | null;
+      if (!target) return;
+
+      const insideContainer = containerRef && containerRef.contains(target);
+      const insideSpotlight =
+        spotlightContainerRef && spotlightContainerRef.contains(target);
+
+      if (!insideContainer && !insideSpotlight) {
+        if (inputRef && document.activeElement === inputRef) {
+          inputRef.blur();
+        }
+        if (spotlightInputRef && document.activeElement === spotlightInputRef) {
+          spotlightInputRef.blur();
+        }
+        if (isSearchOpen()) {
+          closeSearch();
+        }
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    onCleanup(() => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+    });
   });
 
   createEffect(() => {
@@ -599,6 +627,12 @@ export default function GlobalSearch() {
 
   const closeSearch = () => {
     setIsSearchOpen(false);
+    if (inputRef && document.activeElement === inputRef) {
+      inputRef.blur();
+    }
+    if (spotlightInputRef && document.activeElement === spotlightInputRef) {
+      spotlightInputRef.blur();
+    }
     if (!alwaysShowSearchBar()) {
       setGlobalSearchQuery("");
     }
@@ -814,6 +848,7 @@ export default function GlobalSearch() {
         </Show>
 
         <div
+          ref={containerRef}
           class={`floating-search-container ${isSearchOpen() ? "is-expanded" : ""}`}
         >
           <div
@@ -837,6 +872,12 @@ export default function GlobalSearch() {
               placeholder={`Search ${scope().label.toLowerCase()}...`}
               value={globalSearchQuery()}
               onFocus={() => setIsSearchOpen(true)}
+              onBlur={(e) => {
+                const nextTarget = e.relatedTarget as Node | null;
+                if (!nextTarget || !containerRef?.contains(nextTarget)) {
+                  closeSearch();
+                }
+              }}
               onInput={(e) => {
                 setGlobalSearchQuery(e.currentTarget.value);
                 setSelectedIndex(0);
@@ -898,7 +939,7 @@ export default function GlobalSearch() {
       <Show when={!alwaysShowSearchBar() && isSearchOpen()}>
         <div class="spotlight-backdrop" onClick={closeSearch} />
 
-        <div class="spotlight-modal-container">
+        <div ref={spotlightContainerRef} class="spotlight-modal-container">
           <div class="spotlight-search-header">
             <i class="ph ph-magnifying-glass spotlight-search-icon"></i>
 
@@ -913,6 +954,12 @@ export default function GlobalSearch() {
               class="spotlight-search-input"
               placeholder={`Search ${scope().label.toLowerCase()}...`}
               value={globalSearchQuery()}
+              onBlur={(e) => {
+                const nextTarget = e.relatedTarget as Node | null;
+                if (!nextTarget || !spotlightContainerRef?.contains(nextTarget)) {
+                  closeSearch();
+                }
+              }}
               onInput={(e) => {
                 setGlobalSearchQuery(e.currentTarget.value);
                 setSelectedIndex(0);
