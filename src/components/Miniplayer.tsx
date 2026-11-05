@@ -8,6 +8,7 @@ import {
   Show,
 } from "solid-js";
 import { useNavigate, useLocation } from "@solidjs/router";
+import { attachSharedVideoToHost, stashSharedVideo, syncSharedVideoSource } from "../utils/persistentPlayer";
 import { invoke } from "@tauri-apps/api/core";
 import {
   activeVideo,
@@ -69,6 +70,7 @@ export const Miniplayer: Component = () => {
   const [, setExtractedVideoColors] = createSignal<string[]>([]);
 
   let videoRef: HTMLVideoElement | undefined;
+  let mediaBoxRef: HTMLDivElement | undefined;
   let ambientCanvasRef: HTMLCanvasElement | undefined;
   let ambientGlowRef: HTMLDivElement | undefined;
   let ambientCtx: CanvasRenderingContext2D | null = null;
@@ -392,6 +394,8 @@ export const Miniplayer: Component = () => {
       setCurrentTime(0);
       setIsPlaying(true);
       setActiveVideo(nextVid);
+      const ext = nextVid.video_path ? nextVid.video_path.split(".").pop() || "mp4" : "mp4";
+      syncSharedVideoSource(nextVid.id, ext);
     } else {
       setIsPlaying(false);
       setCurrentTime(0);
@@ -415,6 +419,8 @@ export const Miniplayer: Component = () => {
         setCurrentTime(0);
         setIsPlaying(true);
         setActiveVideo(prevVid);
+        const ext = prevVid.video_path ? prevVid.video_path.split(".").pop() || "mp4" : "mp4";
+        syncSharedVideoSource(prevVid.id, ext);
       }
     } catch (err) {
       console.error("Failed to play previous:", err);
@@ -435,34 +441,48 @@ export const Miniplayer: Component = () => {
     seekGlobalPlay(val);
   };
 
-  createEffect(() => {
-    if (shouldShow() && videoRef) {
-      setGlobalVideoRef(videoRef);
-      videoRef.volume = volume();
-      videoRef.muted = isMuted();
+    createEffect(() => {
+    if (shouldShow() && mediaBoxRef) {
+      const v = attachSharedVideoToHost(mediaBoxRef, "miniplayer-video-element");
+      if (v) {
+        videoRef = v;
+        setGlobalVideoRef(v);
+        v.volume = volume();
+        v.muted = isMuted();
+        v.onclick = (e) => handleExpand(e);
+        v.onended = () => handlePlayNext();
+        v.onplay = () => {
+          if (!shouldShow()) return;
+          setIsPlaying(true);
+          startAmbientLoop();
+          invoke("update_playback_status", { playing: true }).catch(() => {});
+        };
+        v.onpause = () => {
+          if (!shouldShow() || v.seeking) return;
+          setIsPlaying(false);
+          stopAmbientLoop();
+          drawAmbientFrame(undefined, true);
+          invoke("update_playback_status", { playing: false }).catch(() => {});
+        };
+        v.ontimeupdate = (e: Event) => {
+          const target = e.currentTarget as HTMLVideoElement;
+          if (!isSeeking() && shouldShow()) {
+            setCurrentTime(target.currentTime);
+            if (target.paused && isPlaying() && !target.seeking) {
+              setIsPlaying(false);
+            }
+            if (!ambientLoopActive && !target.paused && !target.ended) {
+              startAmbientLoop();
+            }
+          }
+        };
 
-      const initialTime = untrack(() => currentTime());
-      if (
-        initialTime > 0 &&
-        Math.abs(videoRef.currentTime - initialTime) > 0.5
-      ) {
-        videoRef.currentTime = initialTime;
+        if (untrack(isPlaying) && v.paused) {
+          v.play().catch(() => {});
+        }
       }
-      const initialPlaying = untrack(() => isPlaying());
-      if (initialPlaying && videoRef.paused) {
-        videoRef
-          .play()
-          .then(() => setIsPlaying(true))
-          .catch(() => {
-            setIsPlaying(false);
-          });
-      }
-    } else if (!shouldShow() && videoRef) {
-      try {
-        videoRef.pause();
-        videoRef.removeAttribute("src");
-        videoRef.load();
-      } catch {}
+    } else if (!shouldShow()) {
+      stashSharedVideo();
     }
   });
 
@@ -573,93 +593,24 @@ export const Miniplayer: Component = () => {
         </Show>
 
         <div class="miniplayer-card" onClick={handleExpand}>
-          <div class="miniplayer-media-box" onClick={handleExpand}>
-            <video
-              ref={videoRef}
-              class="miniplayer-video-element"
-              src={`http://127.0.0.1:1422/Videos/${activeVideo()!.id}.${activeVideo()?.video_path ? activeVideo()!.video_path.split('.').pop() || 'mp4' : 'mp4'}`}
-              preload="auto"
-              autoplay
-              crossOrigin="anonymous"
-              onCanPlay={() => {
-                if (videoRef) {
-                  const savedTime = untrack(currentTime);
-                  if (
-                    savedTime > 0 &&
-                    Math.abs(videoRef.currentTime - savedTime) > 0.5
-                  ) {
-                    videoRef.currentTime = savedTime;
-                  }
-                  if (untrack(isPlaying) && videoRef.paused) {
-                    videoRef
-                      .play()
-                      .then(() => setIsPlaying(true))
-                      .catch(() => setIsPlaying(false));
-                  }
+          <div
+            ref={(el) => {
+              mediaBoxRef = el;
+              if (shouldShow()) {
+                const v = attachSharedVideoToHost(el, "miniplayer-video-element");
+                if (v) {
+                  videoRef = v;
+                  setGlobalVideoRef(v);
+                  v.volume = volume();
+                  v.muted = isMuted();
+                  v.onclick = (e) => handleExpand(e);
+                  v.onended = () => handlePlayNext();
                 }
-              }}
-              onLoadedMetadata={(e) => {
-                setDuration(e.currentTarget.duration);
-                if (videoRef) {
-                  const savedTime = untrack(currentTime);
-                  if (savedTime > 0) {
-                    videoRef.currentTime = savedTime;
-                  }
-                  if (untrack(isPlaying) && videoRef.paused) {
-                    videoRef
-                      .play()
-                      .then(() => setIsPlaying(true))
-                      .catch(() => setIsPlaying(false));
-                  }
-                }
-              }}
-              onSeeked={() => {
-                if (videoRef && untrack(isPlaying) && videoRef.paused) {
-                  videoRef
-                    .play()
-                    .then(() => setIsPlaying(true))
-                    .catch(() => setIsPlaying(false));
-                }
-                drawAmbientFrame(undefined, true);
-                if (videoRef && !videoRef.paused && !videoRef.ended) {
-                  startAmbientLoop();
-                }
-              }}
-              onPlay={() => {
-                if (!shouldShow()) return;
-                setIsPlaying(true);
-                startAmbientLoop();
-                invoke("update_playback_status", { playing: true }).catch(
-                  () => {},
-                );
-              }}
-              onPause={() => {
-                if (!shouldShow() || (videoRef && videoRef.seeking)) return;
-                setIsPlaying(false);
-                stopAmbientLoop();
-                drawAmbientFrame(undefined, true);
-                invoke("update_playback_status", { playing: false }).catch(
-                  () => {},
-                );
-              }}
-              onTimeUpdate={(e) => {
-                if (!isSeeking() && shouldShow()) {
-                  setCurrentTime(e.currentTarget.currentTime);
-                  if (
-                    videoRef &&
-                    videoRef.paused &&
-                    isPlaying() &&
-                    !videoRef.seeking
-                  ) {
-                    setIsPlaying(false);
-                  }
-                  if (!ambientLoopActive && !e.currentTarget.paused && !e.currentTarget.ended) {
-                    startAmbientLoop();
-                  }
-                }
-              }}
-              onEnded={handlePlayNext}
-            />
+              }
+            }}
+            class="miniplayer-media-box"
+            onClick={handleExpand}
+          >
 
             <div class="miniplayer-top-row">
               <div
