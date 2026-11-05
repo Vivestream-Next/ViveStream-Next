@@ -9,6 +9,7 @@ import {
   Show,
 } from "solid-js";
 import { useParams, useNavigate, useSearchParams } from "@solidjs/router";
+import { attachSharedVideoToHost, stashSharedVideo, syncSharedVideoSource } from "../utils/persistentPlayer";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -425,6 +426,96 @@ export default function Player() {
     }
   });
 
+  const setupVideoListeners = (v: HTMLVideoElement) => {
+    v.onclick = () => {
+      setShowSettingsMenu(false);
+      setShowCCMenu(false);
+      togglePlay();
+    };
+    v.onended = () => handleVideoEnd();
+    v.onplay = () => {
+      if (isUnmounting) return;
+      invoke("update_playback_status", { playing: true }).catch(() => {});
+      setIsPlaying(true);
+      getSharedAudioReactiveEngine().connect(v);
+      getSharedAudioReactiveEngine().resume();
+      startAmbientLoop();
+    };
+    v.onpause = () => {
+      if (isUnmounting || v.seeking) return;
+      invoke("update_playback_status", { playing: false }).catch(() => {});
+      setIsPlaying(false);
+      stopAmbientLoop();
+      drawAmbientFrame(undefined, true);
+    };
+    v.onloadeddata = () => {
+      drawAmbientFrame(undefined, true);
+      if (!v.paused && !v.ended) {
+        startAmbientLoop();
+      }
+    };
+    v.onseeked = () => {
+      if ((isPlaying() || untrack(isPlaying)) && v.paused) {
+        handlePlay();
+      }
+      drawAmbientFrame(undefined, true);
+      if (!v.paused && !v.ended) {
+        startAmbientLoop();
+      }
+    };
+    v.onloadedmetadata = (e: Event) => {
+      const target = e.currentTarget as HTMLVideoElement;
+      setDuration(target.duration);
+      if (activeVideo()?.id === params.id) {
+        const savedTime = untrack(currentTime);
+        if (savedTime > 0 && Math.abs(target.currentTime - savedTime) > 0.5) {
+          target.currentTime = savedTime;
+        }
+      }
+      if (isPlaying() || untrack(isPlaying)) {
+        handlePlay();
+      }
+      drawAmbientFrame(undefined, true);
+    };
+    v.oncanplay = () => {
+      if (isPlaying() || untrack(isPlaying)) {
+        handlePlay();
+      }
+      drawAmbientFrame(undefined, true);
+    };
+    v.ontimeupdate = (e: Event) => {
+      const target = e.currentTarget as HTMLVideoElement;
+      if (!isSeeking() && !isUnmounting) {
+        setCurrentTime(target.currentTime);
+        if (!ambientLoopActive && !target.paused && !target.ended) {
+          startAmbientLoop();
+        } else if (target.paused) {
+          drawAmbientFrame(undefined, true);
+        }
+      }
+    };
+    v.onprogress = () => {
+      if (v.buffered && v.buffered.length > 0 && duration() > 0) {
+        const end = v.buffered.end(v.buffered.length - 1);
+        setBufferedPercent(Math.min(100, (end / duration()) * 100));
+      }
+    };
+  };
+
+  createEffect(() => {
+    const vid = video();
+    if (vid && videoRef) {
+      let track = videoRef.querySelector("track") as HTMLTrackElement | null;
+      if (!track) {
+        track = document.createElement("track");
+        track.kind = "captions";
+        videoRef.appendChild(track);
+      }
+      track.src = `http://127.0.0.1:1422/Videos/${vid.id}.vtt`;
+      track.default = subtitlesEnabled();
+    }
+  });
+
   const toggleMiniplayerMode = () => {
     isUnmounting = true;
     const playState = isPlaying();
@@ -475,6 +566,8 @@ export default function Player() {
           }
         }
 
+        const ext = currentVideo.video_path ? currentVideo.video_path.split(".").pop() || "mp4" : "mp4";
+        syncSharedVideoSource(targetId, ext);
         setVideo(currentVideo);
         setActiveVideo(currentVideo);
         setDescExpanded(false);
@@ -1137,7 +1230,18 @@ export default function Player() {
 
             <div
               class="player-video-wrapper"
-              ref={playerContainerRef}
+              ref={(el) => {
+                playerContainerRef = el;
+                if (params.id) {
+                  syncSharedVideoSource(params.id);
+                }
+                const v = attachSharedVideoToHost(el, "player-video-element");
+                if (v) {
+                  videoRef = v;
+                  setGlobalVideoRef(v);
+                  setupVideoListeners(v);
+                }
+              }}
               onMouseMove={handleMouseMove}
               onMouseLeave={() =>
                 isPlaying() &&
@@ -1146,106 +1250,7 @@ export default function Player() {
                 setShowControls(false)
               }
             >
-              <video
-                class="player-video-element"
-                ref={videoRef}
-                preload="auto"
-                crossOrigin="anonymous"
-                autoplay
-                onEnded={handleVideoEnd}
-                onPlay={() => {
-                  if (isUnmounting) return;
-                  invoke("update_playback_status", { playing: true });
-                  setIsPlaying(true);
-                  if (videoRef) {
-                    getSharedAudioReactiveEngine().connect(videoRef);
-                    getSharedAudioReactiveEngine().resume();
-                  }
-                  startAmbientLoop();
-                }}
-                onPause={() => {
-                  if (isUnmounting || (videoRef && videoRef.seeking)) return;
-                  invoke("update_playback_status", { playing: false });
-                  setIsPlaying(false);
-                  stopAmbientLoop();
-                  drawAmbientFrame(undefined, true);
-                }}
-                onLoadedData={() => {
-                  drawAmbientFrame(undefined, true);
-                  if (videoRef && !videoRef.paused && !videoRef.ended) {
-                    startAmbientLoop();
-                  }
-                }}
-                onSeeked={() => {
-                  if (
-                    (isPlaying() || untrack(isPlaying)) &&
-                    videoRef &&
-                    videoRef.paused
-                  ) {
-                    handlePlay();
-                  }
-                  drawAmbientFrame(undefined, true);
-                  if (videoRef && !videoRef.paused && !videoRef.ended) {
-                    startAmbientLoop();
-                  }
-                }}
-                onLoadedMetadata={(e) => {
-                  setDuration(e.currentTarget.duration);
-                  if (activeVideo()?.id === params.id) {
-                    const savedTime = untrack(currentTime);
-                    if (
-                      savedTime > 0 &&
-                      Math.abs(e.currentTarget.currentTime - savedTime) > 0.5
-                    ) {
-                      e.currentTarget.currentTime = savedTime;
-                    }
-                  }
-                  if (isPlaying() || untrack(isPlaying)) {
-                    handlePlay();
-                  }
-                  drawAmbientFrame(undefined, true);
-                }}
-                onCanPlay={() => {
-                  if (isPlaying() || untrack(isPlaying)) {
-                    handlePlay();
-                  }
-                  drawAmbientFrame(undefined, true);
-                }}
-                onTimeUpdate={(e) => {
-                  if (!isSeeking() && !isUnmounting) {
-                    setCurrentTime(e.currentTarget.currentTime);
-                    if (!ambientLoopActive && !e.currentTarget.paused && !e.currentTarget.ended) {
-                      startAmbientLoop();
-                    } else if (e.currentTarget.paused) {
-                      drawAmbientFrame(undefined, true);
-                    }
-                  }
-                }}
-                onProgress={() => {
-                  if (
-                    videoRef &&
-                    videoRef.buffered.length > 0 &&
-                    duration() > 0
-                  ) {
-                    const end = videoRef.buffered.end(
-                      videoRef.buffered.length - 1,
-                    );
-                    setBufferedPercent(Math.min(100, (end / duration()) * 100));
-                  }
-                }}
-                onClick={() => {
-                  setShowSettingsMenu(false);
-                  setShowCCMenu(false);
-                  togglePlay();
-                }}
-                src={`http://127.0.0.1:1422/Videos/${video()!.id}.${video()?.video_path ? video()!.video_path.split('.').pop() || 'mp4' : 'mp4'}`}
-              >
-                <track
-                  kind="captions"
-                  src={`http://127.0.0.1:1422/Videos/${video()!.id}.vtt`}
-                  default={subtitlesEnabled()}
-                />
-              </video>
+              
 
               <Show when={osdMessage()}>
                 <div class="player-osd-badge">
