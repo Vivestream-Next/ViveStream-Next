@@ -341,6 +341,8 @@ export const {
   setPlayerQueue,
   miniplayerDismissed,
   setMiniplayerDismissed,
+  lastNonPlayerPath,
+  setLastNonPlayerPath,
   theaterMode,
   setTheaterMode,
   playerAmbientMode,
@@ -541,6 +543,7 @@ export const {
   const [subtitlesEnabled, setSubtitlesEnabled] = createSignal(false);
   const [playerQueue, setPlayerQueue] = createSignal<VideoEntry[]>([]);
   const [miniplayerDismissed, setMiniplayerDismissed] = createSignal(false);
+  const [lastNonPlayerPath, setLastNonPlayerPath] = createSignal("/");
   const [theaterMode, setTheaterMode] = createSignal(false);
   const [playerAmbientMode, setPlayerAmbientMode] = createSignal(
     getBool("playerAmbientMode", true),
@@ -725,6 +728,8 @@ export const {
     setPlayerQueue,
     miniplayerDismissed,
     setMiniplayerDismissed,
+    lastNonPlayerPath,
+    setLastNonPlayerPath,
     theaterMode,
     setTheaterMode,
     playerAmbientMode,
