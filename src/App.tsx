@@ -1,5 +1,5 @@
-import { lazy, Component, createSignal, onMount, Show } from "solid-js";
-import { Router, Route, A, useNavigate } from "@solidjs/router";
+import { lazy, Component, createSignal, createEffect, onMount, Show } from "solid-js";
+import { Router, Route, A, useNavigate, useLocation } from "@solidjs/router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import "@phosphor-icons/web/regular";
@@ -23,6 +23,8 @@ import {
   activeVideo,
   playerContextParams,
   miniplayerDismissed,
+  lastNonPlayerPath,
+  setLastNonPlayerPath,
   setMiniplayerDismissed,
   checkLicenseStatus,
 } from "./store";
@@ -31,6 +33,7 @@ import ShortcutsModal from "./components/ShortcutsModal";
 import ArcadeModal from "./components/ArcadeModal";
 import Miniplayer from "./components/Miniplayer";
 import FPSCounter from "./components/FPSCounter";
+import { stashSharedVideo } from "./utils/persistentPlayer";
 import FloatingSortBar from "./components/FloatingSortBar";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -217,6 +220,14 @@ const AppLayout: Component<{ children?: any }> = (props) => {
 
   const isExpanded = () => isPinned() || isHovered();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  createEffect(() => {
+    const path = location.pathname;
+    if (path && !path.startsWith("/player")) {
+      setLastNonPlayerPath(path);
+    }
+  });
 
   onMount(() => {
     checkLicenseStatus().catch(() => {});
@@ -345,6 +356,7 @@ const AppLayout: Component<{ children?: any }> = (props) => {
             if (miniplayerDismissed()) {
               setMiniplayerDismissed(false);
             } else {
+              stashSharedVideo();
               const params = playerContextParams();
               const qs = new URLSearchParams(
                 params as Record<string, string>,
