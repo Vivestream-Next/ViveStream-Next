@@ -209,11 +209,11 @@ export default function Settings() {
   ];
 
   const clientOptions = [
-    "tv_embedded,web_embedded",
+    "default",
     "android_vr,tv,mweb",
     "mweb,tv,web_safari",
     "ios,android",
-    "default",
+    "web",
   ];
 
   const loadPoTokenStatus = async () => {
