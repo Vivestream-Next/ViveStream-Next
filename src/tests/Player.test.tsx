@@ -261,5 +261,23 @@ describe("Player Component", () => {
     togglePlayerAmbientAudioReactive(false);
     expect(playerAmbientAudioReactive()).toBe(false);
   });
+
+  it("renders loop toggle in player controls and excludes arcade/shortcuts buttons", async () => {
+    const { container } = render(() => <Player />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Test Video")).toBeInTheDocument();
+    });
+
+    // Loop button directly in controls
+    const loopBtn = container.querySelector('button[title*="Loop"]');
+    expect(loopBtn).toBeInTheDocument();
+
+    // Game and shortcuts buttons must NOT be present in player controls
+    const gameBtn = container.querySelector('button[title*="Stream Runner Arcade"]');
+    expect(gameBtn).toBeNull();
+    const shortcutBtn = container.querySelector('button[title*="Keyboard Shortcuts"]');
+    expect(shortcutBtn).toBeNull();
+  });
 });
 
