@@ -32,7 +32,8 @@ These commands are exported from `src-tauri/src/lib.rs` and can be called from t
 - `get_favorites()`: Returns a list of video objects marked as favorites.
 - `check_favorite(id: String)` -> `bool`: Checks if a specific video is marked as a favorite.
 - `toggle_favorite(id: String, is_favorite: bool)`: Flips the favorite status of a video.
-- `create_playlist(name: String)`: Instantiates a new playlist object in the database.
+- `create_playlist(name: String)`: Instantiates a new playlist object in the database or returns existing one if identical name exists.
+- `get_or_create_playlist(name: String)`: Reuses an existing playlist matching the given name (case-insensitive) or creates a new one.
 - `get_playlists()`: Retrieves a list of all playlists.
 - `delete_playlist(id: String)`: Removes a playlist entirely (cascades to junction tables).
 - `add_video_to_playlist(playlist_id: String, video_id: String)`: Maps a video to a playlist.
