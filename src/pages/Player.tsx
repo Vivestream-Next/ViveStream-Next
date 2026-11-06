@@ -9,7 +9,12 @@ import {
   Show,
 } from "solid-js";
 import { useParams, useNavigate, useSearchParams } from "@solidjs/router";
-import { attachSharedVideoToHost, stashSharedVideo, syncSharedVideoSource } from "../utils/persistentPlayer";
+import {
+  attachSharedVideoToHost,
+  stashSharedVideo,
+  syncSharedVideoSource,
+  getCurrentLoadedVideoId,
+} from "../utils/persistentPlayer";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -38,6 +43,7 @@ import {
   playerQueue,
   setPlayerQueue,
   setMiniplayerDismissed,
+  lastNonPlayerPath,
   theaterMode,
   setTheaterMode,
   playerAmbientMode,
@@ -427,11 +433,7 @@ export default function Player() {
   });
 
   const setupVideoListeners = (v: HTMLVideoElement) => {
-    v.onclick = () => {
-      setShowSettingsMenu(false);
-      setShowCCMenu(false);
-      togglePlay();
-    };
+    v.onclick = null;
     v.onended = () => handleVideoEnd();
     v.onplay = () => {
       if (isUnmounting) return;
@@ -516,6 +518,16 @@ export default function Player() {
     }
   });
 
+  const ensureVideoAttached = () => {
+    if (!playerContainerRef) return;
+    const v = attachSharedVideoToHost(playerContainerRef, "player-video-element");
+    if (v) {
+      videoRef = v;
+      setGlobalVideoRef(v);
+      setupVideoListeners(v);
+    }
+  };
+
   const toggleMiniplayerMode = () => {
     isUnmounting = true;
     const playState = isPlaying();
@@ -523,12 +535,11 @@ export default function Player() {
     if (videoRef) {
       setCurrentTime(videoRef.currentTime);
     }
+    stashSharedVideo();
     setIsPlaying(playState);
-    if (window.history.length > 1) {
-      navigate(-1);
-    } else {
-      navigate("/");
-    }
+    stashSharedVideo();
+    const targetPath = lastNonPlayerPath() || "/";
+    navigate(targetPath, { replace: true });
   };
 
   const loadVideoData = async (targetId?: string) => {
@@ -556,7 +567,9 @@ export default function Player() {
       let currentVideo = db.find((v) => v.id === targetId);
 
       if (currentVideo) {
-        const isSameVideo = activeVideo()?.id === targetId;
+        const isSameVideo =
+          activeVideo()?.id === targetId ||
+          getCurrentLoadedVideoId() === targetId;
 
         if (!isSameVideo) {
           setCurrentTime(0);
@@ -568,6 +581,7 @@ export default function Player() {
 
         const ext = currentVideo.video_path ? currentVideo.video_path.split(".").pop() || "mp4" : "mp4";
         syncSharedVideoSource(targetId, ext);
+        ensureVideoAttached();
         setVideo(currentVideo);
         setActiveVideo(currentVideo);
         setDescExpanded(false);
@@ -1084,17 +1098,21 @@ export default function Player() {
   };
 
   onMount(async () => {
+    ensureVideoAttached();
     if (videoRef) {
       setGlobalVideoRef(videoRef);
       videoRef.volume = untrack(volume);
       videoRef.muted = untrack(isMuted);
       videoRef.playbackRate = untrack(playbackRate);
-      if (activeVideo()?.id === params.id) {
+      if (
+        activeVideo()?.id === params.id ||
+        getCurrentLoadedVideoId() === params.id
+      ) {
         const savedTime = untrack(currentTime);
-        if (savedTime > 0) {
+        if (savedTime > 0 && Math.abs(videoRef.currentTime - savedTime) > 0.5) {
           videoRef.currentTime = savedTime;
         }
-        if (untrack(isPlaying)) {
+        if (untrack(isPlaying) && videoRef.paused) {
           handlePlay();
         }
       } else {
@@ -1133,6 +1151,7 @@ export default function Player() {
     if (videoRef) {
       setCurrentTime(videoRef.currentTime);
     }
+    stashSharedVideo();
   });
 
   createEffect(
@@ -1150,8 +1169,10 @@ export default function Player() {
     on(
       () => video()?.id,
       (currentId) => {
-        if (currentId && video() && videoRef) {
-          setGlobalVideoRef(videoRef);
+        if (currentId && video()) {
+          ensureVideoAttached();
+          if (videoRef) {
+            setGlobalVideoRef(videoRef);
           invoke("update_media_metadata", {
             title: video()!.title,
             artist: video()!.channel,
@@ -1160,19 +1181,18 @@ export default function Player() {
           videoRef.muted = untrack(isMuted);
           videoRef.playbackRate = untrack(playbackRate);
 
-          if (activeVideo()?.id === currentId && untrack(currentTime) > 0) {
-            videoRef.currentTime = untrack(currentTime);
-          } else {
-            videoRef.currentTime = 0;
-            setCurrentTime(0);
-          }
+            const savedTime = untrack(currentTime);
+            if (savedTime > 0 && Math.abs(videoRef.currentTime - savedTime) > 0.5) {
+              videoRef.currentTime = savedTime;
+            }
 
-          if (untrack(isPlaying)) {
-            handlePlay();
-          }
+            if (untrack(isPlaying) && videoRef.paused) {
+              handlePlay();
+            }
         }
-      },
-      { defer: true },
+      }
+    },
+    { defer: true },
     ),
   );
 
@@ -1232,15 +1252,25 @@ export default function Player() {
               class="player-video-wrapper"
               ref={(el) => {
                 playerContainerRef = el;
-                if (params.id) {
-                  syncSharedVideoSource(params.id);
+                ensureVideoAttached();
+              }}
+              onClick={(e) => {
+                const target = e.target as HTMLElement;
+                if (
+                  target.closest("button") ||
+                  target.closest("input") ||
+                  target.closest(".timeline-scrubber-container") ||
+                  target.closest(".settings-menu-popup") ||
+                  target.closest(".cc-menu-popup") ||
+                  target.closest(".player-back-btn") ||
+                  target.closest(".player-ambient-palette-section") ||
+                  target.closest(".player-settings-ambient-studio")
+                ) {
+                  return;
                 }
-                const v = attachSharedVideoToHost(el, "player-video-element");
-                if (v) {
-                  videoRef = v;
-                  setGlobalVideoRef(v);
-                  setupVideoListeners(v);
-                }
+                setShowSettingsMenu(false);
+                setShowCCMenu(false);
+                togglePlay();
               }}
               onMouseMove={handleMouseMove}
               onMouseLeave={() =>
@@ -1588,18 +1618,6 @@ export default function Player() {
                         </div>
                       </Show>
                       <button
-                        class={`player-popup-item ${isLooping() ? "selected" : ""}`}
-                        onClick={() => {
-                          setIsLooping(!isLooping());
-                          setShowSettingsMenu(false);
-                        }}
-                      >
-                        <span>Loop Video</span>
-                        <i
-                          class={`ph-fill ph-toggle-${isLooping() ? "right" : "left"}`}
-                        ></i>
-                      </button>
-                      <button
                         class="player-popup-item"
                         onClick={() => {
                           togglePiP();
@@ -1610,6 +1628,18 @@ export default function Player() {
                         <i class="ph-fill ph-picture-in-picture"></i>
                       </button>
                     </div>
+
+                    <button
+                      class={`control-btn ${isLooping() ? "active" : ""}`}
+                      onClick={() => {
+                        const next = !isLooping();
+                        setIsLooping(next);
+                        showOsd("ph-repeat", next ? "Loop Enabled" : "Loop Disabled");
+                      }}
+                      title={isLooping() ? "Loop Enabled (L)" : "Loop Disabled (L)"}
+                    >
+                      <i class="ph-fill ph-repeat"></i>
+                    </button>
 
                     <button
                       ref={ccBtnRef}
@@ -1655,23 +1685,6 @@ export default function Player() {
                           theaterMode() ? "ph-fill ph-monitor" : "ph ph-monitor"
                         }
                       ></i>
-                    </button>
-
-                    <button
-                      class="control-btn"
-                      onClick={() => setShowArcadeModal(true)}
-                      title="Stream Runner Arcade (G)"
-                      aria-label="Play Stream Runner Arcade"
-                    >
-                      <i class="ph-fill ph-game-controller"></i>
-                    </button>
-
-                    <button
-                      class="control-btn"
-                      onClick={() => setShowShortcutsModal(true)}
-                      title="Keyboard Shortcuts (?)"
-                    >
-                      <i class="ph ph-keyboard"></i>
                     </button>
 
                     <button
