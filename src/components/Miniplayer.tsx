@@ -380,6 +380,7 @@ export const Miniplayer: Component = () => {
     if (videoRef) {
       setCurrentTime(videoRef.currentTime);
     }
+    stashSharedVideo();
     const params = playerContextParams();
     const qs = new URLSearchParams(params as Record<string, string>).toString();
     navigate(`/player/${vid.id}${qs ? `?${qs}` : ""}`);
@@ -481,8 +482,6 @@ export const Miniplayer: Component = () => {
           v.play().catch(() => {});
         }
       }
-    } else if (!shouldShow()) {
-      stashSharedVideo();
     }
   });
 
