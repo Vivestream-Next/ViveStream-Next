@@ -53,7 +53,7 @@ describe("Tauri IPC Mocking (Integration)", () => {
     await waitFor(() => {
       expect(invoke).toHaveBeenCalledWith("get_video_metadata", {
         url: "https://youtube.com/watch?v=mock_id_123",
-        playerClient: "tv_embedded,web_embedded",
+        playerClient: "default",
       });
 
       expect(invoke).toHaveBeenCalledWith(
@@ -68,7 +68,7 @@ describe("Tauri IPC Mocking (Integration)", () => {
             thumbnail_path: "/mock/thumbs/mock_id_123.jpg",
           },
           quality: "1440p",
-          playerClient: "tv_embedded,web_embedded",
+          playerClient: "default",
         }),
       );
     });
