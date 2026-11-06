@@ -417,8 +417,16 @@ export const {
   const [browserCookies, setBrowserCookies] = createSignal(
     getStr("browserCookies", "None"),
   );
+  const getInitialPlayerClient = () => {
+    const saved = getStr("playerClient", "default");
+    if (saved === "tv_embedded,web_embedded" || saved.includes("tv_embedded")) {
+      if (isBrowser) window.localStorage.setItem("playerClient", "default");
+      return "default";
+    }
+    return saved;
+  };
   const [playerClient, setPlayerClient] = createSignal(
-    getStr("playerClient", "tv_embedded,web_embedded"),
+    getInitialPlayerClient(),
   );
   const [autoSubtitles, setAutoSubtitles] = createSignal(
     getBool("autoSubtitles", false),
@@ -1446,14 +1454,14 @@ export const startDownloadQueue = async () => {
     let targetPlaylistId: string | undefined = undefined;
     if (response.playlist_title) {
       try {
-        const newPlaylist = await invoke<{ id: string; name: string }>(
-          "create_playlist",
-          { name: response.playlist_title },
+        const targetPlaylist = await invoke<{ id: string; name: string }>(
+          "get_or_create_playlist",
+          { name: response.playlist_title.trim() },
         );
-        targetPlaylistId = newPlaylist.id;
-        addToast(`Playlist "${response.playlist_title}" created`, "success");
+        targetPlaylistId = targetPlaylist.id;
+        addToast(`Playlist "${targetPlaylist.name}" ready`, "success");
       } catch (err) {
-        console.error("Failed to create playlist:", err);
+        console.error("Failed to get or create playlist:", err);
       }
     }
 
