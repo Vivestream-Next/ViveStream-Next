@@ -167,6 +167,7 @@ pub fn run() {
             get_artists,
             get_videos_by_artist,
             create_playlist,
+            get_or_create_playlist,
             get_playlists,
             delete_playlist,
             add_video_to_playlist,
