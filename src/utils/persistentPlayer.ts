@@ -1,3 +1,4 @@
+import { untrack } from "solid-js";
 import {
   currentTime,
   duration,
@@ -135,11 +136,21 @@ export function attachSharedVideoToHost(
   if (className) {
     v.className = className;
   }
-  if (v.parentElement !== host) {
-    if (host.firstChild) {
+  if (v.parentElement !== host || host.firstChild !== v) {
+    const savedTime = v.currentTime > 0 ? v.currentTime : untrack(currentTime);
+    const wasPlaying = !v.paused || untrack(isPlaying);
+
+    if (host.firstChild && host.firstChild !== v) {
       host.insertBefore(v, host.firstChild);
-    } else {
+    } else if (!host.contains(v)) {
       host.appendChild(v);
+    }
+
+    if (savedTime > 0 && Math.abs(v.currentTime - savedTime) > 0.1) {
+      v.currentTime = savedTime;
+    }
+    if (wasPlaying && v.paused) {
+      v.play().catch(() => {});
     }
   }
   setGlobalVideoRef(v);
@@ -150,7 +161,23 @@ export function stashSharedVideo(): void {
   if (!sharedVideoElement) return;
   const stash = getPersistentVideoStash();
   if (stash && sharedVideoElement.parentElement !== stash) {
+    const savedTime =
+      sharedVideoElement.currentTime > 0
+        ? sharedVideoElement.currentTime
+        : untrack(currentTime);
+    const wasPlaying = !sharedVideoElement.paused || untrack(isPlaying);
+
     stash.appendChild(sharedVideoElement);
+
+    if (
+      savedTime > 0 &&
+      Math.abs(sharedVideoElement.currentTime - savedTime) > 0.1
+    ) {
+      sharedVideoElement.currentTime = savedTime;
+    }
+    if (wasPlaying && sharedVideoElement.paused) {
+      sharedVideoElement.play().catch(() => {});
+    }
   }
 }
 
@@ -163,12 +190,11 @@ export function syncSharedVideoSource(
   extension: string = "mp4",
 ): HTMLVideoElement {
   const v = getSharedVideoElement();
-  const targetSrc = `http://127.0.0.1:1422/Videos/${videoId}.${extension}`;
-
-  if (currentLoadedId === videoId && v.src === targetSrc) {
+  if (currentLoadedId === videoId) {
     return v;
   }
 
+  const targetSrc = `http://127.0.0.1:1422/Videos/${videoId}.${extension}`;
   currentLoadedId = videoId;
   v.src = targetSrc;
   v.load();
