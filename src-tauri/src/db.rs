@@ -59,6 +59,78 @@ pub fn init_db(app: &AppHandle) -> Result<(), String> {
         ",
     )
     .map_err(|e| e.to_string())?;
+
+    let _ = deduplicate_playlists(&conn);
+    Ok(())
+}
+
+pub fn deduplicate_playlists(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT LOWER(TRIM(name)) as norm_name, COUNT(*) as cnt 
+         FROM Playlists 
+         GROUP BY LOWER(TRIM(name)) 
+         HAVING cnt > 1",
+    )?;
+    let duplicate_names: Vec<String> = stmt
+        .query_map([], |row| row.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    for norm_name in duplicate_names {
+        let mut p_stmt = conn.prepare(
+            "SELECT id FROM Playlists WHERE LOWER(TRIM(name)) = ?1 ORDER BY created_at ASC, rowid ASC",
+        )?;
+        let ids: Vec<String> = p_stmt
+            .query_map([&norm_name], |row| row.get(0))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if ids.len() > 1 {
+            let primary_id = &ids[0];
+            for dup_id in &ids[1..] {
+                let mut v_stmt = conn.prepare(
+                    "SELECT video_id FROM Playlist_Videos WHERE playlist_id = ?1 ORDER BY sort_order ASC",
+                )?;
+                let videos: Vec<String> = v_stmt
+                    .query_map([dup_id], |row| row.get(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                for vid in videos {
+                    let exists: bool = conn
+                        .query_row(
+                            "SELECT EXISTS(SELECT 1 FROM Playlist_Videos WHERE playlist_id = ?1 AND video_id = ?2)",
+                            rusqlite::params![primary_id, vid],
+                            |row| row.get(0),
+                        )
+                        .unwrap_or(false);
+
+                    if !exists {
+                        let max_order: i64 = conn
+                            .query_row(
+                                "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM Playlist_Videos WHERE playlist_id = ?1",
+                                rusqlite::params![primary_id],
+                                |row| row.get(0),
+                            )
+                            .unwrap_or(1);
+                        let _ = conn.execute(
+                            "INSERT OR IGNORE INTO Playlist_Videos (playlist_id, video_id, sort_order) VALUES (?1, ?2, ?3)",
+                            rusqlite::params![primary_id, vid, max_order],
+                        );
+                    }
+                }
+
+                let _ = conn.execute(
+                    "DELETE FROM Playlist_Videos WHERE playlist_id = ?1",
+                    rusqlite::params![dup_id],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM Playlists WHERE id = ?1",
+                    rusqlite::params![dup_id],
+                );
+            }
+        }
+    }
     Ok(())
 }
 
@@ -279,6 +351,24 @@ pub async fn get_videos_by_artist(app: AppHandle, name: String) -> Result<Vec<Vi
 pub async fn create_playlist(app: AppHandle, name: String) -> Result<Playlist, String> {
     tokio::task::spawn_blocking(move || {
         let conn = get_db_connection(&app)?;
+        let trimmed_name = name.trim();
+
+        let existing = conn.query_row(
+            "SELECT id, name, DATETIME(created_at, 'localtime') FROM Playlists WHERE LOWER(TRIM(name)) = LOWER(?1) ORDER BY created_at ASC LIMIT 1",
+            rusqlite::params![trimmed_name],
+            |row| {
+                Ok(Playlist {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                    created_at: row.get(2)?,
+                })
+            },
+        );
+
+        if let Ok(playlist) = existing {
+            return Ok(playlist);
+        }
+
         let id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -286,17 +376,22 @@ pub async fn create_playlist(app: AppHandle, name: String) -> Result<Playlist, S
             .to_string();
         conn.execute(
             "INSERT INTO Playlists (id, name) VALUES (?1, ?2)",
-            rusqlite::params![id, name],
+            rusqlite::params![id, trimmed_name],
         )
         .map_err(|e| e.to_string())?;
         Ok(Playlist {
             id,
-            name,
+            name: trimmed_name.to_string(),
             created_at: "Just now".to_string(),
         })
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn get_or_create_playlist(app: AppHandle, name: String) -> Result<Playlist, String> {
+    create_playlist(app, name).await
 }
 
 #[tauri::command]
