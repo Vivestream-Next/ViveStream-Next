@@ -70,5 +70,35 @@ describe("Setup Component", () => {
 
     expect(consoleTab).toHaveClass("active");
   });
+
+  it("should show feature guide by default, allow navigation, and toggle logs", async () => {
+    render(() => <Setup />);
+
+    // Feature Guide should be active by default
+    const guideTab = screen.getByRole("tab", { name: /Feature Guide/i });
+    expect(guideTab).toHaveClass("active");
+
+    // First feature is displayed
+    expect(screen.getByText("Cinematic Ambient Glow")).toBeInTheDocument();
+    expect(screen.getByText(/Feature 1 of 6/i)).toBeInTheDocument();
+
+    // Click next feature
+    const nextBtn = screen.getByLabelText("Next feature");
+    fireEvent.click(nextBtn);
+    expect(screen.getByText("Zero-Lag Seamless Miniplayer")).toBeInTheDocument();
+    expect(screen.getByText(/Feature 2 of 6/i)).toBeInTheDocument();
+
+    // Click previous feature
+    const prevBtn = screen.getByLabelText("Previous feature");
+    fireEvent.click(prevBtn);
+    expect(screen.getByText("Cinematic Ambient Glow")).toBeInTheDocument();
+
+    // Click View Deployment Logs toggle button
+    const viewLogsBtn = screen.getByText(/View Deployment Logs/i);
+    fireEvent.click(viewLogsBtn);
+
+    const consoleTab = screen.getByRole("tab", { name: /Deployment Console/i });
+    expect(consoleTab).toHaveClass("active");
+  });
 });
 
