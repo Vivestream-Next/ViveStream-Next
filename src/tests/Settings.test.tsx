@@ -171,4 +171,28 @@ describe("Settings Component", () => {
     expect(dynamicModeCard).toBeInTheDocument();
     fireEvent.click(dynamicModeCard);
   });
+
+  it("handles 1-click auto install and auto-run companion extension", async () => {
+    render(() => <Settings />);
+
+    const autoInstallBtn = screen.getByRole("button", {
+      name: /1-Click Auto Install/i,
+    });
+    expect(autoInstallBtn).toBeInTheDocument();
+    fireEvent.click(autoInstallBtn);
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("auto_install_companion_extension");
+    });
+
+    const autoRunBtn = screen.getByRole("button", {
+      name: /Auto-Run \(No Install\)/i,
+    });
+    expect(autoRunBtn).toBeInTheDocument();
+    fireEvent.click(autoRunBtn);
+
+    await waitFor(() => {
+      expect(invoke).toHaveBeenCalledWith("launch_browser_companion_extension");
+    });
+  });
 });
