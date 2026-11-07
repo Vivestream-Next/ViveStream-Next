@@ -54,6 +54,16 @@ These commands are exported from `src-tauri/src/lib.rs` and can be called from t
 - `clear_download_history_db()`: Flushes the history table.
 - `delete_download_history_item(id: String)`: Removes a single line item from the history.
 
+### YouTube PO Token & Companion Extension
+
+- `get_po_token_status()`: Checks current cached PO Token validity, TTL, and extraction status.
+- `refresh_po_token()`: Attempts automated background token extraction via WebView BotGuard interceptor.
+- `set_manual_po_token(token: String)`: Saves and caches a user-provided PO Token.
+- `clear_po_token()`: Clears the cached PO Token from disk and memory.
+- `open_companion_extension_folder()`: Opens the bundled companion extension folder in the system file manager.
+- `auto_install_companion_extension()`: Launches the system's Chromium browser extensions manager, copies extension path to clipboard, and selects the directory in File Explorer for 1-click drag & drop installation.
+- `launch_browser_companion_extension()`: Launches Chrome/Brave with `--load-extension` directly to YouTube for zero-install token extraction and automated loopback synchronization.
+
 ### OS Media Controls Integration (`souvlaki`)
 
 - `update_media_metadata(title: String, artist: String)`: Updates the OS-level media banner (e.g., Windows 10/11 popup or Linux MPRIS).
