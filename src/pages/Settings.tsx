@@ -270,6 +270,34 @@ export default function Settings() {
   };
 
   const [openingExtensionFolder, setOpeningExtensionFolder] = createSignal(false);
+  const [installingExtension, setInstallingExtension] = createSignal(false);
+  const [launchingExtension, setLaunchingExtension] = createSignal(false);
+
+  const handleAutoInstallExtension = async () => {
+    setInstallingExtension(true);
+    try {
+      const msg = await invoke<string>("auto_install_companion_extension");
+      addToast(msg, "success");
+    } catch (e) {
+      console.error(e);
+      addToast(`Could not auto-install extension: ${e}`, "error");
+    } finally {
+      setInstallingExtension(false);
+    }
+  };
+
+  const handleLaunchCompanionBrowser = async () => {
+    setLaunchingExtension(true);
+    try {
+      const msg = await invoke<string>("launch_browser_companion_extension");
+      addToast(msg, "success");
+    } catch (e) {
+      console.error(e);
+      addToast(`Could not launch browser: ${e}`, "error");
+    } finally {
+      setLaunchingExtension(false);
+    }
+  };
 
   const handleOpenExtensionFolder = async () => {
     setOpeningExtensionFolder(true);
@@ -2052,15 +2080,15 @@ export default function Settings() {
 
           {/* Browser Companion Extension Card */}
           <div
-            style="margin-top: 14px; background: rgba(0, 255, 204, 0.04); border: 1px dashed var(--accent-color); border-radius: 8px; padding: 12px 14px;"
+            style="margin-top: 14px; background: rgba(0, 255, 204, 0.04); border: 1px dashed var(--accent-color); border-radius: 8px; padding: 14px 16px;"
           >
             <div
-              style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;"
+              style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;"
             >
-              <div style="display: flex; align-items: center; gap: 8px;">
+              <div style="display: flex; align-items: center; gap: 10px;">
                 <i
                   class="ph-fill ph-puzzle-piece"
-                  style="color: var(--accent-color); font-size: 1.25rem;"
+                  style="color: var(--accent-color); font-size: 1.4rem;"
                 ></i>
                 <div>
                   <div
@@ -2069,56 +2097,75 @@ export default function Settings() {
                     Companion Browser Extension (Recommended)
                   </div>
                   <div
-                    style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 1px;"
+                    style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;"
                   >
-                    Auto-captures authentic tokens from Chrome, Edge & Brave with loopback sync
+                    Auto-captures authentic YouTube PO Tokens with instant loopback sync
                   </div>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleOpenExtensionFolder}
-                disabled={openingExtensionFolder()}
-                class="command-btn secondary"
-                style="padding: 6px 12px; font-size: 0.82rem; background: var(--secondary-background);"
-                title="Open the extension folder in your file explorer to load unpacked"
-              >
-                <i
-                  class={`ph-bold ${openingExtensionFolder() ? "ph-spinner spinIcon" : "ph-folder-open"}`}
-                ></i>
-                {openingExtensionFolder()
-                  ? "Opening..."
-                  : "Open Extension Folder"}
-              </button>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button
+                  type="button"
+                  onClick={handleAutoInstallExtension}
+                  disabled={installingExtension() || launchingExtension()}
+                  class="command-btn primary"
+                  style="padding: 6px 14px; font-size: 0.82rem;"
+                  title="Automatically opens browser extensions page and pre-selects folder for drag & drop install"
+                >
+                  <i
+                    class={`ph-bold ${installingExtension() ? "ph-spinner spinIcon" : "ph-lightning"}`}
+                  ></i>
+                  {installingExtension() ? "Installing..." : "1-Click Auto Install"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLaunchCompanionBrowser}
+                  disabled={installingExtension() || launchingExtension()}
+                  class="command-btn secondary"
+                  style="padding: 6px 13px; font-size: 0.82rem; background: var(--secondary-background);"
+                  title="Launches Chrome/Brave with extension attached directly to YouTube (no install needed)"
+                >
+                  <i
+                    class={`ph-bold ${launchingExtension() ? "ph-spinner spinIcon" : "ph-play-circle"}`}
+                  ></i>
+                  {launchingExtension() ? "Launching..." : "Auto-Run (No Install)"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleOpenExtensionFolder}
+                  disabled={openingExtensionFolder()}
+                  class="command-btn secondary"
+                  style="padding: 6px 11px; font-size: 0.82rem; background: var(--secondary-background);"
+                  title="Open the extension folder in your file explorer"
+                >
+                  <i
+                    class={`ph-bold ${openingExtensionFolder() ? "ph-spinner spinIcon" : "ph-folder-open"}`}
+                  ></i>
+                  Folder
+                </button>
+              </div>
             </div>
 
             <p
-              style="margin: 8px 0 8px; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;"
+              style="margin: 10px 0; font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;"
             >
               YouTube embed players often block official music videos from generating tokens.
-              Load our bundled companion extension in your browser, play any video on YouTube for 2 seconds, and it will automatically capture and sync your token here via local loopback!
+              With a single click, auto-install our companion extension into your browser or auto-run YouTube with the extension active to extract and sync tokens immediately over local loopback!
             </p>
 
             <div
               style="display: flex; gap: 12px; font-size: 0.78rem; color: var(--text-secondary); flex-wrap: wrap; background: var(--primary-background); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color);"
             >
               <div>
-                <strong style="color: var(--accent-color);">1.</strong> Click{" "}
-                <strong>Open Extension Folder</strong>
+                <strong style="color: var(--accent-color);">1-Click Install:</strong> Click{" "}
+                <strong>1-Click Auto Install</strong> & drag the highlighted folder into your browser (or click Load unpacked & paste path).
               </div>
               <div>
-                <strong style="color: var(--accent-color);">2.</strong> In
-                browser, visit <code>chrome://extensions</code> & toggle{" "}
-                <strong>Developer mode</strong>
+                <strong style="color: var(--accent-color);">Zero-Install:</strong> Click{" "}
+                <strong>Auto-Run (No Install)</strong> to immediately open YouTube with the extension pre-loaded.
               </div>
               <div>
-                <strong style="color: var(--accent-color);">3.</strong> Click{" "}
-                <strong>Load unpacked</strong> & choose{" "}
-                <code>companion-extension</code>
-              </div>
-              <div>
-                <strong style="color: var(--accent-color);">4.</strong> Play any
-                YouTube video to auto-extract & sync your token!
+                <strong style="color: var(--accent-color);">Auto-Sync:</strong> Play any video on YouTube for 2 seconds & your PO token updates automatically!
               </div>
             </div>
           </div>
