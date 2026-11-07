@@ -1,10 +1,63 @@
-import { createSignal, onMount, For, Show } from "solid-js";
+import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { setForceSetup } from "../store";
 import { APP_VERSION } from "../version";
 import SetupMinigame from "../components/SetupMinigame";
 import "./Setup.css";
+
+interface AppFeatureGuide {
+  badge: string;
+  icon: string;
+  title: string;
+  desc: string;
+  tip: string;
+}
+
+const FEATURE_GUIDES: AppFeatureGuide[] = [
+  {
+    badge: "IMMERSIVE PLAYBACK",
+    icon: "ph-fill ph-sparkle",
+    title: "Cinematic Ambient Glow",
+    desc: "Real-time reactive ambient lighting dynamically matches colors and rhythm from your playing video, creating an immersive edge glow across your whole screen.",
+    tip: "Customize static color swatches or toggle dynamic glow in Player settings.",
+  },
+  {
+    badge: "SEAMLESS AUDIO & VIDEO",
+    icon: "ph-fill ph-picture-in-picture",
+    title: "Zero-Lag Seamless Miniplayer",
+    desc: "Never interrupt your music. Press 'I' or click the miniplayer icon for instant Picture-in-Picture playback with zero audio stutter while exploring libraries, artists, and playlists.",
+    tip: "Pause/play by clicking directly on the video and adjust playback volume right inside the floating miniplayer.",
+  },
+  {
+    badge: "ULTRA-HD MEDIA LIBRARY",
+    icon: "ph-fill ph-film-strip",
+    title: "Offline 4K & Lossless Library",
+    desc: "Save videos in pristine 1080p, 1440p, or 4K, or extract high-fidelity audio tracks. ViveStream automatically indexes artist profiles, avatars, and high-res thumbnails locally.",
+    tip: "Download an entire artist discography or album in one paste — tracks are automatically grouped into playlists.",
+  },
+  {
+    badge: "ON-DEVICE AI",
+    icon: "ph-fill ph-brain",
+    title: "Whisper AI Lyrics & Subtitles",
+    desc: "Generate accurate, time-synced lyrics for any song completely offline using local hardware-accelerated OpenAI Whisper neural models with zero cloud telemetry.",
+    tip: "Visit AI Studio to generate interactive sing-along lyrics that highlight synchronously as your tracks play.",
+  },
+  {
+    badge: "ADAPTIVE MATERIAL YOU",
+    icon: "ph-fill ph-palette",
+    title: "Dynamic Theming Engine",
+    desc: "Pick your personal accent color and watch buttons, preview cards, animated logos, and ambient lighting harmonize instantly with Android Material You-inspired design.",
+    tip: "Choose from 6 signature palettes (Emerald, Cyber, Sunset, Crimson, Royal, Monochrome) in Appearance settings.",
+  },
+  {
+    badge: "BYPASS THROTTLING",
+    icon: "ph-fill ph-shield-check",
+    title: "YouTube PO Token Companion",
+    desc: "Bypass YouTube's 144p resolution restrictions and iframe embedding blocks with 1-click browser companion attestation and automated loopback synchronization.",
+    tip: "Use '1-Click Auto Install' or 'Auto-Run (No Install)' in Settings to instantly sync tokens from Chrome or Brave.",
+  },
+];
 
 const AnimatedLogo = () => (
   <svg
@@ -79,8 +132,32 @@ export default function Setup(props: { onComplete?: () => void }) {
   const [showLogs, setShowLogs] = createSignal(false);
   const [logs, setLogs] = createSignal<string[]>([]);
   const [downloadProgress, setDownloadProgress] = createSignal<number>(0);
-  const [activeTab, setActiveTab] = createSignal<"console" | "game">("console");
+  const [activeTab, setActiveTab] = createSignal<"guide" | "game" | "console">("guide");
+  const [guideIndex, setGuideIndex] = createSignal(0);
+  const [autoRotate, setAutoRotate] = createSignal(true);
   const [showCompletionGame, setShowCompletionGame] = createSignal<boolean>(false);
+
+  let slideInterval: any = null;
+
+  const nextGuide = () => {
+    setGuideIndex((prev) => (prev + 1) % FEATURE_GUIDES.length);
+  };
+
+  const prevGuide = () => {
+    setGuideIndex((prev) => (prev - 1 + FEATURE_GUIDES.length) % FEATURE_GUIDES.length);
+  };
+
+  onMount(() => {
+    slideInterval = setInterval(() => {
+      if (autoRotate() && activeTab() === "guide") {
+        nextGuide();
+      }
+    }, 6000);
+  });
+
+  onCleanup(() => {
+    if (slideInterval) clearInterval(slideInterval);
+  });
 
   onMount(async () => {
     try {
@@ -206,11 +283,11 @@ export default function Setup(props: { onComplete?: () => void }) {
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={activeTab() === "console"}
-                    class={`setup-tab-btn ${activeTab() === "console" ? "active" : ""}`}
-                    onClick={() => setActiveTab("console")}
+                    aria-selected={activeTab() === "guide"}
+                    class={`setup-tab-btn ${activeTab() === "guide" ? "active" : ""}`}
+                    onClick={() => setActiveTab("guide")}
                   >
-                    <i class="ph ph-terminal-window"></i> Deployment Console
+                    <i class="ph-fill ph-sparkle"></i> Feature Guide
                   </button>
                   <button
                     type="button"
@@ -222,29 +299,130 @@ export default function Setup(props: { onComplete?: () => void }) {
                     <i class="ph-fill ph-game-controller"></i> Stream Runner
                     <span class="setup-tab-badge">ARCADE</span>
                   </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab() === "console"}
+                    class={`setup-tab-btn ${activeTab() === "console" ? "active" : ""}`}
+                    onClick={() => setActiveTab("console")}
+                  >
+                    <i class="ph ph-terminal-window"></i> Deployment Console
+                  </button>
                 </div>
               </div>
 
+              {/* 1. Feature Showcase & User Guide (Default view while initializing) */}
+              <Show when={activeTab() === "guide"}>
+                <div
+                  class="setup-guide-card"
+                  onMouseEnter={() => setAutoRotate(false)}
+                  onMouseLeave={() => setAutoRotate(true)}
+                >
+                  <div class="setup-guide-header">
+                    <span class="setup-guide-badge">
+                      <i class="ph-bold ph-star"></i> {FEATURE_GUIDES[guideIndex()].badge}
+                    </span>
+                    <span class="setup-guide-counter">
+                      Feature {guideIndex() + 1} of {FEATURE_GUIDES.length}
+                    </span>
+                  </div>
+
+                  <div class="setup-guide-body">
+                    <div class="setup-guide-icon-box">
+                      <i class={FEATURE_GUIDES[guideIndex()].icon}></i>
+                    </div>
+                    <div class="setup-guide-content">
+                      <h3 class="setup-guide-title">
+                        {FEATURE_GUIDES[guideIndex()].title}
+                      </h3>
+                      <p class="setup-guide-desc">
+                        {FEATURE_GUIDES[guideIndex()].desc}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div class="setup-guide-tip-box">
+                    <i class="ph-fill ph-lightbulb"></i>
+                    <span>{FEATURE_GUIDES[guideIndex()].tip}</span>
+                  </div>
+
+                  <div class="setup-guide-footer">
+                    <button
+                      type="button"
+                      class="setup-guide-nav-btn"
+                      onClick={prevGuide}
+                      title="Previous feature"
+                      aria-label="Previous feature"
+                    >
+                      <i class="ph-bold ph-caret-left"></i>
+                    </button>
+
+                    <div class="setup-guide-dots">
+                      <For each={FEATURE_GUIDES}>
+                        {(_, idx) => (
+                          <button
+                            type="button"
+                            class={`setup-guide-dot ${guideIndex() === idx() ? "active" : ""}`}
+                            onClick={() => setGuideIndex(idx())}
+                            aria-label={`Jump to feature ${idx() + 1}`}
+                          />
+                        )}
+                      </For>
+                    </div>
+
+                    <button
+                      type="button"
+                      class="setup-guide-nav-btn"
+                      onClick={nextGuide}
+                      title="Next feature"
+                      aria-label="Next feature"
+                    >
+                      <i class="ph-bold ph-caret-right"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="setup-logs-toggle-row">
+                  <button
+                    type="button"
+                    class="setup-toggle-logs-btn"
+                    onClick={() => setActiveTab("console")}
+                  >
+                    <i class="ph ph-terminal-window"></i> View Deployment Logs
+                  </button>
+                </div>
+              </Show>
+
+              {/* 2. Stream Runner Minigame */}
               <Show when={activeTab() === "game"}>
                 <div class="setup-game-container">
                   <SetupMinigame
                     downloadProgress={downloadProgress()}
                     isCompleted={isCompleted()}
                     onLaunch={handleLaunch}
-                    onClose={() => setActiveTab("console")}
+                    onClose={() => setActiveTab("guide")}
                   />
                 </div>
               </Show>
 
+              {/* 3. Deployment Console Terminal (Hidden by default, toggleable on demand) */}
               <div
                 class="setup-terminal-wrapper"
-                style={activeTab() === "game" ? { display: "none" } : {}}
+                style={activeTab() === "console" ? {} : { display: "none" }}
               >
                 <div class="terminal-header">
                   <div class="term-dot r"></div>
                   <div class="term-dot y"></div>
                   <div class="term-dot g"></div>
                   <span class="terminal-title">Deployment Console</span>
+                  <button
+                    type="button"
+                    class="terminal-back-btn"
+                    onClick={() => setActiveTab("guide")}
+                    title="Return to Feature Guide"
+                  >
+                    <i class="ph-bold ph-x"></i>
+                  </button>
                 </div>
                 <div id="setup-terminal" class="setup-terminal">
                   <For each={logs()}>
@@ -277,7 +455,7 @@ export default function Setup(props: { onComplete?: () => void }) {
                 </div>
               </div>
 
-              <Show when={loading() && activeTab() === "console"}>
+              <Show when={loading() && activeTab() !== "game"}>
                 <div
                   class="setup-arcade-teaser"
                   onClick={() => setActiveTab("game")}
