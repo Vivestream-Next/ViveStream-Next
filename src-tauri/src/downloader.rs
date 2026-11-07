@@ -612,7 +612,18 @@ pub async fn auto_install_companion_extension(app: AppHandle) -> Result<String, 
 
     let browsers = detect_chromium_browsers();
     let (browser_name, _ext_url) = if let Some((name, exe_path, url)) = browsers.first() {
-        let _ = std::process::Command::new(exe_path).arg(url).spawn();
+        let mut b_cmd = std::process::Command::new(exe_path);
+        b_cmd
+            .arg(url)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            b_cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+        }
+        let _ = b_cmd.spawn();
         (*name, *url)
     } else {
         ("Browser", "chrome://extensions")
@@ -620,9 +631,13 @@ pub async fn auto_install_companion_extension(app: AppHandle) -> Result<String, 
 
     #[cfg(target_os = "windows")]
     {
-        let _ = std::process::Command::new("explorer")
+        let mut exp_cmd = std::process::Command::new("explorer");
+        exp_cmd
             .arg(format!("/select,{}", clean_path))
-            .spawn();
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        let _ = exp_cmd.spawn();
     }
     #[cfg(target_os = "macos")]
     {
@@ -673,9 +688,19 @@ pub async fn launch_browser_companion_extension(app: AppHandle) -> Result<String
     let mut cmd = std::process::Command::new(exe_path);
     cmd.arg(&user_data_arg)
         .arg(&load_ext_arg)
+        .arg("--profile-directory=Default")
         .arg("--no-first-run")
         .arg("--no-default-browser-check")
-        .arg("https://www.youtube.com");
+        .arg("https://www.youtube.com")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x00000008); // DETACHED_PROCESS
+    }
 
     cmd.spawn()
         .map_err(|e| format!("Failed to launch {}: {}", browser_name, e))?;
@@ -695,9 +720,13 @@ pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, S
     {
         // Trim extended path prefix '\\?\' if present for explorer compatibility
         let clean_path = path_str.trim_start_matches(r"\\?\");
-        let _ = std::process::Command::new("explorer")
+        let mut exp_cmd = std::process::Command::new("explorer");
+        exp_cmd
             .arg(clean_path)
-            .spawn();
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        let _ = exp_cmd.spawn();
     }
     #[cfg(target_os = "macos")]
     {
