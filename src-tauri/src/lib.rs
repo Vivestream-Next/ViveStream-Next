@@ -200,6 +200,8 @@ pub fn run() {
             clear_po_token,
             refresh_po_token,
             open_companion_extension_folder,
+            auto_install_companion_extension,
+            launch_browser_companion_extension,
             check_whisper_status,
             install_whisper_binary,
             download_whisper_model,
