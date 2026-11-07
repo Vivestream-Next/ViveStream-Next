@@ -421,8 +421,7 @@ pub async fn set_manual_po_token(app: AppHandle, token: String) -> Result<(), St
     Ok(())
 }
 
-#[tauri::command]
-pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, String> {
+pub fn get_companion_extension_dir(app: &AppHandle) -> Result<std::path::PathBuf, String> {
     use tauri::Manager;
     let mut candidates = Vec::new();
 
@@ -457,7 +456,7 @@ pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, S
     if let Ok(app_dir) = app.path().app_data_dir() {
         candidates.push(app_dir.join("companion-extension"));
     }
-    if let Ok(base_dir) = crate::system::get_base_dir(&app) {
+    if let Ok(base_dir) = crate::system::get_base_dir(app) {
         candidates.push(base_dir.join("companion-extension"));
     }
 
@@ -465,9 +464,231 @@ pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, S
     let target_dir = candidates
         .into_iter()
         .find(|p| p.exists() && p.is_dir())
-        .ok_or_else(|| "Could not locate companion-extension folder in workspace or application paths".to_string())?;
+        .ok_or_else(|| {
+            "Could not locate companion-extension folder in workspace or application paths"
+                .to_string()
+        })?;
 
-    let canonical = target_dir.canonicalize().unwrap_or(target_dir);
+    Ok(target_dir.canonicalize().unwrap_or(target_dir))
+}
+
+pub fn detect_chromium_browsers() -> Vec<(&'static str, std::path::PathBuf, &'static str)> {
+    let mut browsers = Vec::new();
+
+    #[cfg(target_os = "windows")]
+    {
+        let prog_files =
+            std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".into());
+        let prog_files_x86 =
+            std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| r"C:\Program Files (x86)".into());
+        let local_app_data = std::env::var("LOCALAPPDATA").unwrap_or_default();
+
+        let candidates = [
+            (
+                "Google Chrome",
+                format!(r"{}\Google\Chrome\Application\chrome.exe", prog_files),
+                "chrome://extensions",
+            ),
+            (
+                "Google Chrome",
+                format!(r"{}\Google\Chrome\Application\chrome.exe", prog_files_x86),
+                "chrome://extensions",
+            ),
+            (
+                "Google Chrome",
+                format!(r"{}\Google\Chrome\Application\chrome.exe", local_app_data),
+                "chrome://extensions",
+            ),
+            (
+                "Brave Browser",
+                format!(
+                    r"{}\BraveSoftware\Brave-Browser\Application\brave.exe",
+                    prog_files
+                ),
+                "brave://extensions",
+            ),
+            (
+                "Brave Browser",
+                format!(
+                    r"{}\BraveSoftware\Brave-Browser\Application\brave.exe",
+                    local_app_data
+                ),
+                "brave://extensions",
+            ),
+            (
+                "Microsoft Edge",
+                format!(r"{}\Microsoft\Edge\Application\msedge.exe", prog_files_x86),
+                "edge://extensions",
+            ),
+            (
+                "Microsoft Edge",
+                format!(r"{}\Microsoft\Edge\Application\msedge.exe", prog_files),
+                "edge://extensions",
+            ),
+        ];
+
+        for (name, path_str, ext_url) in candidates {
+            let path = std::path::PathBuf::from(&path_str);
+            if path.exists() && !browsers.iter().any(|(b_name, _, _)| *b_name == name) {
+                browsers.push((name, path, ext_url));
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let candidates = [
+            (
+                "Google Chrome",
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+                "chrome://extensions",
+            ),
+            (
+                "Brave Browser",
+                "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+                "brave://extensions",
+            ),
+            (
+                "Microsoft Edge",
+                "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+                "edge://extensions",
+            ),
+        ];
+        for (name, path_str, ext_url) in candidates {
+            let path = std::path::PathBuf::from(path_str);
+            if path.exists() {
+                browsers.push((name, path, ext_url));
+            }
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        let candidates = [
+            (
+                "Google Chrome",
+                "/usr/bin/google-chrome",
+                "chrome://extensions",
+            ),
+            (
+                "Chromium",
+                "/usr/bin/chromium-browser",
+                "chrome://extensions",
+            ),
+            (
+                "Chromium",
+                "/usr/bin/chromium",
+                "chrome://extensions",
+            ),
+            (
+                "Brave Browser",
+                "/usr/bin/brave-browser",
+                "brave://extensions",
+            ),
+            (
+                "Microsoft Edge",
+                "/usr/bin/microsoft-edge",
+                "edge://extensions",
+            ),
+        ];
+        for (name, path_str, ext_url) in candidates {
+            let path = std::path::PathBuf::from(path_str);
+            if path.exists() && !browsers.iter().any(|(b_name, _, _)| *b_name == name) {
+                browsers.push((name, path, ext_url));
+            }
+        }
+    }
+
+    browsers
+}
+
+#[tauri::command]
+pub async fn auto_install_companion_extension(app: AppHandle) -> Result<String, String> {
+    let canonical = get_companion_extension_dir(&app)?;
+    let path_str = canonical.to_string_lossy().to_string();
+    let clean_path = path_str.trim_start_matches(r"\\?\").to_string();
+
+    let _ = crate::system::set_clipboard_text(clean_path.clone()).await;
+
+    let browsers = detect_chromium_browsers();
+    let (browser_name, _ext_url) = if let Some((name, exe_path, url)) = browsers.first() {
+        let _ = std::process::Command::new(exe_path).arg(url).spawn();
+        (*name, *url)
+    } else {
+        ("Browser", "chrome://extensions")
+    };
+
+    #[cfg(target_os = "windows")]
+    {
+        let _ = std::process::Command::new("explorer")
+            .arg(format!("/select,{}", clean_path))
+            .spawn();
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let _ = std::process::Command::new("open")
+            .arg("-R")
+            .arg(&canonical)
+            .spawn();
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = std::process::Command::new("xdg-open")
+            .arg(&canonical)
+            .spawn();
+    }
+
+    Ok(format!(
+        "Opened {} and selected folder! Drag the folder into your browser to install in 1 click (path is in clipboard).",
+        browser_name
+    ))
+}
+
+#[tauri::command]
+pub async fn launch_browser_companion_extension(app: AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let canonical = get_companion_extension_dir(&app)?;
+    let path_str = canonical.to_string_lossy().to_string();
+    let clean_path = path_str.trim_start_matches(r"\\?\").to_string();
+
+    let browsers = detect_chromium_browsers();
+    let (browser_name, exe_path, _) = browsers.first().ok_or_else(|| {
+        "No Chromium browser (Chrome, Brave, or Edge) found. Please install Google Chrome or Brave."
+            .to_string()
+    })?;
+
+    let app_cache = app
+        .path()
+        .app_cache_dir()
+        .unwrap_or_else(|_| std::env::temp_dir());
+    let profile_dir = app_cache.join("companion-browser-profile");
+    let _ = std::fs::create_dir_all(&profile_dir);
+
+    let load_ext_arg = format!("--load-extension={}", clean_path);
+    let user_data_arg = format!(
+        "--user-data-dir={}",
+        profile_dir.to_string_lossy().trim_start_matches(r"\\?\")
+    );
+
+    let mut cmd = std::process::Command::new(exe_path);
+    cmd.arg(&user_data_arg)
+        .arg(&load_ext_arg)
+        .arg("--no-first-run")
+        .arg("--no-default-browser-check")
+        .arg("https://www.youtube.com");
+
+    cmd.spawn()
+        .map_err(|e| format!("Failed to launch {}: {}", browser_name, e))?;
+
+    Ok(format!(
+        "Launched {} with companion extension loaded! Play any YouTube video to auto-sync your PO Token.",
+        browser_name
+    ))
+}
+
+#[tauri::command]
+pub async fn open_companion_extension_folder(app: AppHandle) -> Result<String, String> {
+    let canonical = get_companion_extension_dir(&app)?;
     let path_str = canonical.to_string_lossy().to_string();
 
     #[cfg(target_os = "windows")]
