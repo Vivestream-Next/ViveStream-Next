@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "cleanup": "bun ../scripts/cleanup.js --installer-only"
   },
   "dependencies": {
     "@phosphor-icons/web": "^2.1.2",
