@@ -19,7 +19,7 @@
     "build:msi": "bun ./scripts/build-packages.js --msi",
     "serve": "vite preview",
     "tauri": "tauri",
-    "cleanup": "cd src-tauri && cargo clean && rm -rf target gen && cd .. && rm -rf node_modules dist pkg PKGBUILD.1",
+    "cleanup": "bun ./scripts/cleanup.js",
     "init": "cd src-tauri && cargo build && cd .. && bun install && vite build",
     "test": "vitest run",
     "test:pot": "cargo run --manifest-path src-tauri/Cargo.toml -- --test-pot",
