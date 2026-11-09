@@ -2,6 +2,7 @@
 //! Supports Intel Arc / Iris / UHD, NVIDIA GeForce / RTX, AMD Radeon, Apple Silicon, and multi-core CPUs.
 
 use serde::{Deserialize, Serialize};
+#[cfg(target_os = "windows")]
 use std::process::Command;
 use sysinfo::System;
 
