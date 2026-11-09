@@ -8,22 +8,12 @@ fn main() {
         if std::env::var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS").is_err() {
             std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
         }
-        // Force hardware accelerated compositor mode in WebKitGTK to ensure native display refresh rate (100Hz+)
-        if std::env::var("WEBKIT_FORCE_COMPOSITING_MODE").is_err() {
-            std::env::set_var("WEBKIT_FORCE_COMPOSITING_MODE", "1");
-        }
-        // Force dedicated GPU rasterization and thread pipeline
-        if std::env::var("WEBKIT_GPU_POLICY").is_err() {
-            std::env::set_var("WEBKIT_GPU_POLICY", "force");
-        }
-        // Uncap GTK frame clock to match high refresh rate monitor (100Hz, 120Hz, 144Hz+)
-        if std::env::var("GDK_FRAME_CLOCK_FPS").is_err() {
-            std::env::set_var("GDK_FRAME_CLOCK_FPS", "0");
-        }
-        // Enable DMA-BUF hardware acceleration by default for zero-copy GPU compositing.
-        // If running in a virtual machine or troubled environment, user can set VIVESTREAM_SAFE_GRAPHICS=1.
+
+        // Keep hardware accelerated DMA-BUF renderer enabled on Linux (Intel Arc / AMD Mesa) for zero-copy GPU video decoding and instant responsiveness.
+        // Disabling DMA-BUF forces software SHM rendering on CPU which causes massive 1-second video input lag.
+        // If running in a troubled environment or older NVIDIA driver, user can set VIVESTREAM_SAFE_GRAPHICS=1.
         if let Ok(safe) = std::env::var("VIVESTREAM_SAFE_GRAPHICS") {
-            if safe == "1" {
+            if safe == "1" && std::env::var("WEBKIT_DISABLE_DMABUF_RENDERER").is_err() {
                 std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
             }
         }
