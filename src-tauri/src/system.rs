@@ -618,7 +618,14 @@ pub struct HardwareAccelerationReport {
 pub async fn test_hardware_transcoding(app: AppHandle) -> Result<HardwareAccelerationReport, String> {
     tokio::task::spawn_blocking(move || {
         let bin_dir = get_bin_dir(&app)?;
-        let (_, ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
+        let (_, mut ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            if !ffmpeg_path.exists() && std::path::Path::new("/usr/bin/ffmpeg").exists() {
+                ffmpeg_path = std::path::PathBuf::from("/usr/bin/ffmpeg");
+            }
+        }
 
         if !ffmpeg_path.exists() {
             return Ok(HardwareAccelerationReport {
@@ -663,18 +670,32 @@ pub async fn test_hardware_transcoding(app: AppHandle) -> Result<HardwareAcceler
                 cmd.creation_flags(0x08000000);
             }
 
-            cmd.args([
+            let mut test_args = vec![
                 "-y",
                 "-f",
                 "lavfi",
                 "-i",
                 "testsrc=duration=0.5:size=640x360:rate=30",
+            ];
+
+            if id == "h264_vaapi" {
+                test_args.extend_from_slice(&[
+                    "-vaapi_device",
+                    "/dev/dri/renderD128",
+                    "-vf",
+                    "format=nv12,hwupload",
+                ]);
+            }
+
+            test_args.extend_from_slice(&[
                 "-c:v",
                 id,
                 "-f",
                 "null",
                 "-",
             ]);
+
+            cmd.args(&test_args);
 
             let start = std::time::Instant::now();
             let output = cmd.output();
