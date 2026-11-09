@@ -14,7 +14,7 @@
 
 Built with **Tauri v2**, **SolidJS**, and **Rust** for maximum performance, hardware-accelerated transcoding, and a tactile claymorphic interface.
 
-[Download Latest Release](https://github.com/rootlocalghost/ViveStream-Next/releases) • [Features](#-core-features) • [Keyboard Shortcuts](#-keyboard-shortcuts) • [Developer Guide](#-developer-setup) • [Documentation](./docs/vivestream-next/)
+[Download Latest Release](https://github.com/ViveStream-Next/ViveStream-Next/releases) • [Features](#-core-features) • [Keyboard Shortcuts](#-keyboard-shortcuts) • [Developer Guide](#-developer-setup) • [Documentation](./docs/vivestream-next/)
 
 </div>
 
