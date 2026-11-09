@@ -862,9 +862,21 @@ pub async fn check_binaries(app: AppHandle) -> Result<BinaryCheckStatus, String>
     #[cfg(not(target_os = "windows"))]
     let ffprobe = bin_dir.join("ffprobe");
 
+    #[cfg(not(target_os = "windows"))]
+    let ytdlp_exists = (ytdlp.exists() || Path::new("/usr/bin/yt-dlp").exists())
+        && (deno.exists() || Path::new("/usr/bin/deno").exists());
+    #[cfg(target_os = "windows")]
+    let ytdlp_exists = ytdlp.exists() && deno.exists();
+
+    #[cfg(not(target_os = "windows"))]
+    let ffmpeg_exists = (ffmpeg.exists() || Path::new("/usr/bin/ffmpeg").exists())
+        && (ffprobe.exists() || Path::new("/usr/bin/ffprobe").exists());
+    #[cfg(target_os = "windows")]
+    let ffmpeg_exists = ffmpeg.exists() && ffprobe.exists();
+
     Ok(BinaryCheckStatus {
-        ytdlp_exists: ytdlp.exists() && deno.exists(),
-        ffmpeg_exists: ffmpeg.exists() && ffprobe.exists(),
+        ytdlp_exists,
+        ffmpeg_exists,
         bin_folder: bin_dir,
     })
 }
@@ -1300,7 +1312,20 @@ async fn download_video_inner(
 ) -> Result<(), String> {
     let bin_dir = get_bin_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
-    let (ytdlp_path, ffmpeg_path, deno_path) = get_binary_paths(&bin_dir);
+    let (mut ytdlp_path, mut ffmpeg_path, mut deno_path) = get_binary_paths(&bin_dir);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        if !ytdlp_path.exists() && Path::new("/usr/bin/yt-dlp").exists() {
+            ytdlp_path = PathBuf::from("/usr/bin/yt-dlp");
+        }
+        if !ffmpeg_path.exists() && Path::new("/usr/bin/ffmpeg").exists() {
+            ffmpeg_path = PathBuf::from("/usr/bin/ffmpeg");
+        }
+        if !deno_path.exists() && Path::new("/usr/bin/deno").exists() {
+            deno_path = PathBuf::from("/usr/bin/deno");
+        }
+    }
 
     if !ytdlp_path.exists() || !ffmpeg_path.exists() {
         return Err("Binaries missing.".into());
@@ -1592,6 +1617,17 @@ async fn download_video_inner(
     } else {
         let _ = app.emit(&progress_event, "Step 2: Processing Video (Stream Optimization)...");
 
+        // Identify the actual downloaded raw file (whether mp4, webm, or mkv)
+        let temp_path = if vid_dir.join(format!("raw_{}.mp4", metadata.id)).exists() {
+            vid_dir.join(format!("raw_{}.mp4", metadata.id))
+        } else if vid_dir.join(format!("raw_{}.webm", metadata.id)).exists() {
+            vid_dir.join(format!("raw_{}.webm", metadata.id))
+        } else if vid_dir.join(format!("raw_{}.mkv", metadata.id)).exists() {
+            vid_dir.join(format!("raw_{}.mkv", metadata.id))
+        } else {
+            temp_path
+        };
+
         // Tier 1: Fast direct stream copy (Lossless, instant, original bitrate, zero quality loss)
         let mut copy_cmd = Command::new(&ffmpeg_path);
         #[cfg(target_os = "windows")]
@@ -1741,9 +1777,11 @@ async fn download_video_inner(
                     transcode_success = true;
                     break;
                 } else {
+                    let err = String::from_utf8_lossy(&output.stderr);
+                    let last_err = err.lines().rev().find(|l| !l.trim().is_empty()).unwrap_or("error");
                     let _ = app.emit(
                         &progress_event,
-                        format!("Encoder {} failed, dropping to next fallback...", name),
+                        format!("Encoder {} failed ({}): dropping to next fallback...", name, last_err),
                     );
                 }
             }
