@@ -2,6 +2,24 @@
  * ViveStream PO Token Companion - Popup Controller
  * Direct MAIN-world DOM inspection, deep stream telemetry, and instant diagnostics copy.
  */
+function isYouTubeHost(hostname) {
+  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+}
+
+function isGooglevideoHost(hostname) {
+  return hostname === "googlevideo.com" || hostname.endsWith(".googlevideo.com");
+}
+
+function isYouTubeUrl(urlStr) {
+  if (!urlStr) return false;
+  try {
+    const parsed = new URL(urlStr);
+    return isYouTubeHost(parsed.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   const headerStatusBadge = document.getElementById("headerStatusBadge");
   const statusDot = document.getElementById("statusDot");
@@ -180,7 +198,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function checkActiveTabStatus() {
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab?.url?.includes("youtube.com")) {
+      if (isYouTubeUrl(tab?.url)) {
         ytIndicator.className = "diag-indicator active";
         ytStatusLabel.textContent = "YouTube Tab: Active";
         return tab;
@@ -419,10 +437,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         const res = resources[i];
         const name = res.name || "";
 
-        if (name.includes("googlevideo.com") || name.includes("/videoplayback")) {
+        let isGv = false;
+        let url = null;
+        try {
+          url = new URL(name);
+          const host = url.hostname;
+          isGv = host === "googlevideo.com" || host.endsWith(".googlevideo.com") || url.pathname.includes("/videoplayback");
+        } catch (_) {}
+
+        if (isGv && url) {
           diag.googlevideoCount++;
           try {
-            const url = new URL(name);
             if (!diag.sampleGooglevideoUrl) {
               diag.sampleGooglevideoUrl = `${url.hostname}${url.pathname}?${Array.from(url.searchParams.keys()).slice(0, 8).join("&")}`;
             }
@@ -492,7 +517,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (!tab || !tab.id) {
         throw new Error("No active tab found. Please open YouTube in your browser.");
       }
-      if (!tab.url || !tab.url.includes("youtube.com")) {
+      if (!tab.url || !isYouTubeUrl(tab.url)) {
         throw new Error("Active tab is not YouTube. Please switch to your YouTube tab and play a video!");
       }
 
@@ -804,7 +829,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       "----------------------------------------------------------------------",
       `Tab Title:         ${activeTab?.title || "Unknown"}`,
       `Tab URL:           ${activeTab?.url || "Unknown"}`,
-      `Is YouTube:        ${activeTab?.url?.includes("youtube.com") ? "YES" : "NO"}`,
+      `Is YouTube:        ${isYouTubeUrl(activeTab?.url) ? "YES" : "NO"}`,
       "",
       "----------------------------------------------------------------------",
       "[4. TAB TELEMETRY & MEDIA STREAM DIAGNOSTICS]",

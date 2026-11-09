@@ -61,20 +61,28 @@
     );
   }
 
+  function isGooglevideoHost(hostname) {
+    return hostname === "googlevideo.com" || hostname.endsWith(".googlevideo.com");
+  }
+
   // 1. Scan Performance Resource Timing for active stream chunks and stats beacons
   function scanResourceTiming() {
     try {
       const entries = performance.getEntriesByType("resource");
       for (let i = entries.length - 1; i >= 0; i--) {
         const name = entries[i].name;
-        if (name && (name.includes("googlevideo.com") || name.includes("/videoplayback") || name.includes("/api/stats/"))) {
+        if (!name) continue;
+        try {
           const url = new URL(name);
-          const pot = url.searchParams.get("pot") || url.searchParams.get("po_token") || url.searchParams.get("cpo");
-          if (pot && pot.length >= 16) {
-            notifyToken(pot, name.includes("/api/stats/") ? "performance_stats_beacon" : "performance_buffer_chunk");
-            return true;
+          const isGv = isGooglevideoHost(url.hostname) || url.pathname.includes("/videoplayback") || url.pathname.includes("/api/stats/");
+          if (isGv) {
+            const pot = url.searchParams.get("pot") || url.searchParams.get("po_token") || url.searchParams.get("cpo");
+            if (pot && pot.length >= 16) {
+              notifyToken(pot, url.pathname.includes("/api/stats/") ? "performance_stats_beacon" : "performance_buffer_chunk");
+              return true;
+            }
           }
-        }
+        } catch (_) {}
       }
     } catch (_) {}
     return false;

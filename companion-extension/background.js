@@ -3,6 +3,24 @@
  * System-wide interception of YouTube BotGuard PO tokens via webRequest, stats beacons, and MAIN-world DOM inspection.
  */
 
+function isYouTubeHost(hostname) {
+  return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+}
+
+function isGooglevideoHost(hostname) {
+  return hostname === "googlevideo.com" || hostname.endsWith(".googlevideo.com");
+}
+
+function isYouTubeUrl(urlStr) {
+  if (!urlStr) return false;
+  try {
+    const parsed = new URL(urlStr);
+    return isYouTubeHost(parsed.hostname);
+  } catch (_) {
+    return false;
+  }
+}
+
 // In-memory log buffer (persisted to chrome.storage.local)
 async function addLog(message, level = "info") {
   const timeStr = new Date().toLocaleTimeString();
@@ -94,7 +112,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       const url = new URL(details.url);
 
       // Check googlevideo.com media playback requests (video/audio chunks)
-      if (url.hostname.includes("googlevideo.com") || url.pathname.includes("/videoplayback")) {
+      if (isGooglevideoHost(url.hostname) || url.pathname.includes("/videoplayback")) {
         const pot =
           url.searchParams.get("pot") ||
           url.searchParams.get("po_token") ||
@@ -198,7 +216,7 @@ async function scanActiveTabNow() {
   if (!tab || !tab.id) {
     return { error: "No active browser tab found" };
   }
-  if (!tab.url || !tab.url.includes("youtube.com")) {
+  if (!tab.url || !isYouTubeUrl(tab.url)) {
     return { error: "Active tab is not YouTube (open youtube.com and play a video)" };
   }
 
@@ -335,10 +353,17 @@ async function scanActiveTabNow() {
             const name = res.name || "";
 
             // Check googlevideo.com chunks
-            if (name.includes("googlevideo.com") || name.includes("/videoplayback")) {
+            let isGv = false;
+            let url = null;
+            try {
+              url = new URL(name);
+              const host = url.hostname;
+              isGv = host === "googlevideo.com" || host.endsWith(".googlevideo.com") || url.pathname.includes("/videoplayback");
+            } catch (_) {}
+
+            if (isGv && url) {
               diag.googlevideoCount++;
               try {
-                const url = new URL(name);
                 for (const k of url.searchParams.keys()) {
                   paramKeysSet.add(k);
                 }
