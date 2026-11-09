@@ -307,23 +307,8 @@ export default function Player() {
             }
           }
         }
-      } else if (video()?.id) {
-        logAmbient("VideoNotReady", {
-          readyState: videoRef.readyState,
-          videoWidth: videoRef.videoWidth,
-          videoId: video()!.id,
-        });
+      } else if (video()?.id && !dominantColor()) {
         fetchRustDominantColors(video()!.id, videoRef?.currentTime ?? 0);
-      }
-
-      // Continuous background sync with Rust backend (every 1.5s) to guarantee accurate colors on all platforms
-      if (
-        video()?.id &&
-        videoRef &&
-        !videoRef.paused &&
-        time - lastRustFetchTime >= 1500
-      ) {
-        fetchRustDominantColors(video()!.id, videoRef.currentTime);
       }
 
       // 3. Audio-Reactive Dynamic Glow Modulation
@@ -437,18 +422,17 @@ export default function Player() {
     v.onended = () => handleVideoEnd();
     v.onplay = () => {
       if (isUnmounting) return;
-      invoke("update_playback_status", { playing: true }).catch(() => {});
       setIsPlaying(true);
-      getSharedAudioReactiveEngine().connect(v);
-      getSharedAudioReactiveEngine().resume();
+      if (playerAmbientAudioReactive()) {
+        getSharedAudioReactiveEngine().connect(v);
+        getSharedAudioReactiveEngine().resume();
+      }
       startAmbientLoop();
     };
     v.onpause = () => {
       if (isUnmounting || v.seeking) return;
-      invoke("update_playback_status", { playing: false }).catch(() => {});
       setIsPlaying(false);
       stopAmbientLoop();
-      drawAmbientFrame(undefined, true);
     };
     v.onloadeddata = () => {
       drawAmbientFrame(undefined, true);
@@ -680,25 +664,34 @@ export default function Player() {
 
   const handlePlay = () => {
     if (videoRef) {
+      setIsPlaying(true);
       const playPromise = videoRef.play();
       if (playPromise !== undefined) {
-        playPromise
-          .then(() => setIsPlaying(true))
-          .catch((e) => {
-            if (e.name !== "AbortError") console.error("Playback error:", e);
-          });
+        playPromise.catch((e) => {
+          if (e.name !== "AbortError") {
+            console.error("Playback error:", e);
+            setIsPlaying(false);
+          }
+        });
       }
     }
   };
 
   const handlePause = () => {
     if (videoRef) {
-      videoRef.pause();
       setIsPlaying(false);
+      videoRef.pause();
     }
   };
 
-  const togglePlay = () => (isPlaying() ? handlePause() : handlePlay());
+  const togglePlay = () => {
+    if (!videoRef) return;
+    if (videoRef.paused) {
+      handlePlay();
+    } else {
+      handlePause();
+    }
+  };
 
   const toggleMute = () => {
     if (videoRef) {
