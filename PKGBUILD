@@ -1,6 +1,6 @@
 # Maintainer: rootLocalGhost <rootlocalghost@gmail.com>
 pkgname=vivestream-next-bin
-pkgver=v4.0.0
+pkgver=v4.1.0
 pkgrel=1
 pkgdesc="A lightning-fast, natively integrated YouTube downloader and local media library."
 arch=('x86_64')
@@ -14,7 +14,7 @@ provides=('vivestream-next')
 conflicts=('vivestream-next')
 
 # Source array points directly to the release asset, letting makepkg handle downloading and caching
-_tag="v4.0.0"
+_tag="v4.1.0"
 _ver="${_tag#v}"
 source=("vivestream-next-${pkgver}.deb::${url}/releases/download/${_tag}/vivestream-next_${_ver}_amd64.deb")
 sha256sums=('SKIP')
