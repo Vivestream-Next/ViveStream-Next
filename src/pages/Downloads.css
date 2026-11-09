@@ -606,12 +606,17 @@
   margin-top: 12px;
   overflow: hidden;
   box-shadow: 1.5px 1.5px 0px var(--border-color);
+  contain: paint;
+  transform: translateZ(0);
 }
 
 .downloads-page .progress-fill {
   height: 100%;
   background: var(--primary-accent);
-  transition: width 0.15s ease;
+  transition: width 0.1s linear;
+  will-change: width;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .downloads-page .progress-fill.done {
