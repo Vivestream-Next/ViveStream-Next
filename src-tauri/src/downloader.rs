@@ -992,9 +992,9 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
         let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-            let name = file.name();
+            let name = file.name().map_err(|e| e.to_string())?;
             if name.ends_with("deno.exe") || name.ends_with("deno") {
-                let file_name = std::path::Path::new(name).file_name().unwrap();
+                let file_name = std::path::Path::new(name.as_ref()).file_name().unwrap();
                 let outpath = bin_dir.join(file_name);
                 let mut outfile = File::create(&outpath).map_err(|e| e.to_string())?;
                 std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
@@ -1057,9 +1057,9 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
             if file.is_file() {
-                let name = file.name();
+                let name = file.name().map_err(|e| e.to_string())?;
                 if name.ends_with("ffmpeg.exe") || name.ends_with("ffprobe.exe") {
-                    let outpath = bin_dir.join(std::path::Path::new(name).file_name().unwrap());
+                    let outpath = bin_dir.join(std::path::Path::new(name.as_ref()).file_name().unwrap());
                     std::io::copy(&mut file, &mut File::create(outpath).unwrap()).unwrap();
                 }
             }

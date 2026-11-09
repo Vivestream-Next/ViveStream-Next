@@ -288,7 +288,7 @@ pub fn extract_payload(
             None => continue,
         };
 
-        if file.name().ends_with('/') {
+        if file.is_dir() {
             fs::create_dir_all(&outpath)?;
         } else {
             if let Some(p) = outpath.parent() {
@@ -301,11 +301,12 @@ pub fn extract_payload(
         }
 
         let progress = 10.0 + ((i as f64 / total_files as f64) * 60.0);
+        let display_name = file.name().map(|n| n.to_string()).unwrap_or_else(|_| "file".to_string());
         let _ = app.emit(
             "install-progress",
             ProgressPayload {
                 percent: progress,
-                status: format!("Extracting {} ({} of {})", file.name(), i + 1, total_files),
+                status: format!("Extracting {} ({} of {})", display_name, i + 1, total_files),
             },
         );
     }
