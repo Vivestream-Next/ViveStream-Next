@@ -54,6 +54,7 @@ const Favourites = lazy(() => import("./pages/Favourites"));
 const Playlists = lazy(() => import("./pages/Playlists"));
 const Artists = lazy(() => import("./pages/Artists"));
 const ArtistPage = lazy(() => import("./pages/ArtistPage"));
+const LyricsStudio = lazy(() => import("./pages/LyricsStudio"));
 const AI = lazy(() => import("./pages/AI"));
 
 const AppLogo = () => (
@@ -479,22 +480,30 @@ const AppLayout: Component<{ children?: any }> = (props) => {
           code === "Digit5" ||
           key === "5" ||
           key === "%" ||
+          key === "l"
+        ) {
+          e.preventDefault();
+          navigate("/lyrics");
+        } else if (
+          code === "Digit6" ||
+          key === "6" ||
+          key === "^" ||
           key === "d"
         ) {
           e.preventDefault();
           navigate("/downloads");
         } else if (
-          code === "Digit6" ||
-          key === "6" ||
-          key === "^" ||
+          code === "Digit7" ||
+          key === "7" ||
+          key === "&" ||
           key === "s"
         ) {
           e.preventDefault();
           navigate("/settings");
         } else if (
-          code === "Digit7" ||
-          key === "7" ||
-          key === "&"
+          code === "Digit8" ||
+          key === "8" ||
+          key === "*"
         ) {
           e.preventDefault();
           navigate("/ai");
@@ -542,11 +551,10 @@ const AppLayout: Component<{ children?: any }> = (props) => {
             animClass="anim-shake"
           />
           <NavItem
-            href="/ai"
-            text="AI"
-            iconName="sparkle"
+            href="/lyrics"
+            text="Lyrics Studio"
+            iconName="waveform"
             animClass="anim-pulse"
-            badge="PRO"
           />
         </div>
         <div class="nav-links bottom-links">
@@ -564,6 +572,13 @@ const AppLayout: Component<{ children?: any }> = (props) => {
             <span class="nav-text">Arcade</span>
             <span class="nav-badge-pro">PLAY</span>
           </button>
+          <NavItem
+            href="/ai"
+            text="AI"
+            iconName="sparkle"
+            animClass="anim-pulse"
+            badge="PRO"
+          />
           <NavItem
             href="/downloads"
             text="Downloads"
@@ -594,6 +609,7 @@ const App: Component = () => {
         <Route path="/artists" component={Artists} />
         <Route path="/artist/:name" component={ArtistPage} />
         <Route path="/favourites" component={Favourites} />
+        <Route path="/lyrics" component={LyricsStudio} />
         <Route path="/player/:id" component={Player} />
         <Route path="/ai" component={AI} />
       </Route>
