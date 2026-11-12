@@ -790,7 +790,32 @@ pub async fn generate_track_lyrics(
         return Err("Whisper engine binary is not installed yet. Please install it from AI Settings.".to_string());
     }
 
-    let model_name = model.unwrap_or_else(|| "base".to_string());
+    // Resolve requested model, or gracefully fall back to an installed model in models_dir
+    let mut resolved_model = model.unwrap_or_else(|| "base".to_string());
+    let requested_model_file = models_dir.join(format!("{}.safetensors", resolved_model));
+
+    if !requested_model_file.is_file() {
+        // Find if ANY model is already downloaded and installed
+        let fallback_candidates = ["medium", "small", "base", "tiny", "large-v3", "large-v2"];
+        let mut found_fallback = None;
+        for cand in &fallback_candidates {
+            if models_dir.join(format!("{}.safetensors", cand)).is_file() {
+                found_fallback = Some(cand.to_string());
+                break;
+            }
+        }
+
+        if let Some(fb) = found_fallback {
+            resolved_model = fb;
+        } else {
+            return Err(format!(
+                "No Whisper models found in '{}'. Please open AI Studio > Neural Hub & Models to download a model (e.g. Base or Medium).",
+                models_dir.display()
+            ));
+        }
+    }
+
+    let model_name = resolved_model;
     let task_mode = task.unwrap_or_else(|| "transcribe".to_string());
     let lang = language.unwrap_or_else(|| "auto".to_string());
     let target_device = device.unwrap_or_else(|| "auto".to_string());
