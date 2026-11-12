@@ -299,6 +299,8 @@ export const {
   setIsTranscribingCurrentTrack,
   transcribingTrackId,
   setTranscribingTrackId,
+  transcribeProgress,
+  setTranscribeProgress,
   lyricsOffsetMs,
   setLyricsOffsetMs,
   activeLyricIndex,
@@ -589,6 +591,14 @@ export const {
   const [transcribingTrackId, setTranscribingTrackId] = createSignal<
     string | null
   >(null);
+  const [transcribeProgress, setTranscribeProgress] = createSignal<{
+    type?: string;
+    stage?: string;
+    percent?: number;
+    seek_sec?: number;
+    total_sec?: number;
+    message?: string;
+  } | null>(null);
   const [lyricsOffsetMs, setLyricsOffsetMs] = createSignal(0);
   const [activeLyricIndex, setActiveLyricIndex] = createSignal(-1);
   const [batchTranscriptionProgress, setBatchTranscriptionProgress] =
@@ -784,6 +794,8 @@ export const {
     setIsTranscribingCurrentTrack,
     transcribingTrackId,
     setTranscribingTrackId,
+    transcribeProgress,
+    setTranscribeProgress,
     lyricsOffsetMs,
     setLyricsOffsetMs,
     activeLyricIndex,
@@ -1729,6 +1741,17 @@ export const transcribeTrackQuick = async (
   if (!trackId || !audioPath) return null;
   setIsTranscribingCurrentTrack(true);
   setTranscribingTrackId(trackId);
+  setTranscribeProgress({ percent: 0, stage: "starting", message: "Initializing Whisper Neural Engine..." });
+
+  let unlistenProgress: (() => void) | undefined;
+  if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+    try {
+      unlistenProgress = await listen<any>("whisper-transcribe-progress", (event) => {
+        setTranscribeProgress(event.payload);
+      });
+    } catch {}
+  }
+
   try {
     addToast(`Transcribing "${title || trackId}" with Whisper AI...`, "info");
     await invoke<any>("generate_track_lyrics", {
@@ -1748,8 +1771,25 @@ export const transcribeTrackQuick = async (
     addToast(`Whisper transcription failed: ${err}`, "error");
     return null;
   } finally {
+    if (unlistenProgress) unlistenProgress();
     setIsTranscribingCurrentTrack(false);
     setTranscribingTrackId(null);
+    setTranscribeProgress(null);
+  }
+};
+
+export const deleteLyricsForTrack = async (trackId: string): Promise<boolean> => {
+  if (!trackId) return false;
+  try {
+    await invoke("delete_track_lyrics", { trackId });
+    if (currentTrackLyrics()?.track_id === trackId) {
+      setCurrentTrackLyrics(null);
+    }
+    addToast("Lyrics deleted successfully", "info");
+    return true;
+  } catch (err: any) {
+    addToast(`Failed to delete lyrics: ${err}`, "error");
+    return false;
   }
 };
 
