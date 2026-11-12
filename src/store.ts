@@ -122,6 +122,27 @@ export interface VideoMetadataResponse {
   entries: VideoEntry[];
 }
 
+export interface AppUpdateInfo {
+  update_available: boolean;
+  current_version: string;
+  latest_version: string;
+  release_notes: string;
+  release_url: string;
+  download_url: string | null;
+  asset_name: string | null;
+  asset_size_mb: number | null;
+  published_at: string | null;
+}
+
+export interface UpdateProgressEvent {
+  target: string;
+  percentage: number;
+  downloaded_mb: number;
+  total_mb: number;
+  message: string;
+  status: string;
+}
+
 export interface GpuInfo {
   id: string;
   name: string;
@@ -363,6 +384,20 @@ export const {
   setPlayerContextParams,
   favoritesSet,
   setFavoritesSet,
+  autoCheckEngineUpdates,
+  setAutoCheckEngineUpdates,
+  engineUpdateReady,
+  setEngineUpdateReady,
+  engineUpdateDownloading,
+  setEngineUpdateDownloading,
+  engineUpdateInfo,
+  setEngineUpdateInfo,
+  appUpdateInfo,
+  setAppUpdateInfo,
+  appUpdateDownloading,
+  setAppUpdateDownloading,
+  updateProgress,
+  setUpdateProgress,
   loadFavoritesCache,
   toggleFavoriteInCache,
 } = createRoot(() => {
@@ -434,6 +469,23 @@ export const {
   const [removeSponsorBlock, setRemoveSponsorBlock] = createSignal(
     getBool("removeSponsorBlock", false),
   );
+
+  const [autoCheckEngineUpdates, setAutoCheckEngineUpdates] = createSignal(
+    getBool("autoCheckEngineUpdates", true),
+  );
+  const [engineUpdateReady, setEngineUpdateReady] = createSignal(false);
+  const [engineUpdateDownloading, setEngineUpdateDownloading] =
+    createSignal(false);
+  const [engineUpdateInfo, setEngineUpdateInfo] = createSignal<{
+    update_available: boolean;
+    ytdlp_update: boolean;
+    current_ytdlp_version: string;
+    latest_ytdlp_version: string;
+    message: string;
+  } | null>(null);
+  const [appUpdateInfo, setAppUpdateInfo] = createSignal<AppUpdateInfo | null>(null);
+  const [appUpdateDownloading, setAppUpdateDownloading] = createSignal(false);
+  const [updateProgress, setUpdateProgress] = createSignal<UpdateProgressEvent | null>(null);
 
   const [isAiUnlocked, setIsAiUnlockedState] = createSignal(
     getBool("isAiUnlocked", false),
@@ -758,6 +810,20 @@ export const {
     setPlayerContextParams,
     favoritesSet,
     setFavoritesSet,
+    autoCheckEngineUpdates,
+    setAutoCheckEngineUpdates,
+    engineUpdateReady,
+    setEngineUpdateReady,
+    engineUpdateDownloading,
+    setEngineUpdateDownloading,
+    engineUpdateInfo,
+    setEngineUpdateInfo,
+    appUpdateInfo,
+    setAppUpdateInfo,
+    appUpdateDownloading,
+    setAppUpdateDownloading,
+    updateProgress,
+    setUpdateProgress,
     loadFavoritesCache: async () => {
       try {
         const favs = await invoke<VideoEntry[]>("get_favorites");
@@ -1135,6 +1201,60 @@ export const toggleRemoveSponsorBlock = (val: boolean) => {
   setRemoveSponsorBlock(val);
   if (isBrowser)
     window.localStorage.setItem("removeSponsorBlock", val.toString());
+};
+
+export const updateAutoCheckEngineUpdates = (val: boolean) => {
+  setAutoCheckEngineUpdates(val);
+  if (isBrowser)
+    window.localStorage.setItem("autoCheckEngineUpdates", val.toString());
+};
+
+export const restartApp = async () => {
+  try {
+    await invoke("restart_app");
+  } catch (e) {
+    console.error("Failed to restart application:", e);
+    addToast(`Failed to restart app: ${e}`, "error");
+  }
+};
+
+export const checkForAppUpdates = async (silent = false): Promise<AppUpdateInfo | null> => {
+  try {
+    const info = await invoke<AppUpdateInfo>("check_app_updates");
+    setAppUpdateInfo(info);
+    if (!silent) {
+      if (info.update_available) {
+        addToast(`New ViveStream-Next version available: ${info.latest_version}`, "info");
+      } else {
+        addToast(`ViveStream-Next is up to date (${info.current_version})`, "success");
+      }
+    }
+    return info;
+  } catch (e) {
+    console.warn("Failed to check for app updates:", e);
+    if (!silent) {
+      addToast(`Could not check for app updates: ${e}`, "error");
+    }
+    return null;
+  }
+};
+
+export const installAppUpdate = async (downloadUrl?: string) => {
+  const targetUrl = downloadUrl || appUpdateInfo()?.download_url;
+  if (!targetUrl) {
+    addToast("No direct installer URL found for your OS. Visit GitHub releases to update.", "error");
+    return;
+  }
+
+  setAppUpdateDownloading(true);
+  try {
+    addToast("Downloading ViveStream-Next installer...", "info");
+    await invoke("install_app_update", { downloadUrl: targetUrl });
+  } catch (e) {
+    console.error("Failed to install app update:", e);
+    addToast(`App update failed: ${e}`, "error");
+    setAppUpdateDownloading(false);
+  }
 };
 
 export const updateDownloadType = (val: string) => {
