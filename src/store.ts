@@ -117,6 +117,45 @@ export interface DownloadHistoryEntry {
   created_at: string;
 }
 
+export interface LyricWord {
+  word: string;
+  start: number;
+  end: number;
+  probability?: number;
+}
+
+export interface LyricLine {
+  id: number;
+  start: number;
+  end: number;
+  text: string;
+  translation?: string;
+  words?: LyricWord[];
+}
+
+export interface TrackLyricsPayload {
+  track_id: string;
+  title: string;
+  has_lyrics: boolean;
+  format: string;
+  language: string;
+  duration: number;
+  lines: LyricLine[];
+  raw_lrc?: string;
+  raw_enhanced_lrc?: string;
+  raw_srt?: string;
+}
+
+export interface BatchProgressEvent {
+  current_index: number;
+  total_tracks: number;
+  track_id: string;
+  title: string;
+  stage: string;
+  percent: number;
+  status: string;
+}
+
 export interface VideoMetadataResponse {
   playlist_title: string | null;
   entries: VideoEntry[];
@@ -252,6 +291,22 @@ export const {
   setWhisperAutoLinkLyrics,
   whisperComputeDevice,
   setWhisperComputeDevice,
+  currentTrackLyrics,
+  setCurrentTrackLyrics,
+  isLyricsDrawerOpen,
+  setIsLyricsDrawerOpen,
+  isTranscribingCurrentTrack,
+  setIsTranscribingCurrentTrack,
+  transcribingTrackId,
+  setTranscribingTrackId,
+  lyricsOffsetMs,
+  setLyricsOffsetMs,
+  activeLyricIndex,
+  setActiveLyricIndex,
+  batchTranscriptionProgress,
+  setBatchTranscriptionProgress,
+  isBatchTranscribing,
+  setIsBatchTranscribing,
   concurrentDownloads,
   setConcurrentDownloads,
   concurrentFragments,
@@ -526,6 +581,19 @@ export const {
   const [whisperComputeDevice, setWhisperComputeDevice] = createSignal(
     getStr("whisperComputeDevice", "auto"),
   );
+  const [currentTrackLyrics, setCurrentTrackLyrics] =
+    createSignal<TrackLyricsPayload | null>(null);
+  const [isLyricsDrawerOpen, setIsLyricsDrawerOpen] = createSignal(false);
+  const [isTranscribingCurrentTrack, setIsTranscribingCurrentTrack] =
+    createSignal(false);
+  const [transcribingTrackId, setTranscribingTrackId] = createSignal<
+    string | null
+  >(null);
+  const [lyricsOffsetMs, setLyricsOffsetMs] = createSignal(0);
+  const [activeLyricIndex, setActiveLyricIndex] = createSignal(-1);
+  const [batchTranscriptionProgress, setBatchTranscriptionProgress] =
+    createSignal<BatchProgressEvent | null>(null);
+  const [isBatchTranscribing, setIsBatchTranscribing] = createSignal(false);
 
   const [defaultSortBy, setDefaultSortBy] = createSignal(
     getStr("defaultSortBy", "date"),
@@ -708,6 +776,22 @@ export const {
     setWhisperAutoLinkLyrics,
     whisperComputeDevice,
     setWhisperComputeDevice,
+    currentTrackLyrics,
+    setCurrentTrackLyrics,
+    isLyricsDrawerOpen,
+    setIsLyricsDrawerOpen,
+    isTranscribingCurrentTrack,
+    setIsTranscribingCurrentTrack,
+    transcribingTrackId,
+    setTranscribingTrackId,
+    lyricsOffsetMs,
+    setLyricsOffsetMs,
+    activeLyricIndex,
+    setActiveLyricIndex,
+    batchTranscriptionProgress,
+    setBatchTranscriptionProgress,
+    isBatchTranscribing,
+    setIsBatchTranscribing,
     defaultSortBy,
     setDefaultSortBy,
     defaultSortDirection,
@@ -1610,5 +1694,132 @@ export const startDownloadQueue = async () => {
   } finally {
     setIsFetchingInfo(false);
     setFetchingUrl("");
+  }
+};
+
+export const toggleLyricsDrawer = (val?: boolean) => {
+  setIsLyricsDrawerOpen((prev) => (typeof val === "boolean" ? val : !prev));
+};
+
+export const loadLyricsForTrack = async (
+  trackId: string,
+  title?: string
+): Promise<TrackLyricsPayload | null> => {
+  if (!trackId) return null;
+  try {
+    const payload = await invoke<TrackLyricsPayload>("get_track_lyrics", {
+      trackId,
+      title: title || null,
+    });
+    setCurrentTrackLyrics(payload);
+    setLyricsOffsetMs(0);
+    return payload;
+  } catch (err) {
+    console.warn("Failed to load lyrics for track", trackId, err);
+    setCurrentTrackLyrics(null);
+    return null;
+  }
+};
+
+export const transcribeTrackQuick = async (
+  trackId: string,
+  audioPath: string,
+  title?: string
+): Promise<TrackLyricsPayload | null> => {
+  if (!trackId || !audioPath) return null;
+  setIsTranscribingCurrentTrack(true);
+  setTranscribingTrackId(trackId);
+  try {
+    addToast(`Transcribing "${title || trackId}" with Whisper AI...`, "info");
+    await invoke<any>("generate_track_lyrics", {
+      audioPath,
+      trackId,
+      model: whisperDefaultModel() || "base",
+      task: whisperDefaultTask() || "transcribe",
+      language: null,
+      device: whisperComputeDevice() || "auto",
+    });
+
+    const payload = await loadLyricsForTrack(trackId, title);
+    addToast(`Synced lyrics ready for "${title || trackId}"!`, "success");
+    return payload;
+  } catch (err: any) {
+    console.error("Quick transcription failed:", err);
+    addToast(`Whisper transcription failed: ${err}`, "error");
+    return null;
+  } finally {
+    setIsTranscribingCurrentTrack(false);
+    setTranscribingTrackId(null);
+  }
+};
+
+export const applyLyricsOffset = async (
+  trackId: string,
+  offsetSec: number
+): Promise<boolean> => {
+  if (!trackId) return false;
+  try {
+    const res = await invoke<TrackLyricsPayload>("adjust_lyrics_offset", {
+      trackId,
+      offsetSec,
+    });
+    setCurrentTrackLyrics(res);
+    setLyricsOffsetMs((prev) => prev + Math.round(offsetSec * 1000));
+    addToast(
+      `Lyrics offset shifted by ${(offsetSec > 0 ? "+" : "") + offsetSec.toFixed(2)}s`,
+      "info"
+    );
+    return true;
+  } catch (err: any) {
+    addToast(`Failed to shift lyrics: ${err}`, "error");
+    return false;
+  }
+};
+
+export const saveEditedLyrics = async (
+  trackId: string,
+  lrcContent: string
+): Promise<boolean> => {
+  if (!trackId) return false;
+  try {
+    const res = await invoke<TrackLyricsPayload>("save_custom_lyrics", {
+      trackId,
+      lrcContent,
+    });
+    setCurrentTrackLyrics(res);
+    addToast("Custom lyrics saved successfully!", "success");
+    return true;
+  } catch (err: any) {
+    addToast(`Failed to save custom lyrics: ${err}`, "error");
+    return false;
+  }
+};
+
+export const runBatchTranscription = async (
+  trackIds: string[],
+  model?: string,
+  task?: string,
+  language?: string,
+  device?: string
+): Promise<TrackLyricsPayload[]> => {
+  if (!trackIds || trackIds.length === 0) return [];
+  setIsBatchTranscribing(true);
+  try {
+    const res = await invoke<TrackLyricsPayload[]>("generate_batch_lyrics", {
+      trackIds,
+      model: model || whisperDefaultModel() || "base",
+      task: task || whisperDefaultTask() || "transcribe",
+      language: language === "auto" ? null : language || null,
+      device: device || whisperComputeDevice() || "auto",
+    });
+    addToast(`Batch transcription finished (${res.length} tracks processed)!`, "success");
+    return res;
+  } catch (err: any) {
+    console.error("Batch transcription failed:", err);
+    addToast(`Batch transcription error: ${err}`, "error");
+    return [];
+  } finally {
+    setIsBatchTranscribing(false);
+    setBatchTranscriptionProgress(null);
   }
 };
