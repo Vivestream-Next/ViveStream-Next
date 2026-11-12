@@ -215,6 +215,7 @@ pub fn run() {
             get_track_lyrics,
             adjust_lyrics_offset,
             save_custom_lyrics,
+            delete_track_lyrics,
             generate_batch_lyrics,
             get_cached_lyrics,
             open_whisper_folder,
