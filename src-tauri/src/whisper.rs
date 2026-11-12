@@ -1259,7 +1259,29 @@ pub async fn save_custom_lyrics(
     get_track_lyrics(app, track_id, None).await
 }
 
-/// 8. Batch transcribe multiple tracks with queue management
+/// 8. Delete generated lyrics files for a track
+#[tauri::command]
+pub async fn delete_track_lyrics(app: AppHandle, track_id: String) -> Result<(), String> {
+    let lyrics_dir = get_lyrics_dir(&app)?;
+    let base_dir = get_base_dir(&app)?;
+
+    let extensions = ["json", "lrc", "enhanced.lrc", "srt", "vtt"];
+    for ext in &extensions {
+        let p = lyrics_dir.join(format!("{}.{}", track_id, ext));
+        if p.is_file() {
+            let _ = fs::remove_file(p);
+        }
+    }
+
+    let video_vtt = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    if video_vtt.is_file() {
+        let _ = fs::remove_file(video_vtt);
+    }
+
+    Ok(())
+}
+
+/// 9. Batch transcribe multiple tracks with queue management
 #[tauri::command]
 pub async fn generate_batch_lyrics(
     app: AppHandle,
