@@ -70,6 +70,7 @@ import {
   loadLyricsForTrack,
   transcribeTrackQuick,
   applyLyricsOffset,
+  alignLyricsToCurrentTime,
   isTranscribingCurrentTrack,
   lyricsOffsetMs,
   whisperAutoLinkLyrics,
@@ -1772,7 +1773,27 @@ export default function Player() {
                             <i class="ph-bold ph-lightning" />
                             {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
                           </span>
+                          <button
+                            type="button"
+                            class="align-intro-btn"
+                            title="Snap lyrics intro to current playback time"
+                            onClick={() => {
+                              const v = video();
+                              if (v) alignLyricsToCurrentTime(v.id, currentTime());
+                            }}
+                          >
+                            <i class="ph-bold ph-target" />
+                            <span>Align Intro</span>
+                          </button>
                           <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
+                            <button
+                              type="button"
+                              class="offset-btn"
+                              title="Shift lyrics earlier by 1.0s"
+                              onClick={() => applyLyricsOffset(video()!.id, -1.0)}
+                            >
+                              -1s
+                            </button>
                             <button
                               type="button"
                               class="offset-btn"
@@ -1791,6 +1812,14 @@ export default function Player() {
                               onClick={() => applyLyricsOffset(video()!.id, 0.2)}
                             >
                               +0.2s
+                            </button>
+                            <button
+                              type="button"
+                              class="offset-btn"
+                              title="Shift lyrics later by 1.0s"
+                              onClick={() => applyLyricsOffset(video()!.id, 1.0)}
+                            >
+                              +1s
                             </button>
                           </div>
                         </Show>
