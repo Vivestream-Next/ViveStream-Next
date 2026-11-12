@@ -128,6 +128,7 @@ pub fn kill_child_engines(_app: &AppHandle) {
             "ffmpeg.exe",
             "ffprobe.exe",
             "yt-dlp.exe",
+            "qjs.exe",
             "deno.exe",
             "vivestream-whisper.exe",
         ];
@@ -140,7 +141,7 @@ pub fn kill_child_engines(_app: &AppHandle) {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let engines = ["ffmpeg", "ffprobe", "yt-dlp", "deno", "vivestream-whisper"];
+        let engines = ["ffmpeg", "ffprobe", "yt-dlp", "qjs", "deno", "vivestream-whisper"];
         for engine in &engines {
             let _ = std::process::Command::new("pkill")
                 .args(["-9", "-f", engine])
