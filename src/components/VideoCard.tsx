@@ -1,4 +1,5 @@
 import { createSignal, createMemo, createEffect, Show } from "solid-js";
+import { useNavigate } from "@solidjs/router";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import {
   VideoEntry,
@@ -9,7 +10,6 @@ import {
   getThumbnailUrl,
   activeVideo,
   closeGlobalMiniplayer,
-  transcribeTrackQuick,
 } from "../store";
 import {
   isImageDecoded,
@@ -46,6 +46,7 @@ export default function VideoCard(props: VideoCardProps) {
   const [thumbLoaded, setThumbLoaded] = createSignal(
     isImageDecoded(thumbUrl()),
   );
+  const navigate = useNavigate();
 
   createEffect(() => {
     const url = thumbUrl();
@@ -198,16 +199,16 @@ export default function VideoCard(props: VideoCardProps) {
               ></i>
             </button>
 
-            {/* Quick Generate Lyrics Button */}
+            {/* Open in Lyrics Studio Button */}
             <button
               type="button"
               class="card-action-btn lyrics-btn"
-              onClick={async (e) => {
+              onClick={(e) => {
                 e.stopPropagation();
-                await transcribeTrackQuick(props.video.id, props.video.video_path, props.video.title);
+                navigate(`/lyrics?trackId=${props.video.id}`);
               }}
-              title="Generate Synced Lyrics with Whisper"
-              aria-label="Generate Synced Lyrics with Whisper"
+              title="Open in Lyrics Studio"
+              aria-label="Open in Lyrics Studio"
             >
               <i class="ph-bold ph-waveform" aria-hidden="true"></i>
             </button>
