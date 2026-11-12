@@ -244,7 +244,7 @@ export default function AI() {
         />
       }
     >
-      <div class="ai-studio-container">
+      <div class="ai-page-container">
         {/* AI Management Header */}
         <header class="ai-top-header">
           <div class="ai-header-left">
