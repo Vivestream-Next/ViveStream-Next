@@ -38,6 +38,7 @@ import {
   setDialogState,
   historySortBy,
   historySortDirection,
+  transcribeTrackQuick,
 } from "../store";
 import { sortDownloadHistory } from "../utils/sortUtils";
 import "./Downloads.css";
@@ -591,6 +592,17 @@ export default function Downloads() {
                           title="Play Video"
                         >
                           <i class="ph-fill ph-play"></i> Play
+                        </button>
+                        <button
+                          class="task-ctrl-btn lyrics-btn"
+                          onClick={async () => {
+                            if (task.metadata?.video_path) {
+                              await transcribeTrackQuick(task.id, task.metadata.video_path, task.title);
+                            }
+                          }}
+                          title="Generate Synced Lyrics with Whisper"
+                        >
+                          <i class="ph-bold ph-waveform"></i> Lyrics
                         </button>
                       </Show>
 
