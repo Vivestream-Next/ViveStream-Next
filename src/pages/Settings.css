@@ -53,6 +53,233 @@
   background: #ef233c;
 }
 
+.settings-page .nav-update-chip {
+  background: #ff5f56;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: var(--neo-radius-pill);
+  letter-spacing: 0.3px;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.settings-page .card-section-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.settings-page .card-section-header i {
+  font-size: 26px;
+  color: var(--primary-accent);
+}
+
+.settings-page .card-section-header.danger-header i {
+  color: #ef233c;
+}
+
+.settings-page .card-section-header .header-text h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--primary-text);
+  letter-spacing: -0.3px;
+}
+
+.settings-page .card-section-header .header-text p {
+  margin: 3px 0 0 0;
+  font-size: 13px;
+  color: var(--secondary-text);
+  font-weight: 500;
+}
+
+/* Engine Status Chips Grid */
+.settings-page .engine-chips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.settings-page .engine-chip {
+  background: var(--secondary-background);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 2px 2px 0px var(--border-color);
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+
+.settings-page .engine-chip:hover {
+  transform: translate3d(-1px, -1px, 0);
+  box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.settings-page .engine-chip-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--primary-text);
+}
+
+.settings-page .engine-chip-header span:first-child {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-page .engine-chip-header span:first-child i {
+  color: var(--primary-accent);
+}
+
+.settings-page .engine-chip-val {
+  font-family: var(--font-display);
+  font-size: 12px;
+  color: var(--secondary-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.settings-page .engine-status-tag {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: var(--neo-radius-pill);
+  border: 1px solid var(--border-color);
+  letter-spacing: 0.3px;
+}
+
+.settings-page .engine-status-tag.ready {
+  background: #27c93f;
+  color: #ffffff;
+}
+
+.settings-page .engine-status-tag.notice {
+  background: #ffbd2e;
+  color: #111111;
+}
+
+.settings-page .engine-actions-bar {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.settings-page .engine-restart-btn-pulsing {
+  background: #27c93f !important;
+  color: #ffffff !important;
+  border-color: var(--border-color) !important;
+  box-shadow: 3px 3px 0px var(--border-color) !important;
+  animation: pulseGlow 2s infinite ease-in-out;
+}
+
+.settings-page .engine-restart-btn-pulsing i {
+  color: #ffffff !important;
+}
+
+/* Engine Live Progress Box */
+.settings-page .engine-live-progress-box {
+  background: var(--secondary-background);
+  border: 1.5px solid var(--primary-accent);
+  border-radius: var(--neo-radius-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 2px 2px 0px var(--border-color);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.settings-page .progress-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-page .progress-pct {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--primary-accent);
+}
+
+.settings-page .update-progress-substats {
+  display: flex;
+  justify-content: flex-end;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--secondary-text);
+}
+
+/* App Update Alert Card */
+.settings-page .app-update-alert-card {
+  background: linear-gradient(135deg, rgba(255, 0, 127, 0.08), rgba(121, 40, 202, 0.08));
+  border: 2px solid #ff007f;
+  border-radius: var(--neo-radius-sm);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 4px 4px 0px var(--border-color);
+}
+
+.settings-page .app-update-alert-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settings-page .app-update-badge {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 8px;
+  background: #ff007f;
+  color: #ffffff;
+  border-radius: var(--neo-radius-pill);
+  letter-spacing: 0.5px;
+}
+
+.settings-page .app-update-alert-info h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary-text);
+}
+
+.settings-page .app-update-alert-info p {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--secondary-text);
+  font-weight: 500;
+}
+
+.settings-page .app-upgrade-btn {
+  background: #ff007f !important;
+  color: #ffffff !important;
+  white-space: nowrap;
+}
+
 .settings-page .settings-card {
   background: var(--clay-bg);
   padding: 26px 30px;
