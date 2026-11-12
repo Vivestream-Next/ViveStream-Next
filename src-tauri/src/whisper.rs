@@ -617,18 +617,94 @@ pub fn shift_lrc_offset(lrc: &str, offset_sec: f64) -> String {
     let mut result = Vec::new();
     for line in lrc.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with('[') && trimmed.contains(']') {
-            let close_bracket = trimmed.find(']').unwrap();
-            let tag = &trimmed[1..close_bracket];
-            let after_tag = &trimmed[close_bracket + 1..];
+        if trimmed.starts_with("[by:")
+            || trimmed.starts_with("[ti:")
+            || trimmed.starts_with("[ar:")
+            || trimmed.starts_with("[al:")
+            || trimmed.starts_with("[offset:")
+        {
+            result.push(line.to_string());
+            continue;
+        }
 
-            let parts: Vec<&str> = tag.split(':').collect();
+        let mut shifted_line = String::new();
+        let chars: Vec<char> = line.chars().collect();
+        let mut i = 0;
+        let len = chars.len();
+
+        while i < len {
+            let c = chars[i];
+            if c == '[' || c == '<' {
+                let close_char = if c == '[' { ']' } else { '>' };
+                let mut j = i + 1;
+                while j < len && chars[j] != close_char {
+                    j += 1;
+                }
+                if j < len && chars[j] == close_char {
+                    let tag: String = chars[i + 1..j].iter().collect();
+                    let parts: Vec<&str> = tag.split(':').collect();
+                    if parts.len() == 2 {
+                        if let (Ok(m), Ok(s)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>()) {
+                            let total_sec = (m * 60.0 + s + offset_sec).max(0.0);
+                            let new_m = (total_sec / 60.0).floor() as u32;
+                            let new_s = total_sec % 60.0;
+                            if c == '[' {
+                                shifted_line.push_str(&format!("[{:02}:{:05.2}]", new_m, new_s));
+                            } else {
+                                shifted_line.push_str(&format!("<{:02}:{:05.2}>", new_m, new_s));
+                            }
+                            i = j + 1;
+                            continue;
+                        }
+                    }
+                }
+            }
+            shifted_line.push(c);
+            i += 1;
+        }
+        result.push(shifted_line);
+    }
+    result.join("\n")
+}
+
+pub fn shift_srt_or_vtt_offset(content: &str, offset_sec: f64) -> String {
+    let mut result = Vec::new();
+    for line in content.lines() {
+        if line.contains("-->") {
+            let parts: Vec<&str> = line.split("-->").collect();
             if parts.len() == 2 {
-                if let (Ok(m), Ok(s)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>()) {
-                    let total_sec = (m * 60.0 + s + offset_sec).max(0.0);
-                    let new_m = (total_sec / 60.0).floor() as u32;
-                    let new_s = total_sec % 60.0;
-                    result.push(format!("[{:02}:{:05.2}]{}", new_m, new_s, after_tag));
+                let parse_time = |t_str: &str| -> Option<f64> {
+                    let clean = t_str.trim().replace(',', ".");
+                    let time_parts: Vec<&str> = clean.split(':').collect();
+                    if time_parts.len() == 3 {
+                        let h = time_parts[0].parse::<f64>().ok()?;
+                        let m = time_parts[1].parse::<f64>().ok()?;
+                        let s = time_parts[2].parse::<f64>().ok()?;
+                        Some(h * 3600.0 + m * 60.0 + s)
+                    } else if time_parts.len() == 2 {
+                        let m = time_parts[0].parse::<f64>().ok()?;
+                        let s = time_parts[1].parse::<f64>().ok()?;
+                        Some(m * 60.0 + s)
+                    } else {
+                        None
+                    }
+                };
+
+                let format_time = |sec: f64, is_comma: bool| -> String {
+                    let total = sec.max(0.0);
+                    let h = (total / 3600.0).floor() as u32;
+                    let m = ((total % 3600.0) / 60.0).floor() as u32;
+                    let s = (total % 60.0).floor() as u32;
+                    let ms = ((total % 1.0) * 1000.0).round() as u32;
+                    let sep = if is_comma { ',' } else { '.' };
+                    format!("{:02}:{:02}:{:02}{}{:03}", h, m, s, sep, ms.min(999))
+                };
+
+                if let (Some(t1), Some(t2)) = (parse_time(parts[0]), parse_time(parts[1])) {
+                    let is_comma = parts[0].contains(',');
+                    let new_t1 = format_time(t1 + offset_sec, is_comma);
+                    let new_t2 = format_time(t2 + offset_sec, is_comma);
+                    result.push(format!("{} --> {}", new_t1, new_t2));
                     continue;
                 }
             }
@@ -636,6 +712,45 @@ pub fn shift_lrc_offset(lrc: &str, offset_sec: f64) -> String {
         result.push(line.to_string());
     }
     result.join("\n")
+}
+
+pub fn detect_initial_silence_offset(app: &AppHandle, audio_path: &str) -> Option<f64> {
+    let bin_dir = get_bin_dir(app).ok()?;
+    let (_, ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
+    if !ffmpeg_path.is_file() {
+        return None;
+    }
+
+    let mut cmd = Command::new(&ffmpeg_path);
+    cmd.arg("-t").arg("30");
+    cmd.arg("-i").arg(audio_path);
+    cmd.arg("-af").arg("silencedetect=noise=-35dB:d=0.3");
+    cmd.arg("-f").arg("null").arg("-");
+
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(CREATE_NO_WINDOW);
+
+    let output = cmd.output().ok()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let mut saw_start_zero = false;
+    for line in stderr.lines() {
+        if line.contains("silence_start: 0") {
+            saw_start_zero = true;
+        }
+        if saw_start_zero && line.contains("silence_end:") {
+            if let Some(idx) = line.find("silence_end:") {
+                let rest = &line[idx + "silence_end:".len()..];
+                let end_str = rest.split('|').next().unwrap_or("").trim();
+                if let Ok(end_sec) = end_str.parse::<f64>() {
+                    if end_sec >= 0.5 {
+                        return Some(end_sec);
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 pub fn srt_to_vtt(srt: &str) -> String {
@@ -756,23 +871,65 @@ pub async fn generate_track_lyrics(
         }
     });
 
+    // Detect if music starts with silence / lead-in, and automatically shift chunk 0
+    let lead_in_offset = detect_initial_silence_offset(&app, &audio_path).unwrap_or(0.0);
+    let should_offset = lead_in_offset >= 0.5;
+
+    let mut final_json = parsed_json.clone();
+    if should_offset {
+        if let Some(segs) = final_json.get_mut("segments").and_then(|s| s.as_array_mut()) {
+            for seg in segs.iter_mut() {
+                if let Some(st) = seg.get_mut("start").and_then(|s| s.as_f64()) {
+                    *seg.get_mut("start").unwrap() = serde_json::json!((st + lead_in_offset).max(0.0));
+                }
+                if let Some(en) = seg.get_mut("end").and_then(|e| e.as_f64()) {
+                    *seg.get_mut("end").unwrap() = serde_json::json!((en + lead_in_offset).max(0.0));
+                }
+                if let Some(words) = seg.get_mut("words").and_then(|w| w.as_array_mut()) {
+                    for w in words.iter_mut() {
+                        if let Some(st) = w.get_mut("start").and_then(|s| s.as_f64()) {
+                            *w.get_mut("start").unwrap() = serde_json::json!((st + lead_in_offset).max(0.0));
+                        }
+                        if let Some(en) = w.get_mut("end").and_then(|e| e.as_f64()) {
+                            *w.get_mut("end").unwrap() = serde_json::json!((en + lead_in_offset).max(0.0));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Save final JSON with offset applied
+    let json_dest_stem = lyrics_dir.join(format!("{}.json", audio_file_stem));
+    let _ = fs::write(&json_dest_stem, serde_json::to_string_pretty(&final_json).unwrap_or_default());
+    if !resolved_id.is_empty() {
+        let json_dest_id = lyrics_dir.join(format!("{}.json", resolved_id));
+        let _ = fs::write(&json_dest_id, serde_json::to_string_pretty(&final_json).unwrap_or_default());
+    }
+
     // If an ID is resolved, mirror output files into standard naming: <id>.lrc, <id>.vtt
     if !resolved_id.is_empty() {
         let src_lrc = lyrics_dir.join(format!("{}.lrc", audio_file_stem));
-        let dest_lrc = lyrics_dir.join(format!("{}.lrc", resolved_id));
-        if src_lrc.exists() && src_lrc != dest_lrc {
-            let _ = fs::copy(&src_lrc, &dest_lrc);
+        if let Ok(content) = fs::read_to_string(&src_lrc) {
+            let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
+            let _ = fs::write(&src_lrc, &shifted);
+            let dest_lrc = lyrics_dir.join(format!("{}.lrc", resolved_id));
+            let _ = fs::write(&dest_lrc, &shifted);
         }
 
         let src_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", audio_file_stem));
-        let dest_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", resolved_id));
-        if src_elrc.exists() && src_elrc != dest_elrc {
-            let _ = fs::copy(&src_elrc, &dest_elrc);
+        if let Ok(content) = fs::read_to_string(&src_elrc) {
+            let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
+            let _ = fs::write(&src_elrc, &shifted);
+            let dest_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", resolved_id));
+            let _ = fs::write(&dest_elrc, &shifted);
         }
 
         let src_srt = lyrics_dir.join(format!("{}.srt", audio_file_stem));
         if let Ok(srt_str) = fs::read_to_string(&src_srt) {
-            let vtt_str = srt_to_vtt(&srt_str);
+            let shifted_srt = if should_offset { shift_srt_or_vtt_offset(&srt_str, lead_in_offset) } else { srt_str };
+            let _ = fs::write(&src_srt, &shifted_srt);
+            let vtt_str = srt_to_vtt(&shifted_srt);
             let dest_vtt_lyrics = lyrics_dir.join(format!("{}.vtt", resolved_id));
             let dest_vtt_videos = base_dir.join("Videos").join(format!("{}.vtt", resolved_id));
             let _ = fs::write(&dest_vtt_lyrics, &vtt_str);
@@ -786,7 +943,7 @@ pub async fn generate_track_lyrics(
         }));
     }
 
-    Ok(parsed_json)
+    Ok(final_json)
 }
 
 /// 5. Retrieve structured lyrics with full line and word timestamps
@@ -951,23 +1108,83 @@ pub async fn get_track_lyrics(
 pub async fn adjust_lyrics_offset(
     app: AppHandle,
     track_id: String,
-    offset_seconds: f64,
+    offset_seconds: Option<f64>,
+    offset_sec: Option<f64>,
 ) -> Result<crate::models::TrackLyricsPayload, String> {
+    let offset = offset_seconds.or(offset_sec).unwrap_or(0.0);
     let lyrics_dir = get_lyrics_dir(&app)?;
+    let base_dir = get_base_dir(&app)?;
 
+    // Shift JSON output if present
+    let json_path = lyrics_dir.join(format!("{}.json", track_id));
+    if json_path.exists() {
+        if let Ok(content) = fs::read_to_string(&json_path) {
+            if let Ok(mut json_val) = serde_json::from_str::<serde_json::Value>(&content) {
+                if let Some(segs) = json_val.get_mut("segments").and_then(|s| s.as_array_mut()) {
+                    for seg in segs.iter_mut() {
+                        if let Some(st) = seg.get_mut("start").and_then(|s| s.as_f64()) {
+                            *seg.get_mut("start").unwrap() = serde_json::json!((st + offset).max(0.0));
+                        }
+                        if let Some(en) = seg.get_mut("end").and_then(|e| e.as_f64()) {
+                            *seg.get_mut("end").unwrap() = serde_json::json!((en + offset).max(0.0));
+                        }
+                        if let Some(words) = seg.get_mut("words").and_then(|w| w.as_array_mut()) {
+                            for w in words.iter_mut() {
+                                if let Some(st) = w.get_mut("start").and_then(|s| s.as_f64()) {
+                                    *w.get_mut("start").unwrap() = serde_json::json!((st + offset).max(0.0));
+                                }
+                                if let Some(en) = w.get_mut("end").and_then(|e| e.as_f64()) {
+                                    *w.get_mut("end").unwrap() = serde_json::json!((en + offset).max(0.0));
+                                }
+                            }
+                        }
+                    }
+                }
+                let _ = fs::write(&json_path, serde_json::to_string_pretty(&json_val).unwrap_or_default());
+            }
+        }
+    }
+
+    // Shift standard LRC
     let lrc_path = lyrics_dir.join(format!("{}.lrc", track_id));
     if lrc_path.exists() {
         if let Ok(content) = fs::read_to_string(&lrc_path) {
-            let shifted = shift_lrc_offset(&content, offset_seconds);
+            let shifted = shift_lrc_offset(&content, offset);
             let _ = fs::write(&lrc_path, shifted);
         }
     }
 
+    // Shift Enhanced LRC
     let elrc_path = lyrics_dir.join(format!("{}.enhanced.lrc", track_id));
     if elrc_path.exists() {
         if let Ok(content) = fs::read_to_string(&elrc_path) {
-            let shifted = shift_lrc_offset(&content, offset_seconds);
+            let shifted = shift_lrc_offset(&content, offset);
             let _ = fs::write(&elrc_path, shifted);
+        }
+    }
+
+    // Shift SRT
+    let srt_path = lyrics_dir.join(format!("{}.srt", track_id));
+    if srt_path.exists() {
+        if let Ok(content) = fs::read_to_string(&srt_path) {
+            let shifted = shift_srt_or_vtt_offset(&content, offset);
+            let _ = fs::write(&srt_path, &shifted);
+        }
+    }
+
+    // Shift WebVTT in lyrics dir and in Videos dir
+    let vtt_lyrics = lyrics_dir.join(format!("{}.vtt", track_id));
+    if vtt_lyrics.exists() {
+        if let Ok(content) = fs::read_to_string(&vtt_lyrics) {
+            let shifted = shift_srt_or_vtt_offset(&content, offset);
+            let _ = fs::write(&vtt_lyrics, &shifted);
+        }
+    }
+    let vtt_video = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    if vtt_video.exists() {
+        if let Ok(content) = fs::read_to_string(&vtt_video) {
+            let shifted = shift_srt_or_vtt_offset(&content, offset);
+            let _ = fs::write(&vtt_video, &shifted);
         }
     }
 
@@ -986,6 +1203,12 @@ pub async fn save_custom_lyrics(
 
     let lrc_path = lyrics_dir.join(format!("{}.lrc", track_id));
     fs::write(&lrc_path, &lrc_content).map_err(|e| format!("Failed to write LRC: {}", e))?;
+
+    // Invalidate/delete stale JSON so get_track_lyrics parses the updated custom LRC text
+    let json_path = lyrics_dir.join(format!("{}.json", track_id));
+    if json_path.exists() {
+        let _ = fs::remove_file(json_path);
+    }
 
     // Also update Videos/<id>.vtt
     let vtt_path = base_dir.join("Videos").join(format!("{}.vtt", track_id));
