@@ -9,6 +9,7 @@ import {
   getThumbnailUrl,
   activeVideo,
   closeGlobalMiniplayer,
+  transcribeTrackQuick,
 } from "../store";
 import {
   isImageDecoded,
@@ -195,6 +196,20 @@ export default function VideoCard(props: VideoCardProps) {
                 class={`ph-fill ph-heart ${isFavorite() ? "fav-pulse" : ""}`}
                 aria-hidden="true"
               ></i>
+            </button>
+
+            {/* Quick Generate Lyrics Button */}
+            <button
+              type="button"
+              class="card-action-btn lyrics-btn"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await transcribeTrackQuick(props.video.id, props.video.video_path, props.video.title);
+              }}
+              title="Generate Synced Lyrics with Whisper"
+              aria-label="Generate Synced Lyrics with Whisper"
+            >
+              <i class="ph-bold ph-waveform" aria-hidden="true"></i>
             </button>
 
             {/* Add to Playlist Button */}
