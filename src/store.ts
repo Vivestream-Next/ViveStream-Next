@@ -1762,6 +1762,7 @@ export const applyLyricsOffset = async (
     const res = await invoke<TrackLyricsPayload>("adjust_lyrics_offset", {
       trackId,
       offsetSec,
+      offsetSeconds: offsetSec,
     });
     setCurrentTrackLyrics(res);
     setLyricsOffsetMs((prev) => prev + Math.round(offsetSec * 1000));
@@ -1774,6 +1775,25 @@ export const applyLyricsOffset = async (
     addToast(`Failed to shift lyrics: ${err}`, "error");
     return false;
   }
+};
+
+export const alignLyricsToCurrentTime = async (
+  trackId: string,
+  currentPlayheadSec: number
+): Promise<boolean> => {
+  if (!trackId) return false;
+  const lyrics = currentTrackLyrics();
+  if (!lyrics || !lyrics.lines || lyrics.lines.length === 0) {
+    addToast("No lyrics lines available to align.", "warning");
+    return false;
+  }
+  const firstLineStart = lyrics.lines[0].start;
+  const neededOffset = currentPlayheadSec - firstLineStart;
+  if (Math.abs(neededOffset) < 0.05) {
+    addToast("Lyrics intro is already aligned to current playhead.", "info");
+    return true;
+  }
+  return await applyLyricsOffset(trackId, neededOffset);
 };
 
 export const saveEditedLyrics = async (
