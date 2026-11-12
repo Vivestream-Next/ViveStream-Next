@@ -1,5 +1,8 @@
 use crate::db::get_db_connection;
-use crate::models::{BinaryCheckStatus, VideoEntry};
+use crate::models::{
+    AppUpdateInfo, BinaryCheckStatus, EngineUpdateInfo, EngineVersionsInfo, UpdateProgressEvent,
+    VideoEntry,
+};
 use crate::system::{get_base_dir, get_bin_dir};
 use sha2::{Digest, Sha256};
 use std::fs::{self, File};
@@ -882,8 +885,419 @@ pub async fn check_binaries(app: AppHandle) -> Result<BinaryCheckStatus, String>
 }
 
 #[tauri::command]
+pub async fn check_app_updates(_app: AppHandle) -> Result<AppUpdateInfo, String> {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .user_agent(format!("ViveStream-Next/{}", current_version))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let api_url = "https://api.github.com/repos/rootlocalghost/ViveStream-Next/releases/latest";
+    let resp = client.get(api_url).send().await;
+
+    let release_json: serde_json::Value = match resp {
+        Ok(r) if r.status().is_success() => r.json().await.map_err(|e| e.to_string())?,
+        _ => {
+            let fallback_url =
+                "https://api.github.com/repos/ViveStream-Next/ViveStream-Next/releases/latest";
+            let fallback_resp = client
+                .get(fallback_url)
+                .send()
+                .await
+                .map_err(|e| e.to_string())?;
+            fallback_resp.json().await.map_err(|e| e.to_string())?
+        }
+    };
+
+    let tag_name = release_json["tag_name"]
+        .as_str()
+        .unwrap_or("")
+        .trim_start_matches('v')
+        .to_string();
+    let release_notes = release_json["body"].as_str().unwrap_or("").to_string();
+    let release_url = release_json["html_url"]
+        .as_str()
+        .unwrap_or("https://github.com/ViveStream-Next/ViveStream-Next/releases")
+        .to_string();
+    let published_at = release_json["published_at"].as_str().map(|s| s.to_string());
+
+    let mut download_url = None;
+    let mut asset_name = None;
+    let mut asset_size_mb = None;
+
+    if let Some(assets) = release_json["assets"].as_array() {
+        for asset in assets {
+            let name = asset["name"].as_str().unwrap_or("");
+            #[cfg(target_os = "windows")]
+            let matches_os = name.ends_with(".exe") && (name.contains("setup") || name.contains("x64"));
+            #[cfg(target_os = "linux")]
+            let matches_os = name.ends_with(".deb")
+                || name.ends_with(".pkg.tar.zst")
+                || name.ends_with(".AppImage");
+            #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+            let matches_os = false;
+
+            if matches_os {
+                download_url = asset["browser_download_url"].as_str().map(|s| s.to_string());
+                asset_name = Some(name.to_string());
+                if let Some(size) = asset["size"].as_u64() {
+                    asset_size_mb =
+                        Some(((size as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0);
+                }
+                break;
+            }
+        }
+    }
+
+    let update_available = if !tag_name.is_empty() {
+        is_newer_version(&tag_name, &current_version)
+    } else {
+        false
+    };
+
+    Ok(AppUpdateInfo {
+        update_available,
+        current_version,
+        latest_version: tag_name,
+        release_notes,
+        release_url,
+        download_url,
+        asset_name,
+        asset_size_mb,
+        published_at,
+    })
+}
+
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    let parse_parts = |v: &str| -> Vec<u32> {
+        v.trim_start_matches('v')
+            .split('.')
+            .filter_map(|p| p.parse::<u32>().ok())
+            .collect()
+    };
+    let l_parts = parse_parts(latest);
+    let c_parts = parse_parts(current);
+
+    for (l, c) in l_parts.iter().zip(c_parts.iter()) {
+        if l > c {
+            return true;
+        } else if l < c {
+            return false;
+        }
+    }
+    l_parts.len() > c_parts.len()
+}
+
+#[tauri::command]
+pub async fn install_app_update(app: AppHandle, download_url: String) -> Result<(), String> {
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) ViveStream-Updater")
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let mut res = client
+        .get(&download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download failed: {}", e))?;
+
+    let total_size = res.content_length().unwrap_or(0);
+    let total_mb = ((total_size as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0;
+
+    let temp_dir = std::env::temp_dir();
+    let filename = download_url
+        .split('/')
+        .last()
+        .unwrap_or("vivestream-next-update.exe");
+    let target_path = temp_dir.join(filename);
+
+    let mut file = File::create(&target_path)
+        .map_err(|e| format!("Failed to create destination file: {}", e))?;
+
+    let mut downloaded: u64 = 0;
+    let mut last_emit = Instant::now();
+
+    while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
+        file.write_all(&chunk).map_err(|e| e.to_string())?;
+        downloaded += chunk.len() as u64;
+
+        if last_emit.elapsed().as_millis() > 120 || downloaded == total_size {
+            let downloaded_mb = ((downloaded as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0;
+            let pct = if total_size > 0 {
+                ((downloaded as f64) / (total_size as f64)) * 100.0
+            } else {
+                0.0
+            };
+
+            let _ = app.emit(
+                "update-progress",
+                UpdateProgressEvent {
+                    target: "app".to_string(),
+                    percentage: (pct * 10.0).round() / 10.0,
+                    downloaded_mb,
+                    total_mb,
+                    message: format!("Downloading ViveStream-Next update: {:.1}%", pct),
+                    status: "downloading".to_string(),
+                },
+            );
+            last_emit = Instant::now();
+        }
+    }
+
+    let _ = app.emit(
+        "update-progress",
+        UpdateProgressEvent {
+            target: "app".to_string(),
+            percentage: 100.0,
+            downloaded_mb: total_mb,
+            total_mb,
+            message: "Update ready. Launching installer...".to_string(),
+            status: "ready".to_string(),
+        },
+    );
+
+    #[cfg(target_os = "windows")]
+    {
+        let mut cmd = Command::new(&target_path);
+        cmd.spawn()
+            .map_err(|e| format!("Failed to launch installer: {}", e))?;
+
+        tokio::spawn(async {
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            std::process::exit(0);
+        });
+
+        Ok(())
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let _ = app.emit(
+            "update-progress",
+            UpdateProgressEvent {
+                target: "app".to_string(),
+                percentage: 100.0,
+                downloaded_mb: total_mb,
+                total_mb,
+                message: format!("Package downloaded to: {}", target_path.display()),
+                status: "ready".to_string(),
+            },
+        );
+        Ok(())
+    }
+}
+
+#[tauri::command]
 pub async fn update_binaries(app: AppHandle) -> Result<(), String> {
-    download_binaries(app).await
+    download_binaries(app.clone()).await?;
+    let _ = app.emit("engine-update-completed", ());
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn get_engine_versions(app: AppHandle) -> Result<EngineVersionsInfo, String> {
+    tokio::task::spawn_blocking(move || {
+        let bin_dir = get_bin_dir(&app)?;
+        let (ytdlp_path, ffmpeg_path, deno_path) = get_binary_paths(&bin_dir);
+
+        let mut ytdlp_version = "Not Installed".to_string();
+        if ytdlp_path.exists() {
+            let mut cmd = Command::new(&ytdlp_path);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(out) = cmd.arg("--version").output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !s.is_empty() {
+                        ytdlp_version = s;
+                    }
+                }
+            }
+        }
+
+        let mut ffmpeg_version = "Not Installed".to_string();
+        if ffmpeg_path.exists() {
+            let mut cmd = Command::new(&ffmpeg_path);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(out) = cmd.arg("-version").output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout);
+                    if let Some(first_line) = s.lines().next() {
+                        let clean = first_line.replace("Copyright (c) 2000-2026 the FFmpeg developers", "");
+                        let clean = clean.replace("ffmpeg version", "").trim().to_string();
+                        ffmpeg_version = if clean.is_empty() { "Installed".to_string() } else { clean };
+                    }
+                }
+            }
+        }
+
+        let mut deno_version = "Not Installed".to_string();
+        if deno_path.exists() {
+            let mut cmd = Command::new(&deno_path);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(out) = cmd.arg("--version").output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout);
+                    if let Some(first_line) = s.lines().next() {
+                        deno_version = first_line.trim().to_string();
+                    }
+                }
+            }
+        }
+
+        let whisper_installed = crate::whisper::get_whisper_bin_path(&app)
+            .map(|p| p.is_file())
+            .unwrap_or(false);
+        let whisper_version = if whisper_installed {
+            "v1.0.0 (Pure-Rust Candle)".to_string()
+        } else {
+            "Not Installed".to_string()
+        };
+
+        Ok(EngineVersionsInfo {
+            ytdlp_version,
+            ffmpeg_version,
+            deno_version,
+            whisper_version,
+            whisper_installed,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, String> {
+    let bin_dir = get_bin_dir(&app)?;
+    let (ytdlp_path, ffmpeg_path, deno_path) = get_binary_paths(&bin_dir);
+
+    let (current_ytdlp_version, local_ytdlp_hash) = tokio::task::spawn_blocking({
+        let ytdlp_path = ytdlp_path.clone();
+        move || {
+            let mut ver = "Not Installed".to_string();
+            let mut hash = String::new();
+            if ytdlp_path.exists() {
+                let mut cmd = Command::new(&ytdlp_path);
+                #[cfg(target_os = "windows")]
+                cmd.creation_flags(0x08000000);
+                if let Ok(out) = cmd.arg("--version").output() {
+                    if out.status.success() {
+                        ver = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    }
+                }
+                if let Ok(bytes) = fs::read(&ytdlp_path) {
+                    let mut hasher = Sha256::new();
+                    hasher.update(&bytes);
+                    hash = format!("{:x}", hasher.finalize());
+                }
+            }
+            (ver, hash)
+        }
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+
+    let ffmpeg_installed = ffmpeg_path.exists();
+    let deno_installed = deno_path.exists();
+
+    if !ytdlp_path.exists() || !ffmpeg_installed || !deno_installed {
+        return Ok(EngineUpdateInfo {
+            update_available: true,
+            ytdlp_update: !ytdlp_path.exists(),
+            current_ytdlp_version,
+            latest_ytdlp_version: "Latest Available".to_string(),
+            ffmpeg_installed,
+            deno_installed,
+            message: "Core engines need setup or are missing.".to_string(),
+        });
+    }
+
+    let client = match reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) ViveStream-Updater")
+        .redirect(reqwest::redirect::Policy::limited(5))
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => {
+            return Ok(EngineUpdateInfo {
+                update_available: false,
+                ytdlp_update: false,
+                current_ytdlp_version,
+                latest_ytdlp_version: "Unknown".to_string(),
+                ffmpeg_installed,
+                deno_installed,
+                message: format!("HTTP client error: {}", e),
+            });
+        }
+    };
+
+    let sums_res = client
+        .get("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/SHA2-256SUMS")
+        .send()
+        .await;
+
+    match sums_res {
+        Ok(resp) if resp.status().is_success() => {
+            let sums_text = resp.text().await.unwrap_or_default();
+            let target_bin_name = if cfg!(target_os = "windows") {
+                "yt-dlp.exe"
+            } else {
+                "yt-dlp"
+            };
+
+            let expected_hash = sums_text
+                .lines()
+                .find(|line| line.ends_with(target_bin_name))
+                .and_then(|line| line.split_whitespace().next())
+                .unwrap_or("")
+                .to_string();
+
+            let mut latest_version = String::new();
+            if let Ok(head_resp) = client
+                .get("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest")
+                .send()
+                .await
+            {
+                let url_str = head_resp.url().as_str();
+                if let Some(pos) = url_str.rfind("/tag/") {
+                    latest_version = url_str[pos + 5..].trim_end_matches('/').to_string();
+                }
+            }
+            if latest_version.is_empty() {
+                latest_version = "Latest Nightly".to_string();
+            }
+
+            let ytdlp_differs = !expected_hash.is_empty() && expected_hash != local_ytdlp_hash;
+
+            Ok(EngineUpdateInfo {
+                update_available: ytdlp_differs,
+                ytdlp_update: ytdlp_differs,
+                current_ytdlp_version,
+                latest_ytdlp_version: latest_version,
+                ffmpeg_installed,
+                deno_installed,
+                message: if ytdlp_differs {
+                    "A newer nightly build of yt-dlp is available.".to_string()
+                } else {
+                    "All core engines are up-to-date.".to_string()
+                },
+            })
+        }
+        _ => Ok(EngineUpdateInfo {
+            update_available: false,
+            ytdlp_update: false,
+            current_ytdlp_version,
+            latest_ytdlp_version: "Unknown (Offline)".to_string(),
+            ffmpeg_installed,
+            deno_installed,
+            message: "Offline or GitHub unreachable. Using installed engines.".to_string(),
+        }),
+    }
 }
 
 #[tauri::command]
@@ -901,7 +1315,22 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
         let _ = app.emit("setup-progress", msg);
     };
 
-    // 1. FETCH YT-DLP
+    let emit_update_progress = |pct: f64, msg: &str| {
+        let _ = app.emit("setup-progress", &format!("[PROGRESS] {:.1}", pct));
+        let _ = app.emit(
+            "update-progress",
+            UpdateProgressEvent {
+                target: "engine".to_string(),
+                percentage: (pct * 10.0).round() / 10.0,
+                downloaded_mb: 0.0,
+                total_mb: 0.0,
+                message: msg.to_string(),
+                status: "downloading".to_string(),
+            },
+        );
+    };
+
+    emit_update_progress(5.0, "Fetching latest yt-dlp Nightly from GitHub...");
     #[cfg(target_os = "windows")]
     let ytdlp_url =
         "https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/yt-dlp.exe";
@@ -965,6 +1394,7 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
         fs::set_permissions(&ytdlp_path, perms).map_err(|e| e.to_string())?;
     }
 
+    emit_update_progress(25.0, "yt-dlp verified. Fetching Deno JS runtime...");
     // 2. FETCH DENO (Required strictly for JS n-Challenge Decryption)
     emit_progress("Fetching standalone Deno JS runtime...");
     #[cfg(target_os = "windows")]
@@ -1013,6 +1443,7 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
     }
     let _ = fs::remove_file(deno_zip_path);
 
+    emit_update_progress(50.0, "Deno runtime ready. Fetching FFmpeg...");
     // 3. FETCH FFMPEG
     emit_progress("Fetching repacked Lite FFmpeg build...");
     #[cfg(target_os = "windows")]
@@ -1039,11 +1470,21 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
     while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
         temp_file.write_all(&chunk).map_err(|e| e.to_string())?;
         downloaded += chunk.len() as u64;
-        if total_size > 0 && last_emit.elapsed().as_millis() > 150 {
-            emit_progress(&format!(
-                "[PROGRESS] {:.1}",
-                (downloaded as f64 / total_size as f64) * 100.0
-            ));
+        if total_size > 0 && last_emit.elapsed().as_millis() > 120 {
+            let chunk_pct = downloaded as f64 / total_size as f64;
+            let scaled_pct = 50.0 + (chunk_pct * 45.0);
+            let _ = app.emit("setup-progress", &format!("[PROGRESS] {:.1}", scaled_pct));
+            let _ = app.emit(
+                "update-progress",
+                UpdateProgressEvent {
+                    target: "engine".to_string(),
+                    percentage: (scaled_pct * 10.0).round() / 10.0,
+                    downloaded_mb: ((downloaded as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0,
+                    total_mb: ((total_size as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0,
+                    message: format!("Downloading FFmpeg bundle: {:.0}%", scaled_pct),
+                    status: "downloading".to_string(),
+                },
+            );
             last_emit = Instant::now();
         }
     }
@@ -1101,6 +1542,7 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
     let _ = fs::remove_file(temp_path);
     emit_progress("Engines extracted perfectly.");
     emit_progress("[COMPLETE]");
+    emit_update_progress(100.0, "All core engines successfully updated.");
 
     Ok(())
 }
@@ -1312,6 +1754,7 @@ async fn download_video_inner(
 ) -> Result<(), String> {
     let bin_dir = get_bin_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
+    #[allow(unused_mut)]
     let (mut ytdlp_path, mut ffmpeg_path, mut deno_path) = get_binary_paths(&bin_dir);
 
     #[cfg(not(target_os = "windows"))]
