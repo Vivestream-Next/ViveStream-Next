@@ -2,6 +2,7 @@ import { lazy, Component, createSignal, createEffect, onMount, Show } from "soli
 import { Router, Route, A, useNavigate, useLocation } from "@solidjs/router";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import "@phosphor-icons/web/regular";
 import "@phosphor-icons/web/fill";
 import "@phosphor-icons/web/bold";
@@ -27,6 +28,14 @@ import {
   setLastNonPlayerPath,
   setMiniplayerDismissed,
   checkLicenseStatus,
+  autoCheckEngineUpdates,
+  setEngineUpdateReady,
+  setEngineUpdateDownloading,
+  setEngineUpdateInfo,
+  setUpdateProgress,
+  checkForAppUpdates,
+  UpdateProgressEvent,
+  addToast,
 } from "./store";
 import NotificationSystem from "./components/NotificationSystem";
 import ShortcutsModal from "./components/ShortcutsModal";
@@ -133,7 +142,66 @@ const ImmersiveTitleBar = () => {
 const AppLifecycle: Component<{ children?: any }> = (props) => {
   const [needsSetup, setNeedsSetup] = createSignal<boolean | null>(false);
 
+  const checkEngineUpdatesOnStartup = async () => {
+    if (!autoCheckEngineUpdates()) return;
+
+    try {
+      const updateInfo = await invoke<{
+        update_available: boolean;
+        ytdlp_update: boolean;
+        current_ytdlp_version: string;
+        latest_ytdlp_version: string;
+        ffmpeg_installed: boolean;
+        deno_installed: boolean;
+        message: string;
+      }>("check_engine_updates");
+
+      setEngineUpdateInfo(updateInfo);
+
+      if (updateInfo.update_available) {
+        console.log("[EngineUpdater] Background update available:", updateInfo);
+        setEngineUpdateDownloading(true);
+        addToast(
+          `Updating core engines to ${updateInfo.latest_ytdlp_version} in background...`,
+          "info",
+        );
+
+        await invoke("update_binaries");
+        setEngineUpdateDownloading(false);
+        setEngineUpdateReady(true);
+      } else {
+        console.log(
+          "[EngineUpdater] Engines are up to date:",
+          updateInfo.current_ytdlp_version,
+        );
+      }
+    } catch (err) {
+      console.warn("[EngineUpdater] Startup check failed:", err);
+      setEngineUpdateDownloading(false);
+    }
+  };
+
   onMount(() => {
+    let unlistenCompleted: (() => void) | undefined;
+    let unlistenProgress: (() => void) | undefined;
+    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+      listen("engine-update-completed", () => {
+        setEngineUpdateReady(true);
+      })
+        .then((un) => {
+          unlistenCompleted = un;
+        })
+        .catch(() => {});
+
+      listen<UpdateProgressEvent>("update-progress", (event) => {
+        setUpdateProgress(event.payload);
+      })
+        .then((un) => {
+          unlistenProgress = un;
+        })
+        .catch(() => {});
+    }
+
     invoke<{
       ytdlp_exists: boolean;
       ffmpeg_exists: boolean;
@@ -141,6 +209,9 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
       .then((status) => {
         if (status && status.ytdlp_exists && status.ffmpeg_exists) {
           setNeedsSetup(false);
+          // Wait 2.5s after launch to ensure initial render is butter smooth before checking
+          setTimeout(checkEngineUpdatesOnStartup, 2500);
+          setTimeout(() => checkForAppUpdates(true), 3500);
         } else {
           setNeedsSetup(true);
         }
@@ -149,6 +220,11 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
         console.error("Core engine validation failure:", e);
         setNeedsSetup(true);
       });
+
+    return () => {
+      if (unlistenCompleted) unlistenCompleted();
+      if (unlistenProgress) unlistenProgress();
+    };
   });
 
   return (
