@@ -549,9 +549,9 @@ export default function Setup(props: { onComplete?: () => void }) {
                   <i class="ph-fill ph-check"></i>
                 </div>
                 <div class="setup-status-text">
-                  <span class="setup-status-name">Deno JS Runtime</span>
+                  <span class="setup-status-name">QuickJS Runtime</span>
                   <span class="setup-status-desc">
-                    n-Challenge Decryption Active
+                    Ultra-lightweight EJS / n-Challenge Solver
                   </span>
                 </div>
               </div>
