@@ -598,6 +598,7 @@ export default function AI() {
       await invoke("adjust_lyrics_offset", {
         trackId: inspectVideoId(),
         offsetSec,
+        offsetSeconds: offsetSec,
       });
       addToast(`Lyrics offset adjusted by ${(offsetSec > 0 ? "+" : "") + offsetSec.toFixed(2)}s`, "info");
       const vid = activeVideo();
@@ -605,6 +606,18 @@ export default function AI() {
     } catch (err: any) {
       addToast(`Failed to shift offset: ${err}`, "error");
     }
+  };
+
+  const handleAlignIntroToPlayhead = async () => {
+    if (!inspectVideoId() || !lyricsData() || lyricsData()!.lines.length === 0) return;
+    const firstLineStart = lyricsData()!.lines[0].start;
+    const curTime = previewAudioEl ? previewAudioEl.currentTime : 0;
+    const diff = curTime - firstLineStart;
+    if (Math.abs(diff) < 0.05) {
+      addToast("Lyrics intro is already aligned to playhead.", "info");
+      return;
+    }
+    await handleShiftOffset(diff);
   };
 
   // Inspector: Save custom edited lyrics
@@ -1239,10 +1252,13 @@ export default function AI() {
                 {/* Calibration Offset Bar */}
                 <div class="inspector-offset-bar" title="Calibrate Lyrics Timing Offset">
                   <span class="offset-title">Timing Offset:</span>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-0.5)}>-0.5s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-0.1)}>-0.1s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(0.1)}>+0.1s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(0.5)}>+0.5s</button>
+                  <button type="button" class="offset-chip align-chip" onClick={handleAlignIntroToPlayhead} title="Align lyrics intro to audio playhead">
+                    <i class="ph-bold ph-target" /> Align Intro
+                  </button>
+                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-1.0)}>-1.0s</button>
+                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-0.2)}>-0.2s</button>
+                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(0.2)}>+0.2s</button>
+                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(1.0)}>+1.0s</button>
                 </div>
 
                 <Show when={activeVideo()}>
