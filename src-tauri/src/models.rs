@@ -101,3 +101,52 @@ pub struct UpdateProgressEvent {
     pub message: String,
     pub status: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LyricWord {
+    pub word: String,
+    pub start: f64,
+    pub end: f64,
+    #[serde(default)]
+    pub probability: f64,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct LyricLine {
+    pub id: usize,
+    pub start: f64,
+    pub end: f64,
+    pub text: String,
+    #[serde(default)]
+    pub translation: Option<String>,
+    #[serde(default)]
+    pub words: Vec<LyricWord>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TrackLyricsPayload {
+    pub track_id: String,
+    pub title: String,
+    pub has_lyrics: bool,
+    pub format: String,
+    pub language: String,
+    pub duration: f64,
+    pub lines: Vec<LyricLine>,
+    #[serde(default)]
+    pub raw_lrc: Option<String>,
+    #[serde(default)]
+    pub raw_enhanced_lrc: Option<String>,
+    #[serde(default)]
+    pub raw_srt: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct BatchProgressEvent {
+    pub current_index: usize,
+    pub total_tracks: usize,
+    pub track_id: String,
+    pub title: String,
+    pub stage: String,
+    pub percent: f64,
+    pub status: String,
+}
