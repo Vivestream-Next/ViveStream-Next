@@ -54,3 +54,46 @@ pub struct DownloadHistoryEntry {
     pub error_msg: Option<String>,
     pub created_at: String,
 }
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EngineVersionsInfo {
+    pub ytdlp_version: String,
+    pub ffmpeg_version: String,
+    pub deno_version: String,
+    pub whisper_version: String,
+    pub whisper_installed: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct EngineUpdateInfo {
+    pub update_available: bool,
+    pub ytdlp_update: bool,
+    pub current_ytdlp_version: String,
+    pub latest_ytdlp_version: String,
+    pub ffmpeg_installed: bool,
+    pub deno_installed: bool,
+    pub message: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct AppUpdateInfo {
+    pub update_available: bool,
+    pub current_version: String,
+    pub latest_version: String,
+    pub release_notes: String,
+    pub release_url: String,
+    pub download_url: Option<String>,
+    pub asset_name: Option<String>,
+    pub asset_size_mb: Option<f64>,
+    pub published_at: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct UpdateProgressEvent {
+    pub target: String,
+    pub percentage: f64,
+    pub downloaded_mb: f64,
+    pub total_mb: f64,
+    pub message: String,
+    pub status: String,
+}
