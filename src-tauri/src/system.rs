@@ -8,6 +8,11 @@ pub fn get_base_dir(app: &AppHandle) -> Result<PathBuf, String> {
     Ok(home_dir.join("ViveStream"))
 }
 
+#[tauri::command]
+pub fn restart_app(app: AppHandle) {
+    app.restart();
+}
+
 pub fn get_bin_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
     Ok(app_data.join("bin"))
@@ -618,6 +623,7 @@ pub struct HardwareAccelerationReport {
 pub async fn test_hardware_transcoding(app: AppHandle) -> Result<HardwareAccelerationReport, String> {
     tokio::task::spawn_blocking(move || {
         let bin_dir = get_bin_dir(&app)?;
+        #[allow(unused_mut)]
         let (_, mut ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
 
         #[cfg(not(target_os = "windows"))]
