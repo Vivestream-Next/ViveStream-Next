@@ -72,6 +72,7 @@ import {
   applyLyricsOffset,
   alignLyricsToCurrentTime,
   isTranscribingCurrentTrack,
+  transcribeProgress,
   lyricsOffsetMs,
   whisperAutoLinkLyrics,
 } from "../store";
@@ -1841,36 +1842,49 @@ export default function Player() {
                       fallback={
                         <div class="player-lyrics-empty-state">
                           <div class="lyrics-empty-glow-box">
-                            <i class="ph-fill ph-sparkle" />
+                            <i class={isTranscribingCurrentTrack() ? "ph-fill ph-waveform lyrics-pulse" : "ph-fill ph-sparkle"} />
                           </div>
-                          <h3>No Synced Lyrics Found</h3>
+                          <h3>{isTranscribingCurrentTrack() ? "Transcribing Audio..." : "No Synced Lyrics Found"}</h3>
                           <p>
-                            Generate word-accurate, synchronized karaoke lyrics locally using pure Rust Whisper AI speech recognition.
+                            {isTranscribingCurrentTrack()
+                              ? "Whisper neural engine is extracting speech timestamps and aligning lyrics in real-time."
+                              : "Generate word-accurate, synchronized karaoke lyrics locally using pure Rust Whisper AI speech recognition."}
                           </p>
-                          <button
-                            type="button"
-                            class="lyrics-generate-action-btn"
-                            disabled={isTranscribingCurrentTrack()}
-                            onClick={() => {
-                              const vid = video();
-                              if (vid) {
-                                transcribeTrackQuick(vid.id, vid.video_path, vid.title);
-                              }
-                            }}
-                          >
-                            <Show
-                              when={isTranscribingCurrentTrack()}
-                              fallback={
-                                <>
-                                  <i class="ph-bold ph-magic-wand" />
-                                  <span>Generate Synced Lyrics with Whisper</span>
-                                </>
-                              }
+
+                          <Show when={isTranscribingCurrentTrack()}>
+                            <div class="player-transcribe-progress-card">
+                              <div class="transcribe-progress-info">
+                                <span class="transcribe-stage-text">
+                                  {transcribeProgress()?.message || "Processing audio stream..."}
+                                </span>
+                                <span class="transcribe-pct-text">
+                                  {Math.round(transcribeProgress()?.percent ?? 0)}%
+                                </span>
+                              </div>
+                              <div class="transcribe-bar-track">
+                                <div
+                                  class="transcribe-bar-fill"
+                                  style={{ width: `${Math.max(5, Math.min(100, transcribeProgress()?.percent ?? 0))}%` }}
+                                />
+                              </div>
+                            </div>
+                          </Show>
+
+                          <Show when={!isTranscribingCurrentTrack()}>
+                            <button
+                              type="button"
+                              class="lyrics-generate-action-btn"
+                              onClick={() => {
+                                const vid = video();
+                                if (vid) {
+                                  transcribeTrackQuick(vid.id, vid.video_path, vid.title);
+                                }
+                              }}
                             >
-                              <i class="ph-bold ph-spinner animate-spin" />
-                              <span>Transcribing Audio in Background...</span>
-                            </Show>
-                          </button>
+                              <i class="ph-bold ph-magic-wand" />
+                              <span>Generate Synced Lyrics with Whisper</span>
+                            </button>
+                          </Show>
                         </div>
                       }
                     >
