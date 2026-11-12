@@ -233,9 +233,17 @@ export default function AI() {
       setLoadingStatus(true);
       const res = await invoke<WhisperStatus>("check_whisper_status");
       setStatus(res);
-      if (!selectedModel() && res.system?.recommended_default_model) {
+
+      // Auto-select an installed model if the currently selected one isn't installed
+      const installedList = (res.models || []).filter((m) => m.installed);
+      const isCurrentInstalled = (res.models || []).some((m) => m.name === selectedModel() && m.installed);
+      if (!isCurrentInstalled && installedList.length > 0) {
+        setSelectedModel(installedList[0].name);
+        setWhisperDefaultModel(installedList[0].name);
+      } else if (!selectedModel() && res.system?.recommended_default_model) {
         setSelectedModel(res.system.recommended_default_model);
       }
+
       if (selectedDevice() === "auto" && res.system?.recommended_device_id) {
         setSelectedDevice(res.system.recommended_device_id);
       }
