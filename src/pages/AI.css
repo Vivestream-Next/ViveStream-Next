@@ -2309,6 +2309,20 @@
   color: #ffffff;
 }
 
+.offset-chip.align-chip {
+  background: rgba(242, 92, 84, 0.15);
+  border-color: rgba(242, 92, 84, 0.35);
+  color: var(--primary-accent, #f25c54);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.offset-chip.align-chip:hover {
+  background: var(--primary-accent);
+  color: #ffffff;
+}
+
 /* Audio Transport */
 .ai-inspector-transport {
   background: var(--card-bg, #1e1e24);
