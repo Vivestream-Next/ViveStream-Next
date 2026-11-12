@@ -59,6 +59,8 @@ pub struct DownloadHistoryEntry {
 pub struct EngineVersionsInfo {
     pub ytdlp_version: String,
     pub ffmpeg_version: String,
+    pub quickjs_version: String,
+    #[serde(default)]
     pub deno_version: String,
     pub whisper_version: String,
     pub whisper_installed: bool,
@@ -71,6 +73,8 @@ pub struct EngineUpdateInfo {
     pub current_ytdlp_version: String,
     pub latest_ytdlp_version: String,
     pub ffmpeg_installed: bool,
+    pub quickjs_installed: bool,
+    #[serde(default)]
     pub deno_installed: bool,
     pub message: String,
 }
