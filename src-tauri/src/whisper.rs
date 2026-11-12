@@ -510,12 +510,153 @@ pub async fn delete_whisper_model(app: AppHandle, model_name: String) -> Result<
     Ok(())
 }
 
-/// 4. Generate Synchronized Lyrics & Subtitles for Audio/Video File
+pub fn parse_lrc_content(lrc: &str) -> Vec<crate::models::LyricLine> {
+    let mut lines = Vec::new();
+    let mut line_id = 0;
+
+    for raw_line in lrc.lines() {
+        let trimmed = raw_line.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with("[ti:")
+            || trimmed.starts_with("[ar:")
+            || trimmed.starts_with("[al:")
+            || trimmed.starts_with("[by:")
+            || trimmed.starts_with("[offset:")
+        {
+            continue;
+        }
+
+        if let Some(idx) = trimmed.find(']') {
+            if trimmed.starts_with('[') && idx > 1 {
+                let time_str = &trimmed[1..idx];
+                let content = trimmed[idx + 1..].trim();
+
+                let parts: Vec<&str> = time_str.split(':').collect();
+                if parts.len() == 2 {
+                    if let (Ok(mins), Ok(secs)) =
+                        (parts[0].parse::<f64>(), parts[1].parse::<f64>())
+                    {
+                        let start_sec = mins * 60.0 + secs;
+                        let mut words = Vec::new();
+                        let mut clean_text = String::new();
+
+                        if content.contains('<') && content.contains('>') {
+                            let mut remainder = content;
+                            while let Some(open) = remainder.find('<') {
+                                if let Some(close) = remainder[open..].find('>') {
+                                    let close_idx = open + close;
+                                    let word_time_str = &remainder[open + 1..close_idx];
+                                    let after_tag = &remainder[close_idx + 1..];
+                                    let next_open =
+                                        after_tag.find('<').unwrap_or(after_tag.len());
+                                    let word_text = after_tag[..next_open].trim();
+
+                                    let w_parts: Vec<&str> = word_time_str.split(':').collect();
+                                    if w_parts.len() == 2 {
+                                        if let (Ok(wm), Ok(ws)) = (
+                                            w_parts[0].parse::<f64>(),
+                                            w_parts[1].parse::<f64>(),
+                                        ) {
+                                            let w_start = wm * 60.0 + ws;
+                                            if !word_text.is_empty() {
+                                                words.push(crate::models::LyricWord {
+                                                    word: word_text.to_string(),
+                                                    start: w_start,
+                                                    end: w_start + 0.4,
+                                                    probability: 0.95,
+                                                });
+                                                if !clean_text.is_empty() {
+                                                    clean_text.push(' ');
+                                                }
+                                                clean_text.push_str(word_text);
+                                            }
+                                        }
+                                    }
+                                    remainder = &remainder[close_idx + 1 + next_open..];
+                                } else {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if clean_text.is_empty() {
+                            clean_text = content.to_string();
+                        }
+
+                        if !clean_text.is_empty() {
+                            lines.push(crate::models::LyricLine {
+                                id: line_id,
+                                start: start_sec,
+                                end: start_sec + 3.5,
+                                text: clean_text,
+                                translation: None,
+                                words,
+                            });
+                            line_id += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let count = lines.len();
+    for i in 0..count {
+        if i + 1 < count {
+            let next_start = lines[i + 1].start;
+            if next_start > lines[i].start {
+                lines[i].end = next_start;
+            }
+        }
+    }
+
+    lines
+}
+
+pub fn shift_lrc_offset(lrc: &str, offset_sec: f64) -> String {
+    let mut result = Vec::new();
+    for line in lrc.lines() {
+        let trimmed = line.trim();
+        if trimmed.starts_with('[') && trimmed.contains(']') {
+            let close_bracket = trimmed.find(']').unwrap();
+            let tag = &trimmed[1..close_bracket];
+            let after_tag = &trimmed[close_bracket + 1..];
+
+            let parts: Vec<&str> = tag.split(':').collect();
+            if parts.len() == 2 {
+                if let (Ok(m), Ok(s)) = (parts[0].parse::<f64>(), parts[1].parse::<f64>()) {
+                    let total_sec = (m * 60.0 + s + offset_sec).max(0.0);
+                    let new_m = (total_sec / 60.0).floor() as u32;
+                    let new_s = total_sec % 60.0;
+                    result.push(format!("[{:02}:{:05.2}]{}", new_m, new_s, after_tag));
+                    continue;
+                }
+            }
+        }
+        result.push(line.to_string());
+    }
+    result.join("\n")
+}
+
+pub fn srt_to_vtt(srt: &str) -> String {
+    let mut vtt = String::from("WEBVTT\n\n");
+    for line in srt.lines() {
+        if line.contains("-->") {
+            vtt.push_str(&line.replace(',', "."));
+        } else {
+            vtt.push_str(line);
+        }
+        vtt.push('\n');
+    }
+    vtt
+}
+
 /// 4. Generate Synchronized Lyrics & Subtitles for Audio/Video File with real-time progress streaming
 #[tauri::command]
 pub async fn generate_track_lyrics(
     app: AppHandle,
     audio_path: String,
+    track_id: Option<String>,
     model: Option<String>,
     task: Option<String>,
     language: Option<String>,
@@ -528,6 +669,7 @@ pub async fn generate_track_lyrics(
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
     let lyrics_dir = get_lyrics_dir(&app)?;
+    let base_dir = get_base_dir(&app)?;
 
     if !bin_path.is_file() {
         return Err("Whisper engine binary is not installed yet. Please install it from AI Settings.".to_string());
@@ -596,11 +738,352 @@ pub async fn generate_track_lyrics(
         return Err(format!("Whisper error: {}\n{}", stderr_output, stdout_str));
     }
 
-    serde_json::from_slice::<serde_json::Value>(&stdout_buf)
-        .map_err(|e| format!("Failed to parse whisper JSON output: {}", e))
+    let parsed_json = serde_json::from_slice::<serde_json::Value>(&stdout_buf)
+        .map_err(|e| format!("Failed to parse whisper JSON output: {}", e))?;
+
+    // Determine target track id and title for automatic linking
+    let audio_file_stem = PathBuf::from(&audio_path)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_string();
+
+    let resolved_id = track_id.unwrap_or_else(|| {
+        if audio_file_stem.starts_with("raw_") {
+            audio_file_stem.trim_start_matches("raw_").to_string()
+        } else {
+            audio_file_stem.clone()
+        }
+    });
+
+    // If an ID is resolved, mirror output files into standard naming: <id>.lrc, <id>.vtt
+    if !resolved_id.is_empty() {
+        let src_lrc = lyrics_dir.join(format!("{}.lrc", audio_file_stem));
+        let dest_lrc = lyrics_dir.join(format!("{}.lrc", resolved_id));
+        if src_lrc.exists() && src_lrc != dest_lrc {
+            let _ = fs::copy(&src_lrc, &dest_lrc);
+        }
+
+        let src_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", audio_file_stem));
+        let dest_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", resolved_id));
+        if src_elrc.exists() && src_elrc != dest_elrc {
+            let _ = fs::copy(&src_elrc, &dest_elrc);
+        }
+
+        let src_srt = lyrics_dir.join(format!("{}.srt", audio_file_stem));
+        if let Ok(srt_str) = fs::read_to_string(&src_srt) {
+            let vtt_str = srt_to_vtt(&srt_str);
+            let dest_vtt_lyrics = lyrics_dir.join(format!("{}.vtt", resolved_id));
+            let dest_vtt_videos = base_dir.join("Videos").join(format!("{}.vtt", resolved_id));
+            let _ = fs::write(&dest_vtt_lyrics, &vtt_str);
+            let _ = fs::write(&dest_vtt_videos, &vtt_str);
+        }
+
+        // Emit high-priority event so active player immediately renders synced lyrics
+        let _ = app.emit("lyrics-ready", serde_json::json!({
+            "track_id": resolved_id,
+            "title": audio_file_stem,
+        }));
+    }
+
+    Ok(parsed_json)
 }
 
-/// 5. Retrieve cached lyrics from the Lyrics directory
+/// 5. Retrieve structured lyrics with full line and word timestamps
+#[tauri::command]
+pub async fn get_track_lyrics(
+    app: AppHandle,
+    track_id: String,
+    track_title: Option<String>,
+) -> Result<crate::models::TrackLyricsPayload, String> {
+    let lyrics_dir = get_lyrics_dir(&app)?;
+    let base_dir = get_base_dir(&app)?;
+
+    let mut candidate_stems = vec![track_id.clone()];
+    if let Some(ref title) = track_title {
+        let safe_name = title.replace(|c: char| !c.is_alphanumeric() && c != '_' && c != '-', "_");
+        candidate_stems.push(safe_name);
+        candidate_stems.push(title.clone());
+    }
+
+    let mut found_json_path = None;
+    let mut found_elrc_path = None;
+    let mut found_lrc_path = None;
+    let mut found_srt_path = None;
+
+    for stem in &candidate_stems {
+        let p_json = lyrics_dir.join(format!("{}.json", stem));
+        if p_json.exists() && found_json_path.is_none() {
+            found_json_path = Some(p_json);
+        }
+        let p_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", stem));
+        if p_elrc.exists() && found_elrc_path.is_none() {
+            found_elrc_path = Some(p_elrc);
+        }
+        let p_lrc = lyrics_dir.join(format!("{}.lrc", stem));
+        if p_lrc.exists() && found_lrc_path.is_none() {
+            found_lrc_path = Some(p_lrc);
+        }
+        let p_srt = lyrics_dir.join(format!("{}.srt", stem));
+        if p_srt.exists() && found_srt_path.is_none() {
+            found_srt_path = Some(p_srt);
+        }
+    }
+
+    // Also check Videos/<id>.vtt fallback
+    let video_vtt = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    let has_vtt = video_vtt.exists();
+
+    let has_lyrics = found_json_path.is_some()
+        || found_elrc_path.is_some()
+        || found_lrc_path.is_some()
+        || found_srt_path.is_some()
+        || has_vtt;
+
+    if !has_lyrics {
+        return Ok(crate::models::TrackLyricsPayload {
+            track_id: track_id.clone(),
+            title: track_title.unwrap_or_default(),
+            has_lyrics: false,
+            format: "none".to_string(),
+            language: "auto".to_string(),
+            duration: 0.0,
+            lines: Vec::new(),
+            raw_lrc: None,
+            raw_enhanced_lrc: None,
+            raw_srt: None,
+        });
+    }
+
+    let raw_enhanced_lrc = found_elrc_path.and_then(|p| fs::read_to_string(p).ok());
+    let raw_lrc = found_lrc_path.and_then(|p| fs::read_to_string(p).ok());
+    let raw_srt = found_srt_path.and_then(|p| fs::read_to_string(p).ok());
+
+    let mut lines = Vec::new();
+    let mut duration = 0.0;
+    let mut language = "en".to_string();
+    let mut format = "lrc".to_string();
+
+    // 1. Try parsing from Whisper JSON output for highest precision
+    if let Some(json_path) = found_json_path {
+        if let Ok(content) = fs::read_to_string(json_path) {
+            if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&content) {
+                duration = json_val
+                    .get("duration")
+                    .and_then(|d| d.as_f64())
+                    .unwrap_or(0.0);
+                language = json_val
+                    .get("language")
+                    .and_then(|l| l.as_str())
+                    .unwrap_or("en")
+                    .to_string();
+
+                if let Some(segs) = json_val.get("segments").and_then(|s| s.as_array()) {
+                    for (idx, seg) in segs.iter().enumerate() {
+                        let start = seg.get("start").and_then(|s| s.as_f64()).unwrap_or(0.0);
+                        let end = seg.get("end").and_then(|e| e.as_f64()).unwrap_or(start + 3.0);
+                        let text = seg.get("text").and_then(|t| t.as_str()).unwrap_or("").trim().to_string();
+
+                        let mut words = Vec::new();
+                        if let Some(w_list) = seg.get("words").and_then(|w| w.as_array()) {
+                            for w in w_list {
+                                let w_start = w.get("start").and_then(|s| s.as_f64()).unwrap_or(start);
+                                let w_end = w.get("end").and_then(|e| e.as_f64()).unwrap_or(w_start + 0.3);
+                                let w_text = w.get("word").and_then(|wt| wt.as_str()).unwrap_or("").trim().to_string();
+                                let prob = w.get("probability").and_then(|p| p.as_f64()).unwrap_or(0.95);
+                                if !w_text.is_empty() {
+                                    words.push(crate::models::LyricWord {
+                                        word: w_text,
+                                        start: w_start,
+                                        end: w_end,
+                                        probability: prob,
+                                    });
+                                }
+                            }
+                        }
+
+                        if !text.is_empty() {
+                            lines.push(crate::models::LyricLine {
+                                id: idx,
+                                start,
+                                end,
+                                text,
+                                translation: None,
+                                words,
+                            });
+                        }
+                    }
+                    if !lines.is_empty() {
+                        format = "karaoke".to_string();
+                    }
+                }
+            }
+        }
+    }
+
+    // 2. If lines empty, fallback to Enhanced LRC or standard LRC parser
+    if lines.is_empty() {
+        if let Some(ref elrc) = raw_enhanced_lrc {
+            lines = parse_lrc_content(elrc);
+            format = "enhanced_lrc".to_string();
+        } else if let Some(ref lrc) = raw_lrc {
+            lines = parse_lrc_content(lrc);
+            format = "lrc".to_string();
+        }
+    }
+
+    Ok(crate::models::TrackLyricsPayload {
+        track_id: track_id.clone(),
+        title: track_title.unwrap_or_default(),
+        has_lyrics: !lines.is_empty() || raw_lrc.is_some() || raw_srt.is_some(),
+        format,
+        language,
+        duration,
+        lines,
+        raw_lrc,
+        raw_enhanced_lrc,
+        raw_srt,
+    })
+}
+
+/// 6. Shift and calibrate lyric timestamps by an offset in seconds
+#[tauri::command]
+pub async fn adjust_lyrics_offset(
+    app: AppHandle,
+    track_id: String,
+    offset_seconds: f64,
+) -> Result<crate::models::TrackLyricsPayload, String> {
+    let lyrics_dir = get_lyrics_dir(&app)?;
+
+    let lrc_path = lyrics_dir.join(format!("{}.lrc", track_id));
+    if lrc_path.exists() {
+        if let Ok(content) = fs::read_to_string(&lrc_path) {
+            let shifted = shift_lrc_offset(&content, offset_seconds);
+            let _ = fs::write(&lrc_path, shifted);
+        }
+    }
+
+    let elrc_path = lyrics_dir.join(format!("{}.enhanced.lrc", track_id));
+    if elrc_path.exists() {
+        if let Ok(content) = fs::read_to_string(&elrc_path) {
+            let shifted = shift_lrc_offset(&content, offset_seconds);
+            let _ = fs::write(&elrc_path, shifted);
+        }
+    }
+
+    get_track_lyrics(app, track_id, None).await
+}
+
+/// 7. Save manually edited lyrics text back to disk
+#[tauri::command]
+pub async fn save_custom_lyrics(
+    app: AppHandle,
+    track_id: String,
+    lrc_content: String,
+) -> Result<crate::models::TrackLyricsPayload, String> {
+    let lyrics_dir = get_lyrics_dir(&app)?;
+    let base_dir = get_base_dir(&app)?;
+
+    let lrc_path = lyrics_dir.join(format!("{}.lrc", track_id));
+    fs::write(&lrc_path, &lrc_content).map_err(|e| format!("Failed to write LRC: {}", e))?;
+
+    // Also update Videos/<id>.vtt
+    let vtt_path = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    let parsed_lines = parse_lrc_content(&lrc_content);
+    let mut vtt_str = String::from("WEBVTT\n\n");
+    for (idx, line) in parsed_lines.iter().enumerate() {
+        let m1 = (line.start / 60.0).floor() as u32;
+        let s1 = line.start % 60.0;
+        let m2 = (line.end / 60.0).floor() as u32;
+        let s2 = line.end % 60.0;
+        vtt_str.push_str(&format!(
+            "{}\n00:{:02}:{:06.3} --> 00:{:02}:{:06.3}\n{}\n\n",
+            idx + 1,
+            m1,
+            s1,
+            m2,
+            s2,
+            line.text
+        ));
+    }
+    let _ = fs::write(&vtt_path, vtt_str);
+
+    get_track_lyrics(app, track_id, None).await
+}
+
+/// 8. Batch transcribe multiple tracks with queue management
+#[tauri::command]
+pub async fn generate_batch_lyrics(
+    app: AppHandle,
+    track_ids: Vec<String>,
+    model: Option<String>,
+    task: Option<String>,
+    language: Option<String>,
+    device: Option<String>,
+) -> Result<Vec<crate::models::TrackLyricsPayload>, String> {
+    if !crate::license::check_license_active(&app) {
+        return Err("AI Studio batch transcription requires an active 6-Month Pro Subscription.".to_string());
+    }
+
+    let videos = crate::db::get_downloaded_videos(app.clone()).await?;
+    let total = track_ids.len();
+    let mut results = Vec::new();
+
+    for (idx, tid) in track_ids.iter().enumerate() {
+        let matching_video = videos.iter().find(|v| &v.id == tid);
+        let audio_path = match matching_video {
+            Some(v) => v.video_path.clone(),
+            None => continue,
+        };
+
+        let title = matching_video.map(|v| v.title.clone()).unwrap_or_default();
+
+        let _ = app.emit(
+            "whisper-batch-progress",
+            crate::models::BatchProgressEvent {
+                current_index: idx + 1,
+                total_tracks: total,
+                track_id: tid.clone(),
+                title: title.clone(),
+                stage: "transcribing".to_string(),
+                percent: ((idx as f64) / (total as f64) * 100.0).round(),
+                status: format!("Processing {}/{}", idx + 1, total),
+            },
+        );
+
+        let _ = generate_track_lyrics(
+            app.clone(),
+            audio_path,
+            Some(tid.clone()),
+            model.clone(),
+            task.clone(),
+            language.clone(),
+            device.clone(),
+        )
+        .await;
+
+        if let Ok(payload) = get_track_lyrics(app.clone(), tid.clone(), Some(title)).await {
+            results.push(payload);
+        }
+    }
+
+    let _ = app.emit(
+        "whisper-batch-progress",
+        crate::models::BatchProgressEvent {
+            current_index: total,
+            total_tracks: total,
+            track_id: "".to_string(),
+            title: "".to_string(),
+            stage: "complete".to_string(),
+            percent: 100.0,
+            status: "All tracks complete".to_string(),
+        },
+    );
+
+    Ok(results)
+}
+
+/// 9. Backward compatible cached lyrics command
 #[tauri::command]
 pub async fn get_cached_lyrics(
     app: AppHandle,
