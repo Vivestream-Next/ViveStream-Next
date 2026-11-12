@@ -595,12 +595,10 @@ export default function Downloads() {
                         </button>
                         <button
                           class="task-ctrl-btn lyrics-btn"
-                          onClick={async () => {
-                            if (task.metadata?.video_path) {
-                              await transcribeTrackQuick(task.id, task.metadata.video_path, task.title);
-                            }
+                          onClick={() => {
+                            navigate(`/lyrics?trackId=${task.id}`);
                           }}
-                          title="Generate Synced Lyrics with Whisper"
+                          title="Open in Lyrics Studio"
                         >
                           <i class="ph-bold ph-waveform"></i> Lyrics
                         </button>
