@@ -141,7 +141,8 @@ export default function Settings() {
   const [engineVersions, setEngineVersions] = createSignal<{
     ytdlp_version: string;
     ffmpeg_version: string;
-    deno_version: string;
+    quickjs_version?: string;
+    deno_version?: string;
     whisper_version: string;
     whisper_installed: boolean;
   } | null>(null);
@@ -402,6 +403,7 @@ export default function Settings() {
       const v = await invoke<{
         ytdlp_version: string;
         ffmpeg_version: string;
+        quickjs_version: string;
         deno_version: string;
         whisper_version: string;
         whisper_installed: boolean;
@@ -421,6 +423,7 @@ export default function Settings() {
         current_ytdlp_version: string;
         latest_ytdlp_version: string;
         ffmpeg_installed: boolean;
+        quickjs_installed: boolean;
         deno_installed: boolean;
         message: string;
       }>("check_engine_updates");
@@ -499,7 +502,7 @@ export default function Settings() {
       }
       setEngineUpdateReady(true);
       addToast(
-        "Core engines (yt-dlp, Deno, and FFmpeg) have been successfully updated to the latest versions.",
+        "Core engines (yt-dlp, QuickJS, and FFmpeg) have been successfully updated to the latest versions.",
         "success",
       );
       await refreshEngineVersions();
@@ -1847,13 +1850,13 @@ export default function Settings() {
 
           <div class="engine-chip">
             <div class="engine-chip-header">
-              <span><i class="ph-fill ph-code"></i> Deno JS Runtime</span>
-              <span class={`engine-status-tag ${engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed" ? "ready" : "notice"}`}>
-                {engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed" ? "Installed" : "Missing"}
+              <span><i class="ph-fill ph-code"></i> QuickJS Engine</span>
+              <span class={`engine-status-tag ${(engineVersions()?.quickjs_version && engineVersions()?.quickjs_version !== "Not Installed") || (engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed") ? "ready" : "notice"}`}>
+                {(engineVersions()?.quickjs_version && engineVersions()?.quickjs_version !== "Not Installed") || (engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed") ? "Installed" : "Missing"}
               </span>
             </div>
-            <div class="engine-chip-val" title={engineVersions()?.deno_version || "Checking..."}>
-              {engineVersions()?.deno_version || "Checking..."}
+            <div class="engine-chip-val" title={engineVersions()?.quickjs_version || engineVersions()?.deno_version || "Checking..."}>
+              {engineVersions()?.quickjs_version || engineVersions()?.deno_version || "Checking..."}
             </div>
           </div>
 
@@ -3088,7 +3091,7 @@ export default function Settings() {
             <div>
               <h4>Hardware Transcoding</h4>
               <p>
-                Automated integration with yt-dlp, FFmpeg (QSV/NVENC), and Deno.
+                Automated integration with yt-dlp, FFmpeg (QSV/NVENC), and QuickJS.
               </p>
             </div>
           </div>
