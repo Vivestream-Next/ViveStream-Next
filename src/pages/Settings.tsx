@@ -77,6 +77,17 @@ import {
   toggleWhisperAutoLinkLyrics,
   whisperComputeDevice,
   updateWhisperComputeDevice,
+  autoCheckEngineUpdates,
+  updateAutoCheckEngineUpdates,
+  engineUpdateReady,
+  setEngineUpdateReady,
+  setEngineUpdateInfo,
+  appUpdateInfo,
+  appUpdateDownloading,
+  updateProgress,
+  checkForAppUpdates,
+  installAppUpdate,
+  restartApp,
 } from "../store";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import BenchmarkModal from "../components/BenchmarkModal";
@@ -127,6 +138,14 @@ export default function Settings() {
   const [loadingWhisperStatus, setLoadingWhisperStatus] = createSignal(false);
   const [isDeployingWhisper, setIsDeployingWhisper] = createSignal(false);
   const [whisperDeployMsg, setWhisperDeployMsg] = createSignal("");
+  const [engineVersions, setEngineVersions] = createSignal<{
+    ytdlp_version: string;
+    ffmpeg_version: string;
+    deno_version: string;
+    whisper_version: string;
+    whisper_installed: boolean;
+  } | null>(null);
+  const [isCheckingEngineUpdates, setIsCheckingEngineUpdates] = createSignal(false);
 
   const [settingsLicenseKey, setSettingsLicenseKey] = createSignal("");
   const [settingsKeyError, setSettingsKeyError] = createSignal("");
@@ -378,9 +397,67 @@ export default function Settings() {
     }
   };
 
+  const refreshEngineVersions = async () => {
+    try {
+      const v = await invoke<{
+        ytdlp_version: string;
+        ffmpeg_version: string;
+        deno_version: string;
+        whisper_version: string;
+        whisper_installed: boolean;
+      }>("get_engine_versions");
+      setEngineVersions(v);
+    } catch (e) {
+      console.warn("Could not fetch engine versions:", e);
+    }
+  };
+
+  const handleCheckEngineUpdates = async () => {
+    setIsCheckingEngineUpdates(true);
+    try {
+      const info = await invoke<{
+        update_available: boolean;
+        ytdlp_update: boolean;
+        current_ytdlp_version: string;
+        latest_ytdlp_version: string;
+        ffmpeg_installed: boolean;
+        deno_installed: boolean;
+        message: string;
+      }>("check_engine_updates");
+      setEngineUpdateInfo(info);
+      if (info.update_available) {
+        addToast(
+          `Update available: yt-dlp ${info.latest_ytdlp_version}. Click 'Update Engines' to install.`,
+          "info",
+        );
+      } else {
+        addToast(
+          `All core engines are up-to-date (${info.current_ytdlp_version}).`,
+          "success",
+        );
+      }
+      await refreshEngineVersions();
+    } catch (e) {
+      addToast(`Engine update check failed: ${e}`, "error");
+    } finally {
+      setIsCheckingEngineUpdates(false);
+    }
+  };
+
+  const [isCheckingAppUpdates, setIsCheckingAppUpdates] = createSignal(false);
+  const handleCheckAppUpdates = async () => {
+    setIsCheckingAppUpdates(true);
+    try {
+      await checkForAppUpdates(false);
+    } finally {
+      setIsCheckingAppUpdates(false);
+    }
+  };
+
   onMount(() => {
     loadPoTokenStatus();
     fetchWhisperStatus();
+    refreshEngineVersions();
 
     let unlistenPo: (() => void) | null = null;
     try {
@@ -420,10 +497,12 @@ export default function Settings() {
       } catch {
         await invoke("download_binaries");
       }
+      setEngineUpdateReady(true);
       addToast(
         "Core engines (yt-dlp, Deno, and FFmpeg) have been successfully updated to the latest versions.",
         "success",
       );
+      await refreshEngineVersions();
     } catch (e) {
       addToast(`Update failed: ${e}`, "error");
     } finally {
@@ -588,7 +667,10 @@ export default function Settings() {
           class={`settings-nav-pill ${activeSection() === "sec-engine" ? "active" : ""}`}
           onClick={() => scrollToSection("sec-engine")}
         >
-          <i class="ph-fill ph-sliders"></i> Engine
+          <i class="ph-fill ph-sliders"></i> Engine & Updates
+          <Show when={engineUpdateReady()}>
+            <span class="nav-update-chip">Restart Ready</span>
+          </Show>
         </button>
         <button
           type="button"
@@ -624,7 +706,15 @@ export default function Settings() {
         <i class="ph-fill ph-gear"></i> Appearance & UI
       </h2>
 
-      <div class="settings-card">
+      {/* Card 1: Theme & Color Accents */}
+      <div class="settings-card" id="card-appearance-theme">
+        <div class="card-section-header">
+          <i class="ph-fill ph-palette"></i>
+          <div class="header-text">
+            <h3>Themes & Color Accents</h3>
+            <p>Customize light/dark mode and adaptive Material You seed palettes.</p>
+          </div>
+        </div>
         {/* App Theme (Light vs Dark) - Large Cards Only */}
         <div class="theme-setting-container" id="setting-appearance-theme">
           <div class="flex-row-between theme-setting-header">
@@ -1103,8 +1193,17 @@ export default function Settings() {
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="full-divider"></div>
+      {/* Card 2: Ambient Lighting Studio */}
+      <div class="settings-card" id="card-appearance-ambient">
+        <div class="card-section-header">
+          <i class="ph-fill ph-sparkle"></i>
+          <div class="header-text">
+            <h3>Cinema Ambient Glow</h3>
+            <p>Real-time reactive lighting and dynamic canvas color diffusion for playback.</p>
+          </div>
+        </div>
 
         {/* Ambient Lighting Studio */}
         <div class="ambient-studio-container" id="setting-appearance-ambient">
@@ -1425,8 +1524,17 @@ export default function Settings() {
             </div>
           </Show>
         </div>
+      </div>
 
-        <div class="full-divider"></div>
+      {/* Card 3: Interface & Behavior Controls */}
+      <div class="settings-card" id="card-appearance-interface">
+        <div class="card-section-header">
+          <i class="ph-fill ph-layout"></i>
+          <div class="header-text">
+            <h3>Interface & Control Behaviors</h3>
+            <p>Fine-tune navigation menus, animated icons, miniplayer, and on-screen metrics.</p>
+          </div>
+        </div>
 
         <div class="flex-row-between" id="setting-appearance-sidebar">
           <div>
@@ -1684,10 +1792,225 @@ export default function Settings() {
       </div>
 
       <h2 class="page-title page-title-spaced" id="sec-engine">
-        <i class="ph-fill ph-sliders"></i> Engine Preferences
+        <i class="ph-fill ph-sliders"></i> Engine Preferences & Runtimes
       </h2>
 
-      <div class="settings-card">
+      {/* Card 1: Core Engines & Live Updates */}
+      <div class="settings-card" id="card-engine-updates">
+        <div class="card-section-header">
+          <i class="ph-fill ph-cpu"></i>
+          <div class="header-text">
+            <h3>Core Engines & Component Updates</h3>
+            <p>
+              Underlying binaries for high-speed streaming, hardware transcoding, and offline JS execution.
+            </p>
+          </div>
+        </div>
+
+        {/* Engine Versions Grid */}
+        <div class="engine-chips-grid">
+          <div class="engine-chip">
+            <div class="engine-chip-header">
+              <span><i class="ph-fill ph-app-window"></i> ViveStream App</span>
+              <span class={`engine-status-tag ${appUpdateInfo()?.update_available ? "notice" : "ready"}`}>
+                {appUpdateInfo()?.update_available ? "Update" : "Current"}
+              </span>
+            </div>
+            <div class="engine-chip-val" title={`v${APP_VERSION}`}>
+              v{APP_VERSION}
+            </div>
+          </div>
+
+          <div class="engine-chip">
+            <div class="engine-chip-header">
+              <span><i class="ph-fill ph-download-simple"></i> yt-dlp</span>
+              <span class={`engine-status-tag ${engineVersions()?.ytdlp_version && engineVersions()?.ytdlp_version !== "Not Installed" ? "ready" : "notice"}`}>
+                {engineVersions()?.ytdlp_version && engineVersions()?.ytdlp_version !== "Not Installed" ? "Installed" : "Missing"}
+              </span>
+            </div>
+            <div class="engine-chip-val" title={engineVersions()?.ytdlp_version || "Checking..."}>
+              {engineVersions()?.ytdlp_version || "Checking..."}
+            </div>
+          </div>
+
+          <div class="engine-chip">
+            <div class="engine-chip-header">
+              <span><i class="ph-fill ph-film-strip"></i> FFmpeg & Probe</span>
+              <span class={`engine-status-tag ${engineVersions()?.ffmpeg_version && engineVersions()?.ffmpeg_version !== "Not Installed" ? "ready" : "notice"}`}>
+                {engineVersions()?.ffmpeg_version && engineVersions()?.ffmpeg_version !== "Not Installed" ? "Installed" : "Missing"}
+              </span>
+            </div>
+            <div class="engine-chip-val" title={engineVersions()?.ffmpeg_version || "Checking..."}>
+              {engineVersions()?.ffmpeg_version || "Checking..."}
+            </div>
+          </div>
+
+          <div class="engine-chip">
+            <div class="engine-chip-header">
+              <span><i class="ph-fill ph-code"></i> Deno JS Runtime</span>
+              <span class={`engine-status-tag ${engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed" ? "ready" : "notice"}`}>
+                {engineVersions()?.deno_version && engineVersions()?.deno_version !== "Not Installed" ? "Installed" : "Missing"}
+              </span>
+            </div>
+            <div class="engine-chip-val" title={engineVersions()?.deno_version || "Checking..."}>
+              {engineVersions()?.deno_version || "Checking..."}
+            </div>
+          </div>
+
+          <div class="engine-chip">
+            <div class="engine-chip-header">
+              <span><i class="ph-fill ph-brain"></i> Whisper Neural</span>
+              <span class={`engine-status-tag ${engineVersions()?.whisper_installed ? "ready" : "notice"}`}>
+                {engineVersions()?.whisper_installed ? "Deployed" : "On-Demand"}
+              </span>
+            </div>
+            <div class="engine-chip-val" title={engineVersions()?.whisper_version || "Pure-Rust Candle"}>
+              {engineVersions()?.whisper_version || "Pure-Rust Candle"}
+            </div>
+          </div>
+        </div>
+
+        {/* Live Update Download Progress Bar */}
+        <Show when={loadingUpdate() || appUpdateDownloading() || (updateProgress()?.status === "downloading")}>
+          <div class="engine-live-progress-box">
+            <div class="flex-row-between">
+              <span class="progress-title">
+                <i class="ph-bold ph-spinner spinIcon"></i>
+                {updateProgress()?.message || (appUpdateDownloading() ? "Downloading ViveStream-Next installer..." : "Updating streaming engines...")}
+              </span>
+              <span class="progress-pct">
+                {(updateProgress()?.percentage ?? 0).toFixed(1)}%
+              </span>
+            </div>
+            <div class="update-progress-track">
+              <div
+                class="update-progress-fill"
+                style={{ width: `${Math.max(4, Math.min(100, updateProgress()?.percentage ?? 0))}%` }}
+              ></div>
+            </div>
+            <Show when={updateProgress()?.total_mb && (updateProgress()?.total_mb ?? 0) > 0}>
+              <div class="update-progress-substats">
+                <span>{updateProgress()?.downloaded_mb.toFixed(1)} / {updateProgress()?.total_mb.toFixed(1)} MB</span>
+              </div>
+            </Show>
+          </div>
+        </Show>
+
+        {/* App Update Available Alert Card */}
+        <Show when={appUpdateInfo()?.update_available}>
+          <div class="app-update-alert-card">
+            <div class="app-update-alert-info">
+              <div class="app-update-badge">NEW RELEASE</div>
+              <h4>ViveStream-Next {appUpdateInfo()?.latest_version} Available</h4>
+              <p>You are running v{APP_VERSION}. Click below to automatically download and launch the installer.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => installAppUpdate()}
+              disabled={appUpdateDownloading()}
+              class="command-btn primary app-upgrade-btn"
+            >
+              <i class={`ph-bold ${appUpdateDownloading() ? "ph-spinner spinIcon" : "ph-download-simple"}`}></i>
+              {appUpdateDownloading() ? "Downloading..." : `Upgrade to ${appUpdateInfo()?.latest_version}`}
+            </button>
+          </div>
+        </Show>
+
+        <div class="full-divider"></div>
+
+        {/* Startup Engine Auto Update Toggle */}
+        <div class="flex-row-between" id="setting-engine-auto-update">
+          <div>
+            <h3 class="settings-title">Check for Engine Updates on Launch</h3>
+            <p class="settings-desc">
+              Silently checks for new yt-dlp nightly releases when the app launches, downloads updates in the background, and prompts to restart (VS Code style).
+            </p>
+          </div>
+          <label class="switch">
+            <input
+              type="checkbox"
+              checked={autoCheckEngineUpdates()}
+              onChange={(e) => updateAutoCheckEngineUpdates(e.target.checked)}
+            />
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Engine Management Actions */}
+        <div class="flex-row-between" id="setting-engine-actions">
+          <div>
+            <h3 class="settings-title">Engine Update & Deployment Controls</h3>
+            <p class="settings-desc">
+              Manually query GitHub for latest nightly releases, update all core binaries, or relaunch first-time setup.
+            </p>
+          </div>
+          <div class="engine-actions-bar">
+            <button
+              type="button"
+              onClick={handleCheckEngineUpdates}
+              disabled={isCheckingEngineUpdates() || loadingUpdate()}
+              class="command-btn secondary"
+              title="Query GitHub for latest yt-dlp nightlies"
+            >
+              <i class={`ph ${isCheckingEngineUpdates() ? "ph-spinner spinIcon" : "ph-magnifying-glass"}`}></i>
+              {isCheckingEngineUpdates() ? "Checking..." : "Check Engine Updates"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleCheckAppUpdates}
+              disabled={isCheckingAppUpdates() || appUpdateDownloading()}
+              class="command-btn secondary"
+              title="Query GitHub for latest ViveStream-Next application release"
+            >
+              <i class={`ph ${isCheckingAppUpdates() ? "ph-spinner spinIcon" : "ph-sparkle"}`}></i>
+              {isCheckingAppUpdates() ? "Checking..." : "Check App Update"}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleUpdateBinaries}
+              disabled={loadingUpdate() || isCheckingEngineUpdates()}
+              class="command-btn secondary"
+            >
+              <i class={`ph-fill ${loadingUpdate() ? "ph-spinner spinIcon" : "ph-arrow-clockwise"}`}></i>
+              {loadingUpdate() ? "Updating..." : "Update Engines"}
+            </button>
+
+            <Show when={engineUpdateReady()}>
+              <button
+                type="button"
+                onClick={restartApp}
+                class="command-btn primary engine-restart-btn-pulsing"
+                title="Restart ViveStream to apply updated engines"
+              >
+                <i class="ph-bold ph-power"></i> Restart App (Update Ready)
+              </button>
+            </Show>
+
+            <button
+              type="button"
+              onClick={() => setForceSetup(true)}
+              class="command-btn secondary"
+              title="Launch Setup Screen"
+            >
+              <i class="ph ph-wrench"></i> Setup Wizard
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Card 2: Download Pipeline & Bandwidth */}
+      <div class="settings-card" id="card-engine-pipeline">
+        <div class="card-section-header">
+          <i class="ph-fill ph-gauge"></i>
+          <div class="header-text">
+            <h3>Download Pipeline & Bandwidth</h3>
+            <p>Fine-tune network slots, multi-fragment stream chunking, and download limits.</p>
+          </div>
+        </div>
         <div class="flex-row-between" id="setting-engine-concurrent-dl">
           <div>
             <h3 class="settings-title">Concurrent Downloads</h3>
@@ -2318,14 +2641,14 @@ export default function Settings() {
               Automatically make generated .lrc lyric files available in the ViveStream player when playing corresponding tracks.
             </p>
           </div>
-          <label class="toggle-switch">
+          <label class="switch">
             <input
               type="checkbox"
               checked={whisperAutoLinkLyrics()}
               onChange={() => toggleWhisperAutoLinkLyrics()}
               aria-label="Auto-Sync Lyrics with Media Player"
             />
-            <span class="toggle-slider"></span>
+            <span class="slider"></span>
           </label>
         </div>
 
@@ -2590,51 +2913,15 @@ export default function Settings() {
       </h2>
 
       <div class="danger-card">
-        <div class="flex-row-between" id="setting-danger-force-setup">
-          <div>
-            <h3 class="settings-title">Force Setup Screen</h3>
-            <p class="settings-desc">
-              Launch the deployment screen to test setup rendering without
-              deleting existing files.
+        <div class="card-section-header danger-header">
+          <i class="ph-fill ph-warning-octagon" style="color: #ef233c;"></i>
+          <div class="header-text">
+            <h3 style="color: #ef233c;">Destructive Storage & System Resets</h3>
+            <p>
+              Irreversible actions that purge binaries or permanently erase media and metadata.
             </p>
           </div>
-          <button
-            onClick={() => setForceSetup(true)}
-            class="command-btn secondary"
-          >
-            Launch Setup
-          </button>
         </div>
-
-        <div class="full-divider danger-divider"></div>
-
-        <div class="flex-row-between" id="setting-danger-update-binaries">
-          <div>
-            <h3 class="settings-title">Update Core Engines</h3>
-            <p class="settings-desc">
-              Checks for, downloads, and overrides your current copies of
-              `yt-dlp` and `ffmpeg` with their latest stable releases.
-            </p>
-          </div>
-          <button
-            onClick={handleUpdateBinaries}
-            disabled={
-              loadingUpdate() ||
-              loadingDep() ||
-              loadingClean() ||
-              loadingNuclear() ||
-              loadingReindex()
-            }
-            class="command-btn secondary"
-          >
-            <i
-              class={`ph-fill ${loadingUpdate() ? "ph-spinner spinIcon" : "ph-arrow-clockwise"}`}
-            ></i>
-            {loadingUpdate() ? "Updating..." : "Update Engines"}
-          </button>
-        </div>
-
-        <div class="full-divider danger-divider"></div>
 
         <div class="flex-row-between" id="setting-danger-wipe-dependencies">
           <div>
