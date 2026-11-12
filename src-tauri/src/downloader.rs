@@ -16,17 +16,56 @@ use tauri::{AppHandle, Emitter, Manager};
 
 pub fn get_binary_paths(bin_dir: &Path) -> (PathBuf, PathBuf, PathBuf) {
     #[cfg(target_os = "windows")]
-    return (
-        bin_dir.join("yt-dlp.exe"),
-        bin_dir.join("ffmpeg.exe"),
-        bin_dir.join("deno.exe"),
-    );
+    {
+        let qjs = bin_dir.join("qjs.exe");
+        let js = if qjs.exists() {
+            qjs
+        } else if bin_dir.join("deno.exe").exists() {
+            bin_dir.join("deno.exe")
+        } else {
+            qjs
+        };
+        (
+            bin_dir.join("yt-dlp.exe"),
+            bin_dir.join("ffmpeg.exe"),
+            js,
+        )
+    }
     #[cfg(not(target_os = "windows"))]
-    return (
-        bin_dir.join("yt-dlp"),
-        bin_dir.join("ffmpeg"),
-        bin_dir.join("deno"),
-    );
+    {
+        let qjs = bin_dir.join("qjs");
+        let js = if qjs.exists() {
+            qjs
+        } else if bin_dir.join("deno").exists() {
+            bin_dir.join("deno")
+        } else {
+            qjs
+        };
+        (
+            bin_dir.join("yt-dlp"),
+            bin_dir.join("ffmpeg"),
+            js,
+        )
+    }
+}
+
+pub fn get_js_runtime_arg(bin_dir: &Path) -> String {
+    #[cfg(target_os = "windows")]
+    let (qjs_path, deno_path) = (bin_dir.join("qjs.exe"), bin_dir.join("deno.exe"));
+    #[cfg(not(target_os = "windows"))]
+    let (qjs_path, deno_path) = (bin_dir.join("qjs"), bin_dir.join("deno"));
+
+    if qjs_path.exists() {
+        format!("quickjs:{}", qjs_path.to_str().unwrap_or("qjs"))
+    } else if deno_path.exists() {
+        format!("deno:{}", deno_path.to_str().unwrap_or("deno"))
+    } else {
+        #[cfg(target_os = "windows")]
+        let target = bin_dir.join("qjs.exe");
+        #[cfg(not(target_os = "windows"))]
+        let target = bin_dir.join("qjs");
+        format!("quickjs:{}", target.to_str().unwrap_or("qjs"))
+    }
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
@@ -858,7 +897,7 @@ pub async fn get_or_extract_po_token(app: &AppHandle, video_id: &str) -> Result<
 #[tauri::command]
 pub async fn check_binaries(app: AppHandle) -> Result<BinaryCheckStatus, String> {
     let bin_dir = get_bin_dir(&app)?;
-    let (ytdlp, ffmpeg, deno) = get_binary_paths(&bin_dir);
+    let (ytdlp, ffmpeg, js_runtime) = get_binary_paths(&bin_dir);
 
     #[cfg(target_os = "windows")]
     let ffprobe = bin_dir.join("ffprobe.exe");
@@ -867,9 +906,9 @@ pub async fn check_binaries(app: AppHandle) -> Result<BinaryCheckStatus, String>
 
     #[cfg(not(target_os = "windows"))]
     let ytdlp_exists = (ytdlp.exists() || Path::new("/usr/bin/yt-dlp").exists())
-        && (deno.exists() || Path::new("/usr/bin/deno").exists());
+        && (js_runtime.exists() || Path::new("/usr/bin/qjs").exists() || Path::new("/usr/bin/deno").exists());
     #[cfg(target_os = "windows")]
-    let ytdlp_exists = ytdlp.exists() && deno.exists();
+    let ytdlp_exists = ytdlp.exists() && js_runtime.exists();
 
     #[cfg(not(target_os = "windows"))]
     let ffmpeg_exists = (ffmpeg.exists() || Path::new("/usr/bin/ffmpeg").exists())
@@ -1100,7 +1139,7 @@ pub async fn update_binaries(app: AppHandle) -> Result<(), String> {
 pub async fn get_engine_versions(app: AppHandle) -> Result<EngineVersionsInfo, String> {
     tokio::task::spawn_blocking(move || {
         let bin_dir = get_bin_dir(&app)?;
-        let (ytdlp_path, ffmpeg_path, deno_path) = get_binary_paths(&bin_dir);
+        let (ytdlp_path, ffmpeg_path, _) = get_binary_paths(&bin_dir);
 
         let mut ytdlp_version = "Not Installed".to_string();
         if ytdlp_path.exists() {
@@ -1134,6 +1173,29 @@ pub async fn get_engine_versions(app: AppHandle) -> Result<EngineVersionsInfo, S
             }
         }
 
+        #[cfg(target_os = "windows")]
+        let (qjs_path, deno_path) = (bin_dir.join("qjs.exe"), bin_dir.join("deno.exe"));
+        #[cfg(not(target_os = "windows"))]
+        let (qjs_path, deno_path) = (bin_dir.join("qjs"), bin_dir.join("deno"));
+
+        let mut quickjs_version = "Not Installed".to_string();
+        if qjs_path.exists() {
+            let mut cmd = Command::new(&qjs_path);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(out) = cmd.arg("--version").output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout);
+                    if let Some(first_line) = s.lines().next() {
+                        let clean = first_line.trim().to_string();
+                        if !clean.is_empty() {
+                            quickjs_version = clean;
+                        }
+                    }
+                }
+            }
+        }
+
         let mut deno_version = "Not Installed".to_string();
         if deno_path.exists() {
             let mut cmd = Command::new(&deno_path);
@@ -1161,6 +1223,13 @@ pub async fn get_engine_versions(app: AppHandle) -> Result<EngineVersionsInfo, S
         Ok(EngineVersionsInfo {
             ytdlp_version,
             ffmpeg_version,
+            quickjs_version: if quickjs_version != "Not Installed" {
+                quickjs_version
+            } else if deno_version != "Not Installed" {
+                format!("Deno (Migrating): {}", deno_version)
+            } else {
+                "Not Installed".to_string()
+            },
             deno_version,
             whisper_version,
             whisper_installed,
@@ -1173,7 +1242,14 @@ pub async fn get_engine_versions(app: AppHandle) -> Result<EngineVersionsInfo, S
 #[tauri::command]
 pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, String> {
     let bin_dir = get_bin_dir(&app)?;
-    let (ytdlp_path, ffmpeg_path, deno_path) = get_binary_paths(&bin_dir);
+    let (ytdlp_path, ffmpeg_path, _) = get_binary_paths(&bin_dir);
+    #[cfg(target_os = "windows")]
+    let (qjs_path, deno_path) = (bin_dir.join("qjs.exe"), bin_dir.join("deno.exe"));
+    #[cfg(not(target_os = "windows"))]
+    let (qjs_path, deno_path) = (bin_dir.join("qjs"), bin_dir.join("deno"));
+
+    let quickjs_installed = qjs_path.exists();
+    let deno_installed = deno_path.exists();
 
     let (current_ytdlp_version, local_ytdlp_hash) = tokio::task::spawn_blocking({
         let ytdlp_path = ytdlp_path.clone();
@@ -1202,17 +1278,21 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
     .map_err(|e| e.to_string())?;
 
     let ffmpeg_installed = ffmpeg_path.exists();
-    let deno_installed = deno_path.exists();
 
-    if !ytdlp_path.exists() || !ffmpeg_installed || !deno_installed {
+    if !ytdlp_path.exists() || !ffmpeg_installed || !quickjs_installed {
         return Ok(EngineUpdateInfo {
             update_available: true,
             ytdlp_update: !ytdlp_path.exists(),
             current_ytdlp_version,
             latest_ytdlp_version: "Latest Available".to_string(),
             ffmpeg_installed,
+            quickjs_installed,
             deno_installed,
-            message: "Core engines need setup or are missing.".to_string(),
+            message: if !quickjs_installed {
+                "QuickJS runtime migration ready to install.".to_string()
+            } else {
+                "Core engines need setup or are missing.".to_string()
+            },
         });
     }
 
@@ -1230,6 +1310,7 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
                 current_ytdlp_version,
                 latest_ytdlp_version: "Unknown".to_string(),
                 ffmpeg_installed,
+                quickjs_installed,
                 deno_installed,
                 message: format!("HTTP client error: {}", e),
             });
@@ -1280,6 +1361,7 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
                 current_ytdlp_version,
                 latest_ytdlp_version: latest_version,
                 ffmpeg_installed,
+                quickjs_installed,
                 deno_installed,
                 message: if ytdlp_differs {
                     "A newer nightly build of yt-dlp is available.".to_string()
@@ -1294,6 +1376,7 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
             current_ytdlp_version,
             latest_ytdlp_version: "Unknown (Offline)".to_string(),
             ffmpeg_installed,
+            quickjs_installed,
             deno_installed,
             message: "Offline or GitHub unreachable. Using installed engines.".to_string(),
         }),
@@ -1394,56 +1477,46 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
         fs::set_permissions(&ytdlp_path, perms).map_err(|e| e.to_string())?;
     }
 
-    emit_update_progress(25.0, "yt-dlp verified. Fetching Deno JS runtime...");
-    // 2. FETCH DENO (Required strictly for JS n-Challenge Decryption)
-    emit_progress("Fetching standalone Deno JS runtime...");
+    emit_update_progress(25.0, "yt-dlp verified. Fetching QuickJS runtime...");
+    // 2. FETCH QUICKJS (Ultra-fast, lightweight JavaScript engine for YouTube EJS challenge solver)
+    emit_progress("Fetching standalone QuickJS runtime from GitHub...");
     #[cfg(target_os = "windows")]
-    let deno_url =
-        "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-pc-windows-msvc.zip";
+    let qjs_url =
+        "https://github.com/quickjs-ng/quickjs/releases/latest/download/qjs-windows-x86_64.exe";
     #[cfg(not(target_os = "windows"))]
-    let deno_url = "https://github.com/denoland/deno/releases/latest/download/deno-x86_64-unknown-linux-gnu.zip";
+    let qjs_url =
+        "https://github.com/quickjs-ng/quickjs/releases/latest/download/qjs-linux-x86_64";
 
-    let deno_bytes = client
-        .get(deno_url)
+    let qjs_bytes = client
+        .get(qjs_url)
         .send()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| format!("Failed to download QuickJS: {}", e))?
         .bytes()
         .await
-        .map_err(|e| e.to_string())?;
-    let deno_zip_path = bin_dir.join("deno_temp.zip");
-    File::create(&deno_zip_path)
+        .map_err(|e| format!("Failed to read QuickJS bytes: {}", e))?;
+
+    #[cfg(target_os = "windows")]
+    let qjs_path = bin_dir.join("qjs.exe");
+    #[cfg(not(target_os = "windows"))]
+    let qjs_path = bin_dir.join("qjs");
+
+    File::create(&qjs_path)
         .map_err(|e| e.to_string())?
-        .write_all(&deno_bytes)
+        .write_all(&qjs_bytes)
         .map_err(|e| e.to_string())?;
 
+    #[cfg(not(target_os = "windows"))]
     {
-        let file = File::open(&deno_zip_path).map_err(|e| e.to_string())?;
-        let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
-        for i in 0..archive.len() {
-            let mut file = archive.by_index(i).map_err(|e| e.to_string())?;
-            let name = file.name().map_err(|e| e.to_string())?;
-            if name.ends_with("deno.exe") || name.ends_with("deno") {
-                let file_name = std::path::Path::new(name.as_ref()).file_name().unwrap();
-                let outpath = bin_dir.join(file_name);
-                let mut outfile = File::create(&outpath).map_err(|e| e.to_string())?;
-                std::io::copy(&mut file, &mut outfile).map_err(|e| e.to_string())?;
-
-                #[cfg(not(target_os = "windows"))]
-                {
-                    use std::os::unix::fs::PermissionsExt;
-                    let mut deno_perms = fs::metadata(&outpath)
-                        .map_err(|e| e.to_string())?
-                        .permissions();
-                    deno_perms.set_mode(0o755);
-                    fs::set_permissions(&outpath, deno_perms).map_err(|e| e.to_string())?;
-                }
-            }
-        }
+        use std::os::unix::fs::PermissionsExt;
+        let mut qjs_perms = fs::metadata(&qjs_path)
+            .map_err(|e| e.to_string())?
+            .permissions();
+        qjs_perms.set_mode(0o755);
+        fs::set_permissions(&qjs_path, qjs_perms).map_err(|e| e.to_string())?;
     }
-    let _ = fs::remove_file(deno_zip_path);
 
-    emit_update_progress(50.0, "Deno runtime ready. Fetching FFmpeg...");
+    emit_update_progress(50.0, "QuickJS runtime ready. Fetching FFmpeg...");
     // 3. FETCH FFMPEG
     emit_progress("Fetching repacked Lite FFmpeg build...");
     #[cfg(target_os = "windows")]
@@ -1555,7 +1628,7 @@ pub async fn get_video_metadata(
 ) -> Result<crate::models::VideoMetadataResponse, String> {
     let bin_dir = get_bin_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
-    let (ytdlp_path, _, deno_path) = get_binary_paths(&bin_dir);
+    let (ytdlp_path, _, _) = get_binary_paths(&bin_dir);
 
     if !ytdlp_path.exists() {
         return Err("yt-dlp binary missing.".into());
@@ -1605,7 +1678,7 @@ pub async fn get_video_metadata(
             "--encoding",
             "utf-8",
             "--js-runtimes",
-            &format!("deno:{}", deno_path.to_str().unwrap()),
+            &get_js_runtime_arg(&bin_dir),
             "--extractor-args",
             &client_args,
             "--print",
@@ -1755,7 +1828,7 @@ async fn download_video_inner(
     let bin_dir = get_bin_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
     #[allow(unused_mut)]
-    let (mut ytdlp_path, mut ffmpeg_path, mut deno_path) = get_binary_paths(&bin_dir);
+    let (mut ytdlp_path, mut ffmpeg_path, _) = get_binary_paths(&bin_dir);
 
     #[cfg(not(target_os = "windows"))]
     {
@@ -1764,9 +1837,6 @@ async fn download_video_inner(
         }
         if !ffmpeg_path.exists() && Path::new("/usr/bin/ffmpeg").exists() {
             ffmpeg_path = PathBuf::from("/usr/bin/ffmpeg");
-        }
-        if !deno_path.exists() && Path::new("/usr/bin/deno").exists() {
-            deno_path = PathBuf::from("/usr/bin/deno");
         }
     }
 
@@ -1863,7 +1933,7 @@ async fn download_video_inner(
         "--ffmpeg-location".to_string(),
         ffmpeg_path.to_str().unwrap().to_string(),
         "--js-runtimes".to_string(),
-        format!("deno:{}", deno_path.to_str().unwrap()),
+        get_js_runtime_arg(&bin_dir),
         "--retries".to_string(),
         "10".to_string(),
         "--newline".to_string(),
@@ -2254,7 +2324,7 @@ async fn download_video_inner(
 pub async fn reindex_library(app: AppHandle, player_client: String) -> Result<String, String> {
     let base_dir = get_base_dir(&app)?;
     let bin_dir = get_bin_dir(&app)?;
-    let (ytdlp_path, _, deno_path) = crate::downloader::get_binary_paths(&bin_dir);
+    let (ytdlp_path, _, _) = crate::downloader::get_binary_paths(&bin_dir);
 
     let path_sep = if cfg!(target_os = "windows") {
         ";"
@@ -2354,7 +2424,7 @@ pub async fn reindex_library(app: AppHandle, player_client: String) -> Result<St
             cmd.args(["--encoding", "utf-8"]);
             cmd.args([
                 "--js-runtimes",
-                &format!("deno:{}", deno_path.to_str().unwrap()),
+                &get_js_runtime_arg(&bin_dir),
             ]);
             cmd.args(["--extractor-args", &client_args]);
             cmd.args(["--print", "%(id)s|%(uploader)s|%(title)s"]);
