@@ -1,5 +1,6 @@
 import {
   createSignal,
+  createMemo,
   onMount,
   onCleanup,
   createEffect,
@@ -62,6 +63,16 @@ import {
   setGlobalVideoRef,
   isSearchOpen,
   getThumbnailUrl,
+  currentTrackLyrics,
+  isLyricsDrawerOpen,
+  setIsLyricsDrawerOpen,
+  toggleLyricsDrawer,
+  loadLyricsForTrack,
+  transcribeTrackQuick,
+  applyLyricsOffset,
+  isTranscribingCurrentTrack,
+  lyricsOffsetMs,
+  whisperAutoLinkLyrics,
 } from "../store";
 import AddToPlaylistModal from "../components/AddToPlaylistModal";
 import {
@@ -142,6 +153,33 @@ export default function Player() {
   let settingsBtnRef: HTMLButtonElement | undefined;
   let ccMenuRef: HTMLDivElement | undefined;
   let ccBtnRef: HTMLButtonElement | undefined;
+  let lyricsScrollEl: HTMLDivElement | undefined;
+
+  const activeLyricIndex = createMemo(() => {
+    const payload = currentTrackLyrics();
+    if (!payload || !payload.lines || payload.lines.length === 0) return -1;
+    const t = currentTime();
+    let idx = -1;
+    for (let i = 0; i < payload.lines.length; i++) {
+      if (payload.lines[i].start <= t) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  });
+
+  createEffect(() => {
+    const idx = activeLyricIndex();
+    if (idx >= 0 && lyricsScrollEl && isLyricsDrawerOpen()) {
+      const el = lyricsScrollEl.querySelector(`[data-lyric-index="${idx}"]`) as HTMLElement | null;
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  });
+
   let controlsTimeout: number | undefined;
   let unlistenPlay: UnlistenFn | undefined;
   let unlistenPause: UnlistenFn | undefined;
@@ -569,6 +607,10 @@ export default function Player() {
         setVideo(currentVideo);
         setActiveVideo(currentVideo);
         setDescExpanded(false);
+
+        if (whisperAutoLinkLyrics()) {
+          loadLyricsForTrack(targetId, currentVideo.title);
+        }
 
         const favStatus = await invoke<boolean>("check_favorite", {
           id: targetId,
@@ -1032,6 +1074,14 @@ export default function Player() {
       return;
     }
 
+    // L: Toggle Synced Lyrics Drawer
+    if (e.key === "l" || e.key === "L") {
+      e.preventDefault();
+      toggleLyricsDrawer();
+      showOsd("ph-quotes", isLyricsDrawerOpen() ? "Lyrics On" : "Lyrics Off");
+      return;
+    }
+
     // 0 - 9: Jump to percentage
     if (e.key >= "0" && e.key <= "9" && !e.ctrlKey && !e.altKey && !e.metaKey) {
       e.preventDefault();
@@ -1256,6 +1306,7 @@ export default function Player() {
                   target.closest(".settings-menu-popup") ||
                   target.closest(".cc-menu-popup") ||
                   target.closest(".player-back-btn") ||
+                  target.closest(".player-lyrics-overlay") ||
                   target.closest(".player-ambient-palette-section") ||
                   target.closest(".player-settings-ambient-studio")
                 ) {
@@ -1647,6 +1698,14 @@ export default function Player() {
                     </button>
 
                     <button
+                      class={`control-btn ${isLyricsDrawerOpen() ? "active" : ""}`}
+                      title="Synced Lyrics (L)"
+                      onClick={() => toggleLyricsDrawer()}
+                    >
+                      <i class="ph-bold ph-quotes"></i>
+                    </button>
+
+                    <button
                       ref={settingsBtnRef}
                       class="control-btn"
                       title="Settings"
@@ -1692,6 +1751,149 @@ export default function Player() {
                   </div>
                 </div>
               </div>
+
+              {/* Synced Karaoke & Lyrics Overlay Panel */}
+              <Show when={isLyricsDrawerOpen()}>
+                <div class="player-lyrics-overlay" onClick={(e) => e.stopPropagation()}>
+                  <div class="player-lyrics-glass-panel">
+                    {/* Header bar */}
+                    <div class="player-lyrics-header">
+                      <div class="player-lyrics-title-group">
+                        <i class="ph-fill ph-waveform lyrics-sparkle-icon" />
+                        <div class="player-lyrics-titles">
+                          <span class="player-lyrics-heading">Synced Lyrics</span>
+                          <span class="player-lyrics-track-name">{video()?.title}</span>
+                        </div>
+                      </div>
+
+                      <div class="player-lyrics-actions">
+                        <Show when={currentTrackLyrics()?.has_lyrics}>
+                          <span class="player-lyrics-badge">
+                            <i class="ph-bold ph-lightning" />
+                            {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
+                          </span>
+                          <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
+                            <button
+                              type="button"
+                              class="offset-btn"
+                              title="Shift lyrics earlier by 0.2s"
+                              onClick={() => applyLyricsOffset(video()!.id, -0.2)}
+                            >
+                              -0.2s
+                            </button>
+                            <span class="offset-val">
+                              {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
+                            </span>
+                            <button
+                              type="button"
+                              class="offset-btn"
+                              title="Shift lyrics later by 0.2s"
+                              onClick={() => applyLyricsOffset(video()!.id, 0.2)}
+                            >
+                              +0.2s
+                            </button>
+                          </div>
+                        </Show>
+
+                        <button
+                          type="button"
+                          class="player-lyrics-close-btn"
+                          title="Close Lyrics (L)"
+                          onClick={() => toggleLyricsDrawer(false)}
+                        >
+                          <i class="ph-bold ph-x" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Main Content: Lyrics Stream or AI Generator Empty State */}
+                    <Show
+                      when={currentTrackLyrics()?.has_lyrics && (currentTrackLyrics()?.lines?.length ?? 0) > 0}
+                      fallback={
+                        <div class="player-lyrics-empty-state">
+                          <div class="lyrics-empty-glow-box">
+                            <i class="ph-fill ph-sparkle" />
+                          </div>
+                          <h3>No Synced Lyrics Found</h3>
+                          <p>
+                            Generate word-accurate, synchronized karaoke lyrics locally using pure Rust Whisper AI speech recognition.
+                          </p>
+                          <button
+                            type="button"
+                            class="lyrics-generate-action-btn"
+                            disabled={isTranscribingCurrentTrack()}
+                            onClick={() => {
+                              const vid = video();
+                              if (vid) {
+                                transcribeTrackQuick(vid.id, vid.video_path, vid.title);
+                              }
+                            }}
+                          >
+                            <Show
+                              when={isTranscribingCurrentTrack()}
+                              fallback={
+                                <>
+                                  <i class="ph-bold ph-magic-wand" />
+                                  <span>Generate Synced Lyrics with Whisper</span>
+                                </>
+                              }
+                            >
+                              <i class="ph-bold ph-spinner animate-spin" />
+                              <span>Transcribing Audio in Background...</span>
+                            </Show>
+                          </button>
+                        </div>
+                      }
+                    >
+                      <div class="player-lyrics-scroll-body" ref={lyricsScrollEl}>
+                        <For each={currentTrackLyrics()?.lines}>
+                          {(line, idx) => {
+                            const isActive = () => activeLyricIndex() === idx();
+                            const isPast = () => activeLyricIndex() > idx();
+                            return (
+                              <div
+                                data-lyric-index={idx()}
+                                class={`player-lyric-row ${isActive() ? "is-active" : ""} ${isPast() ? "is-past" : ""}`}
+                                onClick={() => {
+                                  if (videoRef) {
+                                    videoRef.currentTime = line.start;
+                                    setCurrentTime(line.start);
+                                  }
+                                }}
+                                title={`Jump to ${Math.floor(line.start / 60)}:${Math.floor(line.start % 60).toString().padStart(2, "0")}`}
+                              >
+                                <Show
+                                  when={line.words && line.words.length > 0}
+                                  fallback={<span class="lyric-plain-text">{line.text}</span>}
+                                >
+                                  <div class="lyric-karaoke-words">
+                                    <For each={line.words}>
+                                      {(word) => {
+                                        const wordSung = () => currentTime() >= word.end;
+                                        const wordActive = () => currentTime() >= word.start && currentTime() < word.end;
+                                        return (
+                                          <span
+                                            class={`karaoke-word ${wordSung() ? "sung" : ""} ${wordActive() ? "active" : ""}`}
+                                          >
+                                            {word.word}{" "}
+                                          </span>
+                                        );
+                                      }}
+                                    </For>
+                                  </div>
+                                </Show>
+                                <Show when={line.translation}>
+                                  <div class="lyric-translation-text">{line.translation}</div>
+                                </Show>
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </div>
+                    </Show>
+                  </div>
+                </div>
+              </Show>
             </div>
           </div>
 
