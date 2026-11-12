@@ -186,3 +186,152 @@
     opacity: 1;
   }
 }
+
+/* VS Code-style Engine Update Notification Banner */
+.engine-update-banner-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 10005;
+  pointer-events: auto;
+  animation: modalPopIn 0.22s var(--ease-spring) forwards;
+}
+
+.engine-update-card {
+  background: var(--clay-bg);
+  border: 2px solid var(--primary-accent);
+  border-radius: var(--neo-radius);
+  box-shadow: 6px 6px 0px var(--border-color);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  max-width: 480px;
+  position: relative;
+}
+
+.update-icon-circle {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  border-radius: 50%;
+  background: var(--primary-accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.update-icon-circle i {
+  animation: spinIcon 6s linear infinite;
+}
+
+.update-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.update-card-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--primary-text);
+  letter-spacing: -0.2px;
+}
+
+.update-card-desc {
+  font-size: 12.5px;
+  color: var(--secondary-text);
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.update-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.update-action-btn {
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--neo-radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  white-space: nowrap;
+}
+
+.update-action-btn.primary {
+  background: var(--primary-accent);
+  color: #ffffff;
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.update-action-btn.primary:hover {
+  transform: translate3d(-1px, -1px, 0);
+  box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.update-action-btn.secondary {
+  background: var(--secondary-background);
+  color: var(--secondary-text);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.update-action-btn.secondary:hover {
+  background: var(--tertiary-background);
+  color: var(--primary-text);
+}
+
+.update-icon-circle.app-badge {
+  background: linear-gradient(135deg, #ff007f, #7928ca);
+}
+
+.update-icon-circle.spinning i {
+  animation: spinIcon 1s linear infinite;
+}
+
+.engine-update-card.updating-active {
+  min-width: 380px;
+}
+
+.engine-update-card.app-update-ready-card {
+  border-color: #ff007f;
+}
+
+.update-progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.update-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary-accent), #38ef7d);
+  border-radius: 999px;
+  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.update-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--secondary-text);
+  margin-top: 4px;
+}
