@@ -1,11 +1,11 @@
-<svg width="2048" height="2048" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+<svg width="2048" height="2048" viewBox="-10 -10 520 520" xmlns="http://www.w3.org/2000/svg">
 
-  <path fill="#f25c54"
+  <path fill="#050505" stroke="#ffffff" stroke-width="12"
         d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"/>
 
   <path
     d="M95 125 L250 385 L405 125"
-    stroke="#f1f1f1"
+    stroke="#ffffff"
     stroke-width="30"
     fill="none"
     stroke-linecap="round"
