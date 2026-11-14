@@ -70,7 +70,7 @@
 
 .step-node.active .step-num {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .step-node.completed .step-num {
@@ -223,7 +223,7 @@
 
 .setup-btn {
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 16px;
@@ -473,7 +473,7 @@
 
 .setup-tab-badge {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   font-size: 10px;
   font-weight: 800;
   font-family: var(--font-display);
@@ -532,7 +532,7 @@
   height: 28px;
   border-radius: 6px;
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -586,7 +586,7 @@
   align-items: center;
   gap: 6px;
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.8px;
@@ -623,7 +623,7 @@
   height: 60px;
   border-radius: var(--neo-radius-sm);
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -708,7 +708,7 @@
 
 .setup-guide-nav-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate(-1px, -1px);
   box-shadow: 3px 3px 0px var(--border-color);
 }
