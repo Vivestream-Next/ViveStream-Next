@@ -66,10 +66,17 @@ describe("Material You Theme Engine", () => {
     expect(resolveSeedColor("crimson")).toBe("#ef233c");
     expect(resolveSeedColor("custom", "#6366f1")).toBe("#6366f1");
     expect(resolveSeedColor("nonexistent")).toBe("#f25c54");
+
+    // Monochrome adapts to dark and light mode
+    document.documentElement.setAttribute("data-theme", "dark");
+    expect(resolveSeedColor("monochrome")).toBe("#ffffff");
+
+    document.documentElement.setAttribute("data-theme", "light");
+    expect(resolveSeedColor("monochrome")).toBe("#000000");
   });
 
-  it("includes all 8 curated presets", () => {
-    expect(PRESET_PALETTES.length).toBe(8);
+  it("includes all 9 curated presets including monochrome", () => {
+    expect(PRESET_PALETTES.length).toBe(9);
     const ids = PRESET_PALETTES.map((p) => p.id);
     expect(ids).toContain("sunset");
     expect(ids).toContain("crimson");
@@ -79,6 +86,7 @@ describe("Material You Theme Engine", () => {
     expect(ids).toContain("amber");
     expect(ids).toContain("rose");
     expect(ids).toContain("indigo");
+    expect(ids).toContain("monochrome");
   });
 });
 
