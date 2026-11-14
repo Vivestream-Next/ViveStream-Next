@@ -20,7 +20,6 @@ import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen, UnlistenFn } from "@tauri-apps/api/event";
 import {
   VideoEntry,
-  setShowShortcutsModal,
   showArcadeModal,
   setShowArcadeModal,
   activeVideo,
@@ -65,7 +64,6 @@ import {
   getThumbnailUrl,
   currentTrackLyrics,
   isLyricsDrawerOpen,
-  setIsLyricsDrawerOpen,
   toggleLyricsDrawer,
   loadLyricsForTrack,
   transcribeTrackQuick,
@@ -347,7 +345,7 @@ export default function Player() {
             }
           }
         }
-      } else if (video()?.id && !dominantColor()) {
+      } else if (video()?.id && !currentDominantColor()) {
         fetchRustDominantColors(video()!.id, videoRef?.currentTime ?? 0);
       }
 
@@ -1245,6 +1243,189 @@ export default function Player() {
     duration() > 0 ? (currentTime() / duration()) * 100 : 0;
   const volProgress = () => (isMuted() ? 0 : volume() * 100);
 
+  const renderLyricsPanel = (isFullscreenDrawer = false) => (
+    <div class="player-lyrics-glass-panel">
+      {/* Header bar */}
+      <div class="player-lyrics-header">
+        <div class="player-lyrics-title-group">
+          <i class="ph-fill ph-waveform lyrics-sparkle-icon" />
+          <div class="player-lyrics-titles">
+            <span class="player-lyrics-heading">Synced Lyrics</span>
+            <span class="player-lyrics-track-name">{video()?.title}</span>
+          </div>
+        </div>
+
+        <div class="player-lyrics-actions">
+          <Show when={currentTrackLyrics()?.has_lyrics}>
+            <span class="player-lyrics-badge">
+              <i class="ph-bold ph-lightning" />
+              {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
+            </span>
+            <button
+              type="button"
+              class="align-intro-btn"
+              title="Snap lyrics intro to current playback time"
+              onClick={() => {
+                const v = video();
+                if (v) alignLyricsToCurrentTime(v.id, currentTime());
+              }}
+            >
+              <i class="ph-bold ph-target" />
+              <span>Align Intro</span>
+            </button>
+            <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics earlier by 1.0s"
+                onClick={() => applyLyricsOffset(video()!.id, -1.0)}
+              >
+                -1s
+              </button>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics earlier by 0.2s"
+                onClick={() => applyLyricsOffset(video()!.id, -0.2)}
+              >
+                -0.2s
+              </button>
+              <span class="offset-val">
+                {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
+              </span>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics later by 0.2s"
+                onClick={() => applyLyricsOffset(video()!.id, 0.2)}
+              >
+                +0.2s
+              </button>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics later by 1.0s"
+                onClick={() => applyLyricsOffset(video()!.id, 1.0)}
+              >
+                +1s
+              </button>
+            </div>
+          </Show>
+
+          <Show when={isFullscreenDrawer}>
+            <button
+              type="button"
+              class="player-lyrics-close-btn"
+              title="Close Lyrics (L)"
+              onClick={() => toggleLyricsDrawer(false)}
+            >
+              <i class="ph-bold ph-x" />
+            </button>
+          </Show>
+        </div>
+      </div>
+
+      {/* Main Content: Lyrics Stream or AI Generator Empty State */}
+      <Show
+        when={currentTrackLyrics()?.has_lyrics && (currentTrackLyrics()?.lines?.length ?? 0) > 0}
+        fallback={
+          <div class="player-lyrics-empty-state">
+            <div class="lyrics-empty-glow-box">
+              <i class={isTranscribingCurrentTrack() ? "ph-fill ph-waveform lyrics-pulse" : "ph-fill ph-sparkle"} />
+            </div>
+            <h3>{isTranscribingCurrentTrack() ? "Transcribing Audio..." : "No Synced Lyrics Found"}</h3>
+            <p>
+              {isTranscribingCurrentTrack()
+                ? "Whisper neural engine is extracting speech timestamps and aligning lyrics in real-time."
+                : "Generate word-accurate, synchronized karaoke lyrics locally using pure Rust Whisper AI speech recognition."}
+            </p>
+
+            <Show when={isTranscribingCurrentTrack()}>
+              <div class="player-transcribe-progress-card">
+                <div class="transcribe-progress-info">
+                  <span class="transcribe-stage-text">
+                    {transcribeProgress()?.message || "Processing audio stream..."}
+                  </span>
+                  <span class="transcribe-pct-text">
+                    {Math.round(transcribeProgress()?.percent ?? 0)}%
+                  </span>
+                </div>
+                <div class="transcribe-bar-track">
+                  <div
+                    class="transcribe-bar-fill"
+                    style={{ width: `${Math.max(5, Math.min(100, transcribeProgress()?.percent ?? 0))}%` }}
+                  />
+                </div>
+              </div>
+            </Show>
+
+            <Show when={!isTranscribingCurrentTrack()}>
+              <button
+                type="button"
+                class="lyrics-generate-action-btn"
+                onClick={() => {
+                  const vid = video();
+                  if (vid) {
+                    transcribeTrackQuick(vid.id, vid.video_path, vid.title);
+                  }
+                }}
+              >
+                <i class="ph-bold ph-magic-wand" />
+                <span>Generate Synced Lyrics with Whisper</span>
+              </button>
+            </Show>
+          </div>
+        }
+      >
+        <div class="player-lyrics-scroll-body" ref={lyricsScrollEl}>
+          <For each={currentTrackLyrics()?.lines}>
+            {(line, idx) => {
+              const isActive = () => activeLyricIndex() === idx();
+              const isPast = () => activeLyricIndex() > idx();
+              return (
+                <div
+                  data-lyric-index={idx()}
+                  class={`player-lyric-row ${isActive() ? "is-active" : ""} ${isPast() ? "is-past" : ""}`}
+                  onClick={() => {
+                    if (videoRef) {
+                      videoRef.currentTime = line.start;
+                      setCurrentTime(line.start);
+                    }
+                  }}
+                  title={`Jump to ${Math.floor(line.start / 60)}:${Math.floor(line.start % 60).toString().padStart(2, "0")}`}
+                >
+                  <Show
+                    when={line.words && line.words.length > 0}
+                    fallback={<span class="lyric-plain-text">{line.text}</span>}
+                  >
+                    <div class="lyric-karaoke-words">
+                      <For each={line.words}>
+                        {(word) => {
+                          const wordSung = () => currentTime() >= word.end;
+                          const wordActive = () => currentTime() >= word.start && currentTime() < word.end;
+                          return (
+                            <span
+                              class={`karaoke-word ${wordSung() ? "sung" : ""} ${wordActive() ? "active" : ""}`}
+                            >
+                              {word.word}{" "}
+                            </span>
+                          );
+                        }}
+                      </For>
+                    </div>
+                  </Show>
+                  <Show when={line.translation}>
+                    <div class="lyric-translation-text">{line.translation}</div>
+                  </Show>
+                </div>
+              );
+            }}
+          </For>
+        </div>
+      </Show>
+    </div>
+  );
+
   return (
     <div
       classList={{
@@ -1754,187 +1935,10 @@ export default function Player() {
                 </div>
               </div>
 
-              {/* Synced Karaoke & Lyrics Overlay Panel */}
-              <Show when={isLyricsDrawerOpen()}>
+              {/* Fullscreen-only Synced Karaoke & Lyrics Drawer (Right side, zero video blur) */}
+              <Show when={isFullscreen() && isLyricsDrawerOpen()}>
                 <div class="player-lyrics-overlay" onClick={(e) => e.stopPropagation()}>
-                  <div class="player-lyrics-glass-panel">
-                    {/* Header bar */}
-                    <div class="player-lyrics-header">
-                      <div class="player-lyrics-title-group">
-                        <i class="ph-fill ph-waveform lyrics-sparkle-icon" />
-                        <div class="player-lyrics-titles">
-                          <span class="player-lyrics-heading">Synced Lyrics</span>
-                          <span class="player-lyrics-track-name">{video()?.title}</span>
-                        </div>
-                      </div>
-
-                      <div class="player-lyrics-actions">
-                        <Show when={currentTrackLyrics()?.has_lyrics}>
-                          <span class="player-lyrics-badge">
-                            <i class="ph-bold ph-lightning" />
-                            {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
-                          </span>
-                          <button
-                            type="button"
-                            class="align-intro-btn"
-                            title="Snap lyrics intro to current playback time"
-                            onClick={() => {
-                              const v = video();
-                              if (v) alignLyricsToCurrentTime(v.id, currentTime());
-                            }}
-                          >
-                            <i class="ph-bold ph-target" />
-                            <span>Align Intro</span>
-                          </button>
-                          <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
-                            <button
-                              type="button"
-                              class="offset-btn"
-                              title="Shift lyrics earlier by 1.0s"
-                              onClick={() => applyLyricsOffset(video()!.id, -1.0)}
-                            >
-                              -1s
-                            </button>
-                            <button
-                              type="button"
-                              class="offset-btn"
-                              title="Shift lyrics earlier by 0.2s"
-                              onClick={() => applyLyricsOffset(video()!.id, -0.2)}
-                            >
-                              -0.2s
-                            </button>
-                            <span class="offset-val">
-                              {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
-                            </span>
-                            <button
-                              type="button"
-                              class="offset-btn"
-                              title="Shift lyrics later by 0.2s"
-                              onClick={() => applyLyricsOffset(video()!.id, 0.2)}
-                            >
-                              +0.2s
-                            </button>
-                            <button
-                              type="button"
-                              class="offset-btn"
-                              title="Shift lyrics later by 1.0s"
-                              onClick={() => applyLyricsOffset(video()!.id, 1.0)}
-                            >
-                              +1s
-                            </button>
-                          </div>
-                        </Show>
-
-                        <button
-                          type="button"
-                          class="player-lyrics-close-btn"
-                          title="Close Lyrics (L)"
-                          onClick={() => toggleLyricsDrawer(false)}
-                        >
-                          <i class="ph-bold ph-x" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Main Content: Lyrics Stream or AI Generator Empty State */}
-                    <Show
-                      when={currentTrackLyrics()?.has_lyrics && (currentTrackLyrics()?.lines?.length ?? 0) > 0}
-                      fallback={
-                        <div class="player-lyrics-empty-state">
-                          <div class="lyrics-empty-glow-box">
-                            <i class={isTranscribingCurrentTrack() ? "ph-fill ph-waveform lyrics-pulse" : "ph-fill ph-sparkle"} />
-                          </div>
-                          <h3>{isTranscribingCurrentTrack() ? "Transcribing Audio..." : "No Synced Lyrics Found"}</h3>
-                          <p>
-                            {isTranscribingCurrentTrack()
-                              ? "Whisper neural engine is extracting speech timestamps and aligning lyrics in real-time."
-                              : "Generate word-accurate, synchronized karaoke lyrics locally using pure Rust Whisper AI speech recognition."}
-                          </p>
-
-                          <Show when={isTranscribingCurrentTrack()}>
-                            <div class="player-transcribe-progress-card">
-                              <div class="transcribe-progress-info">
-                                <span class="transcribe-stage-text">
-                                  {transcribeProgress()?.message || "Processing audio stream..."}
-                                </span>
-                                <span class="transcribe-pct-text">
-                                  {Math.round(transcribeProgress()?.percent ?? 0)}%
-                                </span>
-                              </div>
-                              <div class="transcribe-bar-track">
-                                <div
-                                  class="transcribe-bar-fill"
-                                  style={{ width: `${Math.max(5, Math.min(100, transcribeProgress()?.percent ?? 0))}%` }}
-                                />
-                              </div>
-                            </div>
-                          </Show>
-
-                          <Show when={!isTranscribingCurrentTrack()}>
-                            <button
-                              type="button"
-                              class="lyrics-generate-action-btn"
-                              onClick={() => {
-                                const vid = video();
-                                if (vid) {
-                                  transcribeTrackQuick(vid.id, vid.video_path, vid.title);
-                                }
-                              }}
-                            >
-                              <i class="ph-bold ph-magic-wand" />
-                              <span>Generate Synced Lyrics with Whisper</span>
-                            </button>
-                          </Show>
-                        </div>
-                      }
-                    >
-                      <div class="player-lyrics-scroll-body" ref={lyricsScrollEl}>
-                        <For each={currentTrackLyrics()?.lines}>
-                          {(line, idx) => {
-                            const isActive = () => activeLyricIndex() === idx();
-                            const isPast = () => activeLyricIndex() > idx();
-                            return (
-                              <div
-                                data-lyric-index={idx()}
-                                class={`player-lyric-row ${isActive() ? "is-active" : ""} ${isPast() ? "is-past" : ""}`}
-                                onClick={() => {
-                                  if (videoRef) {
-                                    videoRef.currentTime = line.start;
-                                    setCurrentTime(line.start);
-                                  }
-                                }}
-                                title={`Jump to ${Math.floor(line.start / 60)}:${Math.floor(line.start % 60).toString().padStart(2, "0")}`}
-                              >
-                                <Show
-                                  when={line.words && line.words.length > 0}
-                                  fallback={<span class="lyric-plain-text">{line.text}</span>}
-                                >
-                                  <div class="lyric-karaoke-words">
-                                    <For each={line.words}>
-                                      {(word) => {
-                                        const wordSung = () => currentTime() >= word.end;
-                                        const wordActive = () => currentTime() >= word.start && currentTime() < word.end;
-                                        return (
-                                          <span
-                                            class={`karaoke-word ${wordSung() ? "sung" : ""} ${wordActive() ? "active" : ""}`}
-                                          >
-                                            {word.word}{" "}
-                                          </span>
-                                        );
-                                      }}
-                                    </For>
-                                  </div>
-                                </Show>
-                                <Show when={line.translation}>
-                                  <div class="lyric-translation-text">{line.translation}</div>
-                                </Show>
-                              </div>
-                            );
-                          }}
-                        </For>
-                      </div>
-                    </Show>
-                  </div>
+                  {renderLyricsPanel(true)}
                 </div>
               </Show>
             </div>
@@ -2092,59 +2096,129 @@ export default function Player() {
                 </div>
               </Show>
             </div>
+            {/* Bottom Up Next Queue Section (Always accessible below video details) */}
+            <div class="player-bottom-up-next">
+              <h3 class="settings-title">Up next</h3>
+              <div class="player-bottom-queue-grid">
+                <For each={queue()}>
+                  {(qVideo) => (
+                    <div
+                      class="bottom-queue-card"
+                      onClick={() => {
+                        const qs = new URLSearchParams(
+                          searchParams as Record<string, string>,
+                        ).toString();
+                        navigate(`/player/${qVideo.id}${qs ? `?${qs}` : ""}`);
+                      }}
+                    >
+                      <div class="bottom-queue-thumb">
+                        <img
+                          src={getThumbnailUrl(qVideo)}
+                          alt={qVideo.title}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </div>
+                      <div class="bottom-queue-info">
+                        <span class="bottom-queue-title" title={qVideo.title}>
+                          {qVideo.title}
+                        </span>
+                        <span class="bottom-queue-channel" title={qVideo.channel}>
+                          {qVideo.channel}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </For>
+              </div>
+            </div>
           </div>
         </Show>
       </div>
 
       <div class="player-sidebar">
-        <h3 class="settings-title">Up next</h3>
-        <For each={queue()}>
-          {(qVideo) => (
-            <div
-              class="queue-item"
-              onClick={() => {
-                const qs = new URLSearchParams(
-                  searchParams as Record<string, string>,
-                ).toString();
-                navigate(`/player/${qVideo.id}${qs ? `?${qs}` : ""}`);
-              }}
-            >
-              <div class="queue-thumbnail-wrapper">
-                <img
-                  src={getThumbnailUrl(qVideo)}
-                  class="queue-thumbnail"
-                  alt={qVideo.title}
-                  loading="lazy"
-                  decoding="async"
-                />
-              </div>
-              <div class="queue-meta">
-                <span class="queue-title" title={qVideo.title}>
-                  {qVideo.title}
-                </span>
-                <div class="queue-channel-group">
-                  <img
-                    src={
-                      qVideo.avatar_path
-                        ? convertFileSrc(qVideo.avatar_path)
-                        : `http://127.0.0.1:1422/Avatars/${encodeURIComponent(qVideo.channel)}.jpg`
-                    }
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
+        {/* Sidebar Tab Switcher: Synced Lyrics vs Up Next Queue */}
+        <div class="player-sidebar-tabs">
+          <button
+            type="button"
+            class={`sidebar-tab-btn ${isLyricsDrawerOpen() ? "active" : ""}`}
+            onClick={() => toggleLyricsDrawer(true)}
+          >
+            <i class="ph-fill ph-waveform" />
+            <span>Synced Lyrics</span>
+            <Show when={currentTrackLyrics()?.has_lyrics}>
+              <span class="sidebar-tab-badge">Synced</span>
+            </Show>
+          </button>
+          <button
+            type="button"
+            class={`sidebar-tab-btn ${!isLyricsDrawerOpen() ? "active" : ""}`}
+            onClick={() => toggleLyricsDrawer(false)}
+          >
+            <i class="ph-bold ph-list-numbers" />
+            <span>Up Next ({queue().length})</span>
+          </button>
+        </div>
+
+        <Show
+          when={isLyricsDrawerOpen()}
+          fallback={
+            <div class="player-sidebar-queue">
+              <For each={queue()}>
+                {(qVideo) => (
+                  <div
+                    class="queue-item"
+                    onClick={() => {
+                      const qs = new URLSearchParams(
+                        searchParams as Record<string, string>,
+                      ).toString();
+                      navigate(`/player/${qVideo.id}${qs ? `?${qs}` : ""}`);
                     }}
-                    class="queue-avatar"
-                    alt={qVideo.channel}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                  <span class="queue-channel" title={qVideo.channel}>
-                    {qVideo.channel}
-                  </span>
-                </div>
-              </div>
+                  >
+                    <div class="queue-thumbnail-wrapper">
+                      <img
+                        src={getThumbnailUrl(qVideo)}
+                        class="queue-thumbnail"
+                        alt={qVideo.title}
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
+                    <div class="queue-meta">
+                      <span class="queue-title" title={qVideo.title}>
+                        {qVideo.title}
+                      </span>
+                      <div class="queue-channel-group">
+                        <img
+                          src={
+                            qVideo.avatar_path
+                              ? convertFileSrc(qVideo.avatar_path)
+                              : `http://127.0.0.1:1422/Avatars/${encodeURIComponent(qVideo.channel)}.jpg`
+                          }
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                          }}
+                          class="queue-avatar"
+                          alt={qVideo.channel}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                        <span class="queue-channel" title={qVideo.channel}>
+                          {qVideo.channel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </For>
             </div>
-          )}
-        </For>
+          }
+        >
+          {/* Synced Lyrics Panel Hosted Right in the Sidebar (Zero Video Blur) */}
+          <div class="player-sidebar-lyrics">
+            {renderLyricsPanel(false)}
+          </div>
+        </Show>
       </div>
       <AddToPlaylistModal
         isOpen={showAddToModal()}
