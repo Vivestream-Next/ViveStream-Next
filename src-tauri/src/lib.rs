@@ -89,6 +89,12 @@ pub fn run() {
                 }
             });
 
+            // Pre-warm Whisper AI engine hardware telemetry in background so AI / Lyrics Studio tabs open with 0ms latency
+            let whisper_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let _ = crate::whisper::check_whisper_status(whisper_handle, Some(false)).await;
+            });
+
             if let Some(icon) = app.default_window_icon() {
                 let handle = app.handle().clone();
                 let _ = TrayIconBuilder::new()
@@ -111,9 +117,10 @@ pub fn run() {
             }
 
             #[cfg(target_os = "windows")]
-            let hwnd = Some(
-                app.get_webview_window("main").unwrap().hwnd().unwrap().0 as *mut std::ffi::c_void,
-            );
+            let hwnd = app
+                .get_webview_window("main")
+                .and_then(|w| w.hwnd().ok())
+                .map(|h| h.0 as *mut std::ffi::c_void);
             #[cfg(not(target_os = "windows"))]
             let hwnd = None;
 
@@ -125,7 +132,7 @@ pub fn run() {
 
             if let Ok(mut controls) = MediaControls::new(config) {
                 let emit_handle = app.handle().clone();
-                controls
+                let _ = controls
                     .attach(move |event| match event {
                         MediaControlEvent::Play => {
                             let _ = emit_handle.emit("media-play", ());
@@ -140,8 +147,7 @@ pub fn run() {
                             let _ = emit_handle.emit("media-prev", ());
                         }
                         _ => {}
-                    })
-                    .unwrap();
+                    });
 
                 let _ = controls.set_metadata(MediaMetadata {
                     title: Some("ViveStream Idle"),
