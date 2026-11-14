@@ -28,6 +28,32 @@
   --font-body:
     "Poppins", "Tiro Bangla", "Hind Siliguri", "Noto Sans Bengali", "Segoe UI",
     sans-serif;
+  --primary-accent: #ffffff;
+  --primary-accent-dark: #cccccc;
+  --primary-accent-light: #ffffff;
+  --primary-accent-rgb: 255, 255, 255;
+  --primary-container: rgba(255, 255, 255, 0.16);
+  --on-primary: #000000;
+  --on-primary-container: #ffffff;
+  --logo-inner: #000000;
+  --logo-wave: #000000;
+  --logo-glow: rgba(255, 255, 255, 0.4);
+  --surface-tint: rgba(255, 255, 255, 0.06);
+  --focus-ring: rgba(255, 255, 255, 0.5);
+  --sidebar-collapsed-width: 72px;
+  --sidebar-expanded-width: 240px;
+  --transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --neo-radius: 12px;
+  --neo-radius-sm: 8px;
+  --neo-radius-pill: 9999px;
+  --clay-radius: 12px;
+  --card-hover-transform: translate3d(-2px, -2px, 0);
+  --btn-active-transform: translate3d(2px, 2px, 0);
+}
+
+[data-palette="sunset"] {
   --primary-accent: #f25c54;
   --primary-accent-dark: #e04b43;
   --primary-accent-light: #f78d87;
@@ -40,17 +66,6 @@
   --logo-glow: rgba(242, 92, 84, 0.5);
   --surface-tint: rgba(242, 92, 84, 0.06);
   --focus-ring: rgba(242, 92, 84, 0.45);
-  --sidebar-collapsed-width: 72px;
-  --sidebar-expanded-width: 240px;
-  --transition-smooth: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --neo-radius: 12px;
-  --neo-radius-sm: 8px;
-  --neo-radius-pill: 9999px;
-  --clay-radius: 12px;
-  --card-hover-transform: translate3d(-2px, -2px, 0);
-  --btn-active-transform: translate3d(2px, 2px, 0);
 }
 
 [data-palette="crimson"] {
