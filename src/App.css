@@ -330,6 +330,11 @@ a:focus:not(:focus-visible),
   font-variant-numeric: tabular-nums;
 }
 
+::selection {
+  background: var(--primary-accent);
+  color: var(--on-primary, #ffffff);
+}
+
 body {
   margin: 0;
   background-color: var(--primary-background);
@@ -557,13 +562,13 @@ input:checked + .slider:before {
 
 .custom-select-item:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .custom-select-item.selected {
-  color: var(--primary-text);
+  color: var(--on-primary, #ffffff);
   font-weight: 800;
-  background: var(--tertiary-background);
+  background: var(--primary-accent);
 }
 
 .command-input {
@@ -788,7 +793,7 @@ input:checked + .slider:before {
 
 .titlebar-btn.close-btn:hover {
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border-bottom-left-radius: 6px;
 }
 
@@ -971,9 +976,13 @@ input:checked + .slider:before {
 
 .sidebar a.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 3px 3px 0px var(--border-color);
+}
+
+.sidebar a.active .nav-text {
+  color: var(--on-primary, #ffffff);
 }
 
 .nav-text {
@@ -998,7 +1007,7 @@ input:checked + .slider:before {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   padding: 1px 6px;
   border-radius: 4px;
   border: 1px solid var(--border-color);
@@ -1057,7 +1066,7 @@ input:checked + .slider:before {
 .sidebar a.active .icon-fill {
   opacity: 1;
   transform: scale(1) translate3d(0, 0, 0);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 /* Sidebar Icon Micro-Animations */
@@ -1153,7 +1162,7 @@ input:checked + .slider:before {
 
 .command-btn {
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border: var(--app-border);
   border-radius: var(--neo-radius-sm);
   padding: 12px 24px;
