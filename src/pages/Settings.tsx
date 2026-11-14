@@ -52,7 +52,6 @@ import {
   showConfirmDialog,
   addToast,
   setShowShortcutsModal,
-  showArcadeModal,
   setShowArcadeModal,
   defaultSortBy,
   updateDefaultSortBy,
@@ -89,7 +88,7 @@ import {
   installAppUpdate,
   restartApp,
 } from "../store";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import BenchmarkModal from "../components/BenchmarkModal";
 import { APP_VERSION } from "../version";
 import "./Settings.css";
@@ -970,15 +969,19 @@ export default function Settings() {
           {/* Curated Presets Grid */}
           <div class="m3-presets-grid">
             <For each={PRESET_PALETTES}>
-              {(preset) => (
+              {(preset) => {
+                const effectiveSeed = preset.id === "monochrome"
+                  ? (appTheme() === "light" ? "#000000" : "#ffffff")
+                  : preset.seed;
+                return (
                 <div
                   class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
                   onClick={() => toggleAppPalette(preset.id)}
                 >
                   <div class="theme-preview-mockup m3-mockup-wrapper">
                     <div class="mockup-sidebar" style={{ "border-right": "2px solid #000000" }}>
-                      <div class="mockup-bar mockup-logo" style={{ background: preset.seed }}></div>
-                      <div class="mockup-bar" style={{ background: preset.seed, opacity: "0.55" }}></div>
+                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed, border: preset.id === "monochrome" ? "1px solid rgba(255,255,255,0.4)" : undefined }}></div>
+                      <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
                       <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                       <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                     </div>
@@ -986,26 +989,26 @@ export default function Settings() {
                       <div class="mockup-topbar">
                         <div class="mockup-search" style={{ opacity: "0.6" }}></div>
                       </div>
-                                            <div class="mockup-grid">
+                      <div class="mockup-grid">
                         <div
                           class="mockup-card"
                           style={{
-                            "border-color": preset.seed,
-                            "box-shadow": `1.5px 1.5px 0px ${preset.seed}`,
+                            "border-color": effectiveSeed,
+                            "box-shadow": `1.5px 1.5px 0px ${effectiveSeed}`,
                           }}
                         >
-                          <div class="mockup-card-thumb" style={{ background: preset.seed }}></div>
+                          <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
                           <div class="mockup-card-line"></div>
-                          <div class="mockup-card-line short" style={{ background: preset.seed, width: "45%" }}></div>
+                          <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
                         </div>
                         <div
                           class="mockup-card"
                           style={{
-                            "border-color": appPalette() === preset.id ? preset.seed : "#000000",
-                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${preset.seed}` : "1.5px 1.5px 0px #000000",
+                            "border-color": appPalette() === preset.id ? effectiveSeed : "#000000",
+                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px #000000",
                           }}
                         >
-                          <div class="mockup-card-thumb" style={{ background: preset.seed, opacity: "0.8" }}></div>
+                          <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
                           <div class="mockup-card-line"></div>
                           <div class="mockup-card-line short"></div>
                         </div>
@@ -1015,7 +1018,13 @@ export default function Settings() {
                   <div class="theme-card-footer">
                     <div class="theme-card-info">
                       <div class="theme-card-title-row">
-                        <span class="preset-color-dot" style={{ background: preset.seed }}></span>
+                        <span
+                          class="preset-color-dot"
+                          style={{
+                            background: effectiveSeed,
+                            border: preset.id === "monochrome" ? "1px solid rgba(128,128,128,0.5)" : undefined,
+                          }}
+                        ></span>
                         <span class="theme-card-name">{preset.name}</span>
                       </div>
                       <span class="theme-card-desc">{preset.description}</span>
@@ -1025,7 +1034,7 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
-              )}
+              );}}
             </For>
           </div>
 
