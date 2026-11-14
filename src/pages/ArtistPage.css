@@ -86,7 +86,7 @@
 
 .artist-hero-icon-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -152,7 +152,7 @@
 
 .artist-hero-avatar-upload:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -210,7 +210,7 @@
   border: 2px solid var(--border-color);
   box-shadow: 3px 3px 0px var(--border-color);
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .artist-hero-actions .secondary-btn {
