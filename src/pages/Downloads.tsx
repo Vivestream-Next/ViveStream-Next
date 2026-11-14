@@ -38,7 +38,6 @@ import {
   setDialogState,
   historySortBy,
   historySortDirection,
-  transcribeTrackQuick,
 } from "../store";
 import { sortDownloadHistory } from "../utils/sortUtils";
 import "./Downloads.css";
@@ -113,6 +112,7 @@ export default function Downloads() {
         title: "Clear Download History?",
         message:
           "Are you sure you want to permanently clear all download history records? (Your downloaded media files will remain intact).",
+        type: "warning",
         confirmText: "Clear History",
         cancelText: "Cancel",
         isDestructive: true,
