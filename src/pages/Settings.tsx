@@ -979,8 +979,8 @@ export default function Settings() {
                   onClick={() => toggleAppPalette(preset.id)}
                 >
                   <div class="theme-preview-mockup m3-mockup-wrapper">
-                    <div class="mockup-sidebar" style={{ "border-right": "2px solid #000000" }}>
-                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed, border: preset.id === "monochrome" ? "1px solid rgba(255,255,255,0.4)" : undefined }}></div>
+                    <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
+                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed, border: preset.id === "monochrome" ? "1px solid var(--border-color)" : undefined }}></div>
                       <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
                       <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                       <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
@@ -998,19 +998,19 @@ export default function Settings() {
                           }}
                         >
                           <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
-                          <div class="mockup-card-line"></div>
+                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
                           <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
                         </div>
                         <div
                           class="mockup-card"
                           style={{
-                            "border-color": appPalette() === preset.id ? effectiveSeed : "#000000",
-                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px #000000",
+                            "border-color": appPalette() === preset.id ? effectiveSeed : "var(--border-color)",
+                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)",
                           }}
                         >
                           <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
-                          <div class="mockup-card-line"></div>
-                          <div class="mockup-card-line short"></div>
+                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                          <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
                         </div>
                       </div>
                     </div>
