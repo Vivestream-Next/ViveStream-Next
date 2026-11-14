@@ -33,7 +33,7 @@
 
 .minigame-badge {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   font-family: var(--font-display);
   font-size: 11px;
   font-weight: 800;
@@ -184,7 +184,7 @@
 
 .hud-center-powerup {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border: 2px solid #000000;
   border-radius: var(--neo-radius-pill);
   padding: 4px 12px;
@@ -290,7 +290,7 @@
 
 .overlay-play-btn {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border: 2.5px solid #000000;
   border-radius: var(--neo-radius-sm);
   padding: 10px 24px;
@@ -360,7 +360,7 @@
 
 .touch-jump-btn {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 4px 14px;
