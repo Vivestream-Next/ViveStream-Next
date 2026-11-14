@@ -30,6 +30,13 @@ export interface MaterialTonalPalette {
 
 export const PRESET_PALETTES: PalettePreset[] = [
   {
+    id: "monochrome",
+    name: "Monochrome",
+    seed: "#ffffff",
+    description: "Flagship High-contrast Black & White neo-brutalist aesthetic",
+    icon: "ph-circle-half",
+  },
+  {
     id: "sunset",
     name: "Sunset",
     seed: "#f25c54",
@@ -85,26 +92,19 @@ export const PRESET_PALETTES: PalettePreset[] = [
     description: "Deep Space & Modern Tech Indigo precision",
     icon: "ph-planet",
   },
-  {
-    id: "monochrome",
-    name: "Monochrome",
-    seed: "#ffffff",
-    description: "High-contrast Black & White minimalist neo-noir",
-    icon: "ph-circle-half",
-  },
 ];
 
 /**
  * Normalizes a hex color string into standard 6-digit #RRGGBB format.
  */
 export function normalizeHex(hex: string): string {
-  if (!hex || typeof hex !== "string") return "#f25c54";
+  if (!hex || typeof hex !== "string") return "#ffffff";
   let clean = hex.replace("#", "").trim();
   if (clean.length === 3) {
     clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
   }
   if (!/^[0-9a-fA-F]{6}$/.test(clean)) {
-    return "#f25c54";
+    return "#ffffff";
   }
   return `#${clean.toLowerCase()}`;
 }
@@ -291,5 +291,5 @@ export function resolveSeedColor(paletteId: string, customHex?: string): string 
     return isLight ? "#000000" : "#ffffff";
   }
   const match = PRESET_PALETTES.find((p) => p.id === paletteId);
-  return match ? match.seed : "#f25c54";
+  return match ? match.seed : "#ffffff";
 }
