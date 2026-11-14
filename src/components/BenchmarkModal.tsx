@@ -1,4 +1,4 @@
-import { createSignal, Show, For } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import "./BenchmarkModal.css";
 
 export interface BenchmarkResults {
@@ -87,7 +87,7 @@ export default function BenchmarkModal(props: {
 
     const layoutStart = performance.now();
     // Force layout calculation
-    const rect = testContainer.getBoundingClientRect();
+    testContainer.getBoundingClientRect();
     const children = testContainer.children;
     for (let i = 0; i < children.length; i += 10) {
       children[i].getBoundingClientRect();
