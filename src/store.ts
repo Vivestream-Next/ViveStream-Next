@@ -63,14 +63,18 @@ if (isBrowser) {
 export interface Toast {
   id: string;
   message: string;
-  type: "info" | "error" | "success";
+  type: "info" | "error" | "success" | "warning";
 }
 
 export interface DialogState {
   title: string;
   message: string;
-  type: "info" | "warning" | "error";
-  resolve: (value: boolean) => void;
+  type?: "info" | "warning" | "error";
+  resolve?: (value: boolean) => void;
+  confirmText?: string;
+  cancelText?: string;
+  isDestructive?: boolean;
+  onConfirm?: () => void;
 }
 
 export interface VideoEntry {
@@ -225,9 +229,11 @@ export interface SystemScan {
   cpu_brand?: string;
   cpu_physical_cores?: number;
   cpu_logical_threads?: number;
+  cpu_cores?: number;
   cpu_frequency_mhz?: number;
   cpu_features?: string[];
   total_ram_mb?: number;
+  total_ram_gb?: number;
   available_ram_mb?: number;
   used_ram_mb?: number;
   ram_usage_percent?: number;
@@ -244,6 +250,23 @@ export interface SystemScan {
     recommended_ram_gb: number;
     note: string;
   }>;
+}
+
+export interface WhisperModelInfo {
+  name: string;
+  expected_size_mb: number;
+  actual_size_mb?: number | null;
+  installed: boolean;
+  path?: string;
+  download_url?: string;
+}
+
+export interface WhisperStatus {
+  binary_installed: boolean;
+  binary_path: string;
+  models_dir: string;
+  system?: SystemScan;
+  models?: WhisperModelInfo[];
 }
 
 export const {
@@ -291,6 +314,10 @@ export const {
   setWhisperAutoLinkLyrics,
   whisperComputeDevice,
   setWhisperComputeDevice,
+  whisperStatus,
+  setWhisperStatus,
+  isWhisperInitializing,
+  setIsWhisperInitializing,
   currentTrackLyrics,
   setCurrentTrackLyrics,
   isLyricsDrawerOpen,
@@ -583,6 +610,8 @@ export const {
   const [whisperComputeDevice, setWhisperComputeDevice] = createSignal(
     getStr("whisperComputeDevice", "auto"),
   );
+  const [whisperStatus, setWhisperStatus] = createSignal<WhisperStatus | null>(null);
+  const [isWhisperInitializing, setIsWhisperInitializing] = createSignal(false);
   const [currentTrackLyrics, setCurrentTrackLyrics] =
     createSignal<TrackLyricsPayload | null>(null);
   const [isLyricsDrawerOpen, setIsLyricsDrawerOpen] = createSignal(false);
@@ -786,6 +815,10 @@ export const {
     setWhisperAutoLinkLyrics,
     whisperComputeDevice,
     setWhisperComputeDevice,
+    whisperStatus,
+    setWhisperStatus,
+    isWhisperInitializing,
+    setIsWhisperInitializing,
     currentTrackLyrics,
     setCurrentTrackLyrics,
     isLyricsDrawerOpen,
@@ -1101,7 +1134,7 @@ export const setSystemClipboardText = async (
 
 export const addToast = (
   message: string,
-  type: "info" | "error" | "success" = "info",
+  type: "info" | "error" | "success" | "warning" = "info",
 ) => {
   const id = Math.random().toString(36).substring(2, 9);
   setToasts((prev) => [...prev, { id, message, type }]);
@@ -1124,7 +1157,10 @@ export const showConfirmDialog = (
 export const closeDialog = (result: boolean) => {
   const state = dialogState();
   if (state) {
-    state.resolve(result);
+    if (result && state.onConfirm) {
+      state.onConfirm();
+    }
+    state.resolve?.(result);
     setDialogState(null);
   }
 };
@@ -1173,6 +1209,11 @@ export const toggleAppTheme = (theme: "light" | "dark") => {
   if (isBrowser) {
     window.localStorage.setItem("appTheme", theme);
     document.documentElement.setAttribute("data-theme", theme);
+    if (appPalette() === "monochrome") {
+      const seed = resolveSeedColor("monochrome");
+      const computed = applyMaterialTheme(seed, "monochrome");
+      setActiveTonalPalette(computed);
+    }
   }
 };
 
@@ -1423,6 +1464,26 @@ export const checkLicenseStatus = async (): Promise<boolean> => {
 export const updateWhisperComputeDevice = (val: string) => {
   setWhisperComputeDevice(val);
   if (isBrowser) window.localStorage.setItem("whisperComputeDevice", val);
+};
+
+export const initWhisperStatus = async (
+  force = false,
+): Promise<WhisperStatus | null> => {
+  const current = whisperStatus();
+  if (current && !force) return current;
+  try {
+    setIsWhisperInitializing(true);
+    const res = await invoke<WhisperStatus>("check_whisper_status", {
+      forceRefresh: force,
+    });
+    setWhisperStatus(res);
+    return res;
+  } catch (e) {
+    console.error("Failed to init whisper status:", e);
+    return null;
+  } finally {
+    setIsWhisperInitializing(false);
+  }
 };
 
 export const updateDefaultSortBy = (val: string) => {
