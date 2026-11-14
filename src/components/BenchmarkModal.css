@@ -114,7 +114,7 @@
   height: 56px;
   border-radius: 8px;
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -214,7 +214,7 @@
   min-width: 70px;
   padding: 8px 12px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   border-radius: 6px;
   border: 1.5px solid var(--border-color);
   box-shadow: 2px 2px 0px var(--border-color);
@@ -335,7 +335,7 @@
 
 .benchmark-action-btn.primary {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .benchmark-action-btn.secondary {
