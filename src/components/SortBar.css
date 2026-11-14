@@ -80,7 +80,7 @@
 
 .clay-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -211,25 +211,25 @@
 
 .sort-dropdown-item:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .sort-dropdown-item:hover .item-left i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .sort-dropdown-item.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .sort-dropdown-item.active .item-left i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .active-check {
   font-size: 0.85rem;
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 /* Direction Button */
