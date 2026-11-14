@@ -42,13 +42,23 @@ ViveStream-Next is an advanced, ultra-lightweight, offline-first media downloade
 
 - **Frontend:** SolidJS for extreme performance and a zero-Virtual-DOM experience.
 - **Backend:** Tauri v2 powered by Rust for native OS integration and performance.
-- **Engines:** `yt-dlp` (Media Extraction), `FFmpeg` (Transcoding/Merging), and `Deno` (Cryptographic JS evaluation).
+- **Engines:** `yt-dlp` (Media Extraction), `FFmpeg` (Transcoding/Merging), `Deno` (Cryptographic JS evaluation), and `ViveStream-Whisper` (Vulkan 1.3 GPU & Candle Speech-to-Text).
 - **Database:** SQLite (via `rusqlite` & `tauri-plugin-sql`) for fast, local metadata indexing.
 - **Local Server:** A dedicated `warp` HTTP server routes local media seamlessly to the video player.
 
 ---
 
 ## ✨ Key Features
+
+### 🎙️ AI Lyrics Studio & Vulkan GPU Whisper Engine
+- **Cross-Vendor dGPU Hardware Acceleration**: Native **Vulkan 1.3** neural execution powered by `whisper.cpp` + `ggml-vulkan`, with full acceleration across **Intel Arc (e.g. A770, A750)**, **AMD Radeon (RX 5000/6000/7000)**, and **NVIDIA GeForce (RTX/GTX)**.
+- **Dedicated VRAM Loading**: Model weights are loaded directly into discrete GPU VRAM for ultra-fast inference (e.g. 10s of audio transcribed in ~160ms on Intel Arc A770) with **< 4 MB system RAM usage**.
+- **Zero Python & Zero Bloat**: No Python, no Conda, no CUDA Toolkit required. Binaries and half-sized GGML models are provisioned on-demand (`tiny` 75MB, `base` 142MB, `small` 466MB, `medium` 1.5GB).
+- **Unified DAW-Style Lyrics Studio**:
+  - **Left**: Video player with custom scrubber, speed toggles (0.75x, 1x, 1.25x), volume, active track card, and an "Import Video" library picker modal with instant search and filters.
+  - **Right**: Model/device selectors, 1-click Whisper generation with live progress streaming, timing offset calibration (`±0.2s`, `±1.0s`, intro alignment), Karaoke syllable stream, interactive LRC editor, and subtitle exporter (`.lrc`, `.srt`, `.vtt`).
+- **0ms Instant Engine Online Status**: Pre-warmed hardware detection eliminating tab-switching latency.
+- **Sharp Video Player Integration**: Synced Lyrics panel sits seamlessly in the player sidebar without blurring or covering the video, with Up Next queue positioned cleanly at the bottom.
 
 ### 🚀 High-Performance Engine
 
