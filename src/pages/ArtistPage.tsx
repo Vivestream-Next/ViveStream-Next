@@ -1,4 +1,4 @@
-import { createSignal, onMount, createMemo, createEffect, For } from "solid-js";
+import { createSignal, onMount, createMemo, createEffect } from "solid-js";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { useParams, useNavigate } from "@solidjs/router";
 import { open } from "@tauri-apps/plugin-dialog";
