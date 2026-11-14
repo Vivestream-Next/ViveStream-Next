@@ -155,7 +155,7 @@
 
 .modal-btn.primary {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
 }
 
 .modal-btn.primary:hover:not(:disabled) {
@@ -235,15 +235,16 @@
 
 .playlist-select-item.in-playlist {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .playlist-select-item.in-playlist .playlist-select-name {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .playlist-select-item.in-playlist .playlist-select-count {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--on-primary, #ffffff);
+  opacity: 0.85;
 }
 
 .playlist-select-info {
@@ -324,7 +325,7 @@
 .create-inline-btn {
   padding: 8px 16px;
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border: 1.5px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   font-weight: 700;
