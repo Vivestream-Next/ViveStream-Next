@@ -1,7 +1,6 @@
 import { untrack } from "solid-js";
 import {
   currentTime,
-  duration,
   isPlaying,
   setCurrentTime,
   setDuration,
