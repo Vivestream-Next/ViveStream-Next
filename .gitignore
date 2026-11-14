@@ -12,4 +12,5 @@ src/debian-binary
 *.zst
 ViveStream-Whisper/
 BgUtils/
+ViveStream-Next-Web/
 
