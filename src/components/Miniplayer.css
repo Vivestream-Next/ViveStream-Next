@@ -125,7 +125,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  color: #000000;
+  color: var(--on-primary, #ffffff);
   font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
@@ -133,12 +133,12 @@
   background: var(--primary-accent);
   padding: 3px 8px;
   border-radius: 4px;
-  border: 1.5px solid #000000;
-  box-shadow: 2px 2px 0px #000000;
+  border: 1.5px solid var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
 }
 
 .miniplayer-badge i {
-  color: #000000;
+  color: var(--on-primary, #ffffff);
 }
 
 .miniplayer-top-actions {
@@ -170,7 +170,7 @@
 
 .miniplayer-icon-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -233,12 +233,12 @@
 .miniplayer-ctrl-btn.play-btn {
   font-size: 24px;
   background: var(--primary-accent);
-  color: #ffffff;
-  border: 1.5px solid #ffffff;
+  color: var(--on-primary, #ffffff);
+  border: 1.5px solid var(--border-color);
   width: 36px;
   height: 36px;
   border-radius: var(--neo-radius-sm);
-  box-shadow: 2px 2px 0px #000000;
+  box-shadow: 2px 2px 0px var(--border-color);
 }
 
 .miniplayer-ctrl-btn.play-btn:hover {
