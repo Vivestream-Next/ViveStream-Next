@@ -59,6 +59,20 @@
   --primary-accent-rgb: 239, 35, 60;
 }
 
+[data-palette="monochrome"] {
+  --primary-accent: #ffffff;
+  --primary-accent-dark: #d4d4d4;
+  --primary-accent-light: #ffffff;
+  --primary-accent-rgb: 255, 255, 255;
+  --primary-container: rgba(255, 255, 255, 0.14);
+  --on-primary: #000000;
+  --on-primary-container: #ffffff;
+  --logo-inner: #000000;
+  --logo-wave: #000000;
+  --logo-glow: rgba(255, 255, 255, 0.4);
+  --focus-ring: rgba(255, 255, 255, 0.5);
+}
+
 [data-theme="dark"] {
   --primary-background: #1e1e24;
   --secondary-background: #25262c;
@@ -129,6 +143,100 @@
 }
 
 [data-theme="light"][data-palette="crimson"] .clay-btn.primary {
+  box-shadow: 3px 3px 0px #000000;
+}
+
+[data-theme="dark"][data-palette="monochrome"] {
+  --primary-background: #000000;
+  --secondary-background: #0e0e11;
+  --tertiary-background: #18191f;
+  --primary-text: #ffffff;
+  --secondary-text: #9e9ea7;
+  --border-color: #ffffff;
+  --overlay-bg: rgba(0, 0, 0, 0.95);
+  --glass-bg: #0e0e11;
+  --glass-hover: rgba(255, 255, 255, 0.1);
+  --app-border: 2px solid #ffffff;
+  --border-thick: 2.5px solid #ffffff;
+  --clay-bg: #0e0e11;
+  --primary-accent: #ffffff;
+  --primary-accent-dark: #cccccc;
+  --primary-accent-light: #ffffff;
+  --primary-accent-rgb: 255, 255, 255;
+  --primary-container: rgba(255, 255, 255, 0.16);
+  --on-primary: #000000;
+  --on-primary-container: #ffffff;
+  --logo-inner: #000000;
+  --logo-wave: #000000;
+  --logo-glow: rgba(255, 255, 255, 0.4);
+  --clay-card-shadow: 4px 4px 0px #ffffff;
+  --clay-btn-shadow: 3px 3px 0px #ffffff;
+  --clay-inset-shadow: 2px 2px 0px #ffffff;
+  --clay-btn-active: 0px 0px 0px #ffffff;
+  --shadow-hard: 4px 4px 0px #ffffff;
+  --shadow-hard-lg: 6px 6px 0px #ffffff;
+  --shadow-hard-sm: 2px 2px 0px #ffffff;
+  --shadow-color: #ffffff;
+}
+
+[data-theme="dark"][data-palette="monochrome"] .clay-btn.primary {
+  background: #ffffff;
+  color: #000000;
+  border-color: #ffffff;
+  box-shadow: 3px 3px 0px rgba(255, 255, 255, 0.7);
+}
+
+[data-theme="dark"][data-palette="monochrome"] .clay-btn.secondary {
+  background: #0e0e11;
+  color: #ffffff;
+  border-color: #ffffff;
+  box-shadow: 3px 3px 0px #ffffff;
+}
+
+[data-theme="light"][data-palette="monochrome"] {
+  --primary-background: #ffffff;
+  --secondary-background: #f7f7f9;
+  --tertiary-background: #eaebee;
+  --primary-text: #000000;
+  --secondary-text: #4e5159;
+  --border-color: #000000;
+  --overlay-bg: rgba(255, 255, 255, 0.96);
+  --glass-bg: #ffffff;
+  --glass-hover: rgba(0, 0, 0, 0.06);
+  --app-border: 2px solid #000000;
+  --border-thick: 2.5px solid #000000;
+  --clay-bg: #ffffff;
+  --primary-accent: #000000;
+  --primary-accent-dark: #1f1f1f;
+  --primary-accent-light: #383838;
+  --primary-accent-rgb: 0, 0, 0;
+  --primary-container: rgba(0, 0, 0, 0.08);
+  --on-primary: #ffffff;
+  --on-primary-container: #000000;
+  --logo-inner: #ffffff;
+  --logo-wave: #ffffff;
+  --logo-glow: rgba(0, 0, 0, 0.35);
+  --clay-card-shadow: 4px 4px 0px #000000;
+  --clay-btn-shadow: 3px 3px 0px #000000;
+  --clay-inset-shadow: 2px 2px 0px #000000;
+  --clay-btn-active: 0px 0px 0px #000000;
+  --shadow-hard: 4px 4px 0px #000000;
+  --shadow-hard-lg: 6px 6px 0px #000000;
+  --shadow-hard-sm: 2px 2px 0px #000000;
+  --shadow-color: #000000;
+}
+
+[data-theme="light"][data-palette="monochrome"] .clay-btn.primary {
+  background: #000000;
+  color: #ffffff;
+  border-color: #000000;
+  box-shadow: 3px 3px 0px #000000;
+}
+
+[data-theme="light"][data-palette="monochrome"] .clay-btn.secondary {
+  background: #ffffff;
+  color: #000000;
+  border-color: #000000;
   box-shadow: 3px 3px 0px #000000;
 }
 
