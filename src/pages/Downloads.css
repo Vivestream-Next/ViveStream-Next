@@ -133,18 +133,18 @@
 
 .downloads-page .preset-chip.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 2px 2px 0px var(--border-color);
 }
 
 .downloads-page .preset-chip.active i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .downloads-page .dl-action-btn {
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border-radius: var(--neo-radius-sm);
   width: 48px;
   height: 48px;
@@ -214,7 +214,7 @@
 
 .downloads-page .segmented-btn.active {
   background: var(--primary-accent);
-  color: white;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 1.5px 1.5px 0px var(--border-color);
 }
@@ -276,7 +276,7 @@
 
 .downloads-page .tab-badge {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   font-size: 11px;
   font-weight: 800;
   padding: 2px 7px;
@@ -378,12 +378,12 @@
 }
 
 .summary-chip.active {
-  color: #000000;
+  color: var(--on-primary, #ffffff);
   background: var(--primary-accent);
 }
 
 .summary-chip.active b {
-  color: #000000;
+  color: var(--on-primary, #ffffff);
 }
 
 .summary-chip.done {
@@ -424,7 +424,7 @@
   height: 44px;
   border-radius: var(--neo-radius-sm);
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border: 1.5px solid var(--border-color);
   box-shadow: 2px 2px 0px var(--border-color);
   display: flex;
@@ -563,7 +563,7 @@
   top: 8px;
   right: 8px;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   font-size: 11px;
   font-weight: 800;
   padding: 3px 8px;
@@ -726,7 +726,7 @@
 
 .task-ctrl-btn:hover {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 2.5px 2.5px 0px var(--border-color);
 }
@@ -773,7 +773,7 @@
 
 .downloads-page .task-toggle-btn.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .downloads-page .terminal-wrapper {
@@ -813,7 +813,7 @@
 }
 
 .downloads-page .task-copy-btn:hover {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   background: var(--primary-accent);
 }
 
@@ -1021,7 +1021,7 @@
 
 .history-action-btn:hover {
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 2.5px 2.5px 0px var(--border-color);
 }
