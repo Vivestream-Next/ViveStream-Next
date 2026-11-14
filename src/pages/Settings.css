@@ -40,13 +40,13 @@
 
 .settings-page .settings-nav-pill.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 2px 2px 0px var(--border-color);
 }
 
 .settings-page .settings-nav-pill.active i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .settings-page .settings-nav-pill.danger-pill.active {
@@ -343,7 +343,7 @@
 
 .settings-page .toggle-btn.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 1.5px 1.5px 0px var(--border-color);
 }
@@ -825,7 +825,7 @@
 
 .theme-preview-card.selected .theme-radio-indicator {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
 }
 
@@ -1261,7 +1261,7 @@
 
 .settings-page .speed-preset-btn.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
   box-shadow: 1.5px 1.5px 0px var(--border-color);
 }
@@ -1315,7 +1315,7 @@
 
 .settings-page .about-version-badge {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   font-weight: 800;
   font-size: 11px;
   padding: 2px 8px;
@@ -1452,7 +1452,7 @@
 
 .settings-page .about-link-btn.github-star-btn {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--border-color);
 }
 
@@ -1831,7 +1831,7 @@
   font-size: 12px;
   font-weight: 800;
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   padding: 2px 8px;
   border-radius: 9999px;
   border: 1.5px solid var(--border-color);
