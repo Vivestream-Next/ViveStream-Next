@@ -380,19 +380,20 @@
   background: var(--primary-accent);
   border-color: var(--border-color);
   box-shadow: 2px 2px 0px var(--border-color);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .search-result-item:hover .result-title,
 .search-result-item.selected .result-title {
-  color: #ffffff !important;
+  color: var(--on-primary, #ffffff) !important;
 }
 
 .search-result-item:hover .result-desc,
 .search-result-item:hover .result-subtitle,
 .search-result-item.selected .result-desc,
 .search-result-item.selected .result-subtitle {
-  color: rgba(255, 255, 255, 0.9) !important;
+  color: var(--on-primary, #ffffff) !important;
+  opacity: 0.85;
 }
 
 .result-icon-badge {
