@@ -746,7 +746,7 @@ video::cue {
 
 .player-popup-item:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .player-popup-item.selected {
@@ -812,7 +812,7 @@ video::cue {
 
 .player-ambient-mode-btn.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   border-color: var(--primary-accent);
 }
 
@@ -1060,7 +1060,7 @@ video::cue {
 
 .player-meta-edit-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -1713,7 +1713,7 @@ video::cue {
 
 .sidebar-tab-btn.active {
   background: var(--primary-accent, #6366f1);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .sidebar-tab-badge {
