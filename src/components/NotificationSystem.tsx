@@ -34,9 +34,11 @@ export default function NotificationSystem() {
                 class={`ph-fill ${
                   toast.type === "error"
                     ? "ph-warning-circle"
-                    : toast.type === "success"
-                      ? "ph-check-circle"
-                      : "ph-info"
+                    : toast.type === "warning"
+                      ? "ph-warning"
+                      : toast.type === "success"
+                        ? "ph-check-circle"
+                        : "ph-info"
                 }`}
               ></i>
               <span>{toast.message}</span>
@@ -171,13 +173,13 @@ export default function NotificationSystem() {
                 class="dialog-btn cancel"
                 onClick={() => closeDialog(false)}
               >
-                Cancel
+                {dialogState()?.cancelText || "Cancel"}
               </button>
               <button
-                class="dialog-btn confirm"
+                class={`dialog-btn confirm ${dialogState()?.isDestructive ? "destructive" : ""}`}
                 onClick={() => closeDialog(true)}
               >
-                Confirm
+                {dialogState()?.confirmText || "Confirm"}
               </button>
             </div>
           </div>
