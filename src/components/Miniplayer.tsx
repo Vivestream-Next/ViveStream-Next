@@ -18,10 +18,10 @@ import {
   currentTime,
   setCurrentTime,
   duration,
-  setDuration,
   volume,
   isMuted,
   playerQueue,
+  setPlayerQueue,
   miniplayerDismissed,
   playerContextParams,
   setGlobalVideoRef,
@@ -67,7 +67,7 @@ export const Miniplayer: Component = () => {
   const [seekTime, setSeekTime] = createSignal(0);
   const [currentDominantColor, setCurrentDominantColor] =
     createSignal("#f25c54");
-  const [, setExtractedVideoColors] = createSignal<string[]>([]);
+  const [extractedVideoColors, setExtractedVideoColors] = createSignal<string[]>([]);
 
   let videoRef: HTMLVideoElement | undefined;
   let mediaBoxRef: HTMLDivElement | undefined;
