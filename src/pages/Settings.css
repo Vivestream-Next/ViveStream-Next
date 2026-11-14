@@ -574,18 +574,21 @@
 .theme-preview-mockup {
   height: 125px;
   border-radius: calc(var(--neo-radius) - 4px);
-  border: 2px solid #000000;
+  border: 2px solid var(--border-color);
   overflow: hidden;
   display: flex;
-  box-shadow: 2px 2px 0px #000000;
+  box-shadow: 2px 2px 0px var(--border-color);
+  transition: all 0.2s ease;
 }
 
 .light-theme-preview .theme-preview-mockup {
-  background: #fdf6f0;
+  background: #ffffff;
+  border-color: #000000;
+  box-shadow: 2.5px 2.5px 0px #000000;
 }
 
 .light-theme-preview .mockup-sidebar {
-  background: #ffffff;
+  background: #f7f7f9;
   border-right: 2px solid #000000;
   width: 48px;
   padding: 8px 6px;
@@ -595,7 +598,7 @@
 }
 
 .light-theme-preview .mockup-logo {
-  background: var(--primary-accent);
+  background: #000000;
   height: 10px;
   border-radius: 2px;
   border: 1.5px solid #000000;
@@ -603,7 +606,7 @@
 }
 
 .light-theme-preview .mockup-bar {
-  background: #f1e4d8;
+  background: #e4e5eb;
   height: 6px;
   border-radius: 2px;
   border: 1px solid #000000;
@@ -628,7 +631,7 @@
 }
 
 .light-theme-preview .mockup-search {
-  background: #f1e4d8;
+  background: #f0f1f4;
   height: 8px;
   width: 60px;
   border-radius: 2px;
@@ -646,17 +649,17 @@
   border: 1.5px solid #000000;
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.35);
+  box-shadow: 2px 2px 0px #000000;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .light-theme-preview.selected .mockup-card {
-  border-color: var(--primary-accent);
-  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
+  border-color: #000000;
+  box-shadow: 2.5px 2.5px 0px #000000;
 }
 
 .light-theme-preview .mockup-card-thumb {
-  background: var(--primary-accent);
+  background: #000000;
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
@@ -677,12 +680,14 @@
 
 /* Dark Mockup */
 .dark-theme-preview .theme-preview-mockup {
-  background: #1e1e24;
+  background: #000000;
+  border-color: #ffffff;
+  box-shadow: 2.5px 2.5px 0px #ffffff;
 }
 
 .dark-theme-preview .mockup-sidebar {
-  background: #25262c;
-  border-right: 2px solid #000000;
+  background: #0e0e11;
+  border-right: 2px solid #ffffff;
   width: 48px;
   padding: 8px 6px;
   display: flex;
@@ -691,18 +696,18 @@
 }
 
 .dark-theme-preview .mockup-logo {
-  background: var(--primary-accent);
+  background: #ffffff;
   height: 10px;
   border-radius: 2px;
-  border: 1.5px solid #000000;
+  border: 1.5px solid #ffffff;
   transition: background 0.2s ease;
 }
 
 .dark-theme-preview .mockup-bar {
-  background: #2a2b32;
+  background: #18191f;
   height: 6px;
   border-radius: 2px;
-  border: 1px solid #000000;
+  border: 1px solid #ffffff;
 }
 
 .dark-theme-preview .mockup-main {
@@ -714,21 +719,21 @@
 }
 
 .dark-theme-preview .mockup-topbar {
-  background: #25262c;
+  background: #0e0e11;
   height: 18px;
   border-radius: 4px;
-  border: 1.5px solid #000000;
+  border: 1.5px solid #ffffff;
   padding: 2px 6px;
   display: flex;
   align-items: center;
 }
 
 .dark-theme-preview .mockup-search {
-  background: #2a2b32;
+  background: #18191f;
   height: 8px;
   width: 60px;
   border-radius: 2px;
-  border: 1px solid #000000;
+  border: 1px solid #ffffff;
 }
 
 .dark-theme-preview .mockup-grid {
@@ -738,30 +743,30 @@
 }
 
 .dark-theme-preview .mockup-card {
-  background: #25262c;
-  border: 1.5px solid #000000;
+  background: #0e0e11;
+  border: 1.5px solid #ffffff;
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.35);
+  box-shadow: 2px 2px 0px #ffffff;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .dark-theme-preview.selected .mockup-card {
-  border-color: var(--primary-accent);
-  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
+  border-color: #ffffff;
+  box-shadow: 2.5px 2.5px 0px #ffffff;
 }
 
 .dark-theme-preview .mockup-card-thumb {
-  background: var(--primary-accent);
+  background: #ffffff;
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
-  border: 1px solid #000000;
+  border: 1px solid #ffffff;
   transition: background 0.2s ease;
 }
 
 .dark-theme-preview .mockup-card-line {
-  background: #e0e0e0;
+  background: #ffffff;
   height: 3px;
   border-radius: 1px;
   margin-bottom: 2px;
@@ -841,14 +846,14 @@
 
 /* Neo-Brutalism Mockup */
 .style-neo-mockup {
-  background: #fdf6f0;
-  border: 2px solid #000000;
-  box-shadow: 2px 2px 0px #000000;
+  background: var(--primary-background);
+  border: 2px solid var(--border-color);
+  box-shadow: 2.5px 2.5px 0px var(--border-color);
 }
 
 .neo-mock-side {
-  background: #ffffff;
-  border-right: 2px solid #000000;
+  background: var(--secondary-background);
+  border-right: 2px solid var(--border-color);
   width: 48px;
   padding: 8px 6px;
   display: flex;
@@ -860,47 +865,47 @@
   background: var(--primary-accent);
   height: 10px;
   border-radius: 2px;
-  border: 1.5px solid #000000;
+  border: 1.5px solid var(--border-color);
   transition: background 0.2s ease;
 }
 
 .neo-mock-bar {
-  background: #f1e4d8;
+  background: var(--tertiary-background);
   height: 6px;
   border-radius: 2px;
-  border: 1px solid #000000;
+  border: 1px solid var(--border-color);
 }
 
 .neo-mock-topbar {
-  background: #ffffff;
+  background: var(--secondary-background);
   height: 18px;
   border-radius: 4px;
-  border: 1.5px solid #000000;
+  border: 1.5px solid var(--border-color);
   padding: 2px 6px;
   display: flex;
   align-items: center;
 }
 
 .neo-mock-search {
-  background: #f1e4d8;
+  background: var(--tertiary-background);
   height: 8px;
   width: 60px;
   border-radius: 2px;
-  border: 1px solid #000000;
+  border: 1px solid var(--border-color);
 }
 
 .neo-mock-card {
-  background: #ffffff;
-  border: 1.5px solid #000000;
+  background: var(--secondary-background);
+  border: 1.5px solid var(--border-color);
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px rgba(var(--primary-accent-rgb), 0.4);
+  box-shadow: 2px 2px 0px var(--border-color);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .style-neo-preview.selected .neo-mock-card {
   border-color: var(--primary-accent);
-  box-shadow: 1.5px 1.5px 0px var(--primary-accent);
+  box-shadow: 2.5px 2.5px 0px var(--primary-accent);
 }
 
 .neo-mock-thumb {
@@ -908,12 +913,12 @@
   height: 34px;
   border-radius: 2px;
   margin-bottom: 4px;
-  border: 1px solid #000000;
+  border: 1px solid var(--border-color);
   transition: background 0.2s ease;
 }
 
 .neo-mock-line {
-  background: #000000;
+  background: var(--primary-text);
   height: 3px;
   border-radius: 1px;
   margin-bottom: 2px;
@@ -921,22 +926,23 @@
 
 /* Claymorphism Mockup */
 .style-clay-mockup {
-  background: #1e1e24;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--primary-background);
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 10px 24px rgba(0, 0, 0, 0.5);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 24px rgba(0, 0, 0, 0.25);
 }
 
 .clay-mock-side {
-  background: #25262c;
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--clay-bg);
+  border-right: 1.5px solid var(--border-color);
   width: 48px;
   padding: 8px 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  box-shadow: inset -2px 0 6px rgba(0, 0, 0, 0.25);
+  box-shadow: inset -1px 0 3px rgba(0, 0, 0, 0.15);
 }
 
 .clay-mock-logo {
@@ -950,48 +956,50 @@
 }
 
 .clay-mock-bar {
-  background: #2f313a;
+  background: var(--tertiary-background);
   height: 6px;
   border-radius: 8px;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.4);
+  border: none;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .clay-mock-topbar {
-  background: #25262c;
+  background: var(--clay-bg);
   height: 18px;
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 2px 6px;
   display: flex;
   align-items: center;
+  border: 1.5px solid var(--border-color);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.15),
-    0 3px 8px rgba(0, 0, 0, 0.3);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 3px 8px rgba(0, 0, 0, 0.15);
 }
 
 .clay-mock-search {
-  background: #1e1e24;
+  background: var(--tertiary-background);
   height: 8px;
   width: 60px;
   border-radius: 8px;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.5);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .clay-mock-card {
-  background: #25262c;
+  background: var(--clay-bg);
   border-radius: 10px;
   padding: 5px;
-  border: 1px solid rgba(var(--primary-accent-rgb), 0.25);
+  border: 1.5px solid var(--border-color);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 6px 16px rgba(var(--primary-accent-rgb), 0.2);
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.15);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .style-clay-preview.selected .clay-mock-card {
   border-color: var(--primary-accent);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 8px 20px rgba(var(--primary-accent-rgb), 0.35);
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 6px 16px rgba(var(--primary-accent-rgb), 0.35);
 }
 
 .clay-mock-thumb {
@@ -1013,8 +1021,84 @@
 }
 
 /* ==========================================================================
-   Color Palette Mockup Rules (Sunset vs Crimson)
+   Color Palette Mockup Rules (Monochrome / Sunset / Crimson)
    ========================================================================== */
+
+/* Monochrome Palette Mockup (Brand) */
+.palette-monochrome-mockup {
+  background: var(--primary-background);
+  border: 2px solid var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.monochrome-mock-side {
+  background: var(--secondary-background);
+  border-right: 2px solid var(--border-color);
+  width: 48px;
+  padding: 8px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.monochrome-mock-logo {
+  background: var(--primary-accent);
+  height: 10px;
+  border-radius: 2px;
+  border: 1.5px solid var(--border-color);
+}
+
+.monochrome-mock-bar {
+  background: var(--tertiary-background);
+  height: 6px;
+  border-radius: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.monochrome-mock-topbar {
+  background: var(--secondary-background);
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-color);
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+}
+
+.monochrome-mock-search {
+  background: var(--tertiary-background);
+  height: 8px;
+  width: 60px;
+  border-radius: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.monochrome-mock-card {
+  background: var(--secondary-background);
+  border: 1.5px solid var(--border-color);
+  border-radius: 4px;
+  padding: 5px;
+  box-shadow: 1.5px 1.5px 0px var(--border-color);
+}
+
+.monochrome-mock-thumb {
+  background: var(--primary-accent);
+  height: 34px;
+  border-radius: 2px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.monochrome-mock-line {
+  background: var(--primary-text);
+  height: 3px;
+  border-radius: 1px;
+  margin-bottom: 2px;
+}
+
+.monochrome-mock-line.short {
+  width: 55%;
+}
 
 /* Sunset Palette Mockup */
 .palette-sunset-mockup {
@@ -2204,14 +2288,38 @@
 
 .m3-mockup-wrapper {
   height: 95px;
+  background: var(--primary-background);
+  border: 1.5px solid var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+.m3-preset-card .mockup-sidebar {
+  background: var(--secondary-background);
+  border-right: 1.5px solid var(--border-color);
+  width: 44px;
+  padding: 6px 5px;
+}
+
+.m3-preset-card .mockup-main {
+  background: var(--primary-background);
+}
+
+.m3-preset-card .mockup-topbar {
+  background: var(--secondary-background);
+  border: 1px solid var(--border-color);
+}
+
+.m3-preset-card .mockup-search {
+  background: var(--tertiary-background);
+  border: 1px solid var(--border-color);
 }
 
 .m3-preset-card .mockup-card {
-  background: var(--card-bg, #25262c);
-  border: 1.5px solid #000000;
+  background: var(--secondary-background);
+  border: 1.5px solid var(--border-color);
   border-radius: 4px;
   padding: 5px;
-  box-shadow: 1.5px 1.5px 0px #000000;
+  box-shadow: 1.5px 1.5px 0px var(--border-color);
   transition: all 0.2s ease;
 }
 
@@ -2220,11 +2328,24 @@
   box-shadow: 2px 2px 0px var(--primary-accent);
 }
 
+.m3-preset-card .mockup-card-thumb {
+  height: 22px;
+  border-radius: 2px;
+  margin-bottom: 3px;
+  border: 1px solid var(--border-color);
+}
+
+.m3-preset-card .mockup-card-line {
+  height: 3px;
+  border-radius: 1px;
+  margin-bottom: 2px;
+}
+
 .preset-color-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  border: 1.5px solid #000000;
+  border: 1.5px solid var(--border-color);
   flex-shrink: 0;
 }
 
