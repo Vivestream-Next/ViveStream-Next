@@ -5,7 +5,6 @@ import {
   sortArtists,
   sortDownloadHistory,
   naturalCompare,
-  shuffleArray,
 } from "../utils/sortUtils";
 import { VideoEntry, DownloadHistoryEntry } from "../store";
 
@@ -113,6 +112,7 @@ describe("sortUtils unit tests", () => {
         "desc",
         99999,
       );
+      expect(shuffledDifferent.length).toBe(sampleVideos.length);
       expect(shuffled1.length).toBe(sampleVideos.length);
     });
 
