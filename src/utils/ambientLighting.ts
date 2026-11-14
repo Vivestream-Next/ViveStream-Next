@@ -84,8 +84,6 @@ export const getHslMetrics = (
   const lightness = (max + min) / 2;
   const value = max;
   const hsvSaturation = max === 0 ? 0 : chroma / max;
-  const hslSaturation =
-    max === min ? 0 : lightness > 0.5 ? chroma / (2 - max - min) : chroma / (max + min);
 
   // Return hsvSaturation as saturation for accurate colorfulness estimation
   return {
@@ -455,7 +453,9 @@ export class AudioReactiveEngine {
     }
 
     try {
-      this.analyser.getByteFrequencyData(this.dataArray);
+      this.analyser.getByteFrequencyData(
+        this.dataArray as unknown as Uint8Array<ArrayBuffer>,
+      );
       const binCount = this.dataArray.length;
       if (binCount === 0) {
         return {
