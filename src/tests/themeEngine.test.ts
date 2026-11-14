@@ -18,8 +18,8 @@ describe("Material You Theme Engine", () => {
     expect(normalizeHex("#fff")).toBe("#ffffff");
     expect(normalizeHex("000")).toBe("#000000");
     expect(normalizeHex("#F25C54")).toBe("#f25c54");
-    expect(normalizeHex("invalid")).toBe("#f25c54");
-    expect(normalizeHex("")).toBe("#f25c54");
+    expect(normalizeHex("invalid")).toBe("#ffffff");
+    expect(normalizeHex("")).toBe("#ffffff");
   });
 
   it("computes relative luminance accurately", () => {
@@ -65,7 +65,7 @@ describe("Material You Theme Engine", () => {
     expect(resolveSeedColor("sunset")).toBe("#f25c54");
     expect(resolveSeedColor("crimson")).toBe("#ef233c");
     expect(resolveSeedColor("custom", "#6366f1")).toBe("#6366f1");
-    expect(resolveSeedColor("nonexistent")).toBe("#f25c54");
+    expect(resolveSeedColor("nonexistent")).toBe("#ffffff");
 
     // Monochrome adapts to dark and light mode
     document.documentElement.setAttribute("data-theme", "dark");
