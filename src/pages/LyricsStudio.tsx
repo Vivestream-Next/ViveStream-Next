@@ -1,44 +1,37 @@
-import { createSignal, onMount, onCleanup, For, Show, createMemo } from "solid-js";
+import {
+  createSignal,
+  onMount,
+  onCleanup,
+  For,
+  Show,
+  createMemo,
+  createEffect,
+} from "solid-js";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useNavigate, useSearchParams } from "@solidjs/router";
+import { useNavigate, useSearchParams, A } from "@solidjs/router";
 import {
   VideoEntry,
   isAiUnlocked,
-  licenseData,
-  checkLicenseStatus,
   addToast,
   whisperDefaultModel,
   setWhisperDefaultModel,
   whisperDefaultTask,
+  setWhisperDefaultTask,
   whisperComputeDevice,
   updateWhisperComputeDevice,
-  LiveHardwareUsage,
-  SystemScan,
+  whisperStatus,
+  initWhisperStatus,
+  WhisperStatus,
   setActiveVideo,
-  BatchProgressEvent,
   showConfirmDialog,
   deleteLyricsForTrack,
+  getThumbnailUrl,
 } from "../store";
+import { sortVideos } from "../utils/sortUtils";
 import AiPaywall from "../components/AiPaywall";
 import "./LyricsStudio.css";
-
-interface ModelInfo {
-  name: string;
-  expected_size_mb: number;
-  installed: boolean;
-  path?: string;
-  download_url?: string;
-}
-
-interface WhisperStatus {
-  binary_installed: boolean;
-  binary_path: string;
-  models_dir: string;
-  system?: SystemScan;
-  models?: ModelInfo[];
-}
 
 interface LyricsResult {
   duration: number;
@@ -78,56 +71,50 @@ interface TranscribeProgress {
   message: string;
 }
 
-interface BenchmarkResult {
-  success: boolean;
-  model: string;
-  device: string;
-  audio_duration_sec: number;
-  model_load_ms: number;
-  inference_ms: number;
-  real_time_factor: number;
-  speedup: string;
+function formatTime(sec: number): string {
+  if (isNaN(sec) || sec < 0) return "00:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
 }
 
 export default function LyricsStudio() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  // Navigation Workspaces: matrix (Library Matrix & Batch), inspector (Karaoke Inspector & Editor)
-  const [activeWorkspace, setActiveWorkspace] = createSignal<"matrix" | "inspector">("matrix");
-
-  // Core Status & Data
-  const [status, setStatus] = createSignal<WhisperStatus | null>(null);
-  const [loadingStatus, setLoadingStatus] = createSignal(true);
-  const [libraryVideos, setLibraryVideos] = createSignal<VideoEntry[]>([]);
-  const [cachedLyricsList, setCachedLyricsList] = createSignal<CachedLyricItem[]>([]);
+  // Instant render with cached engine status from store (0ms latency)
+  const [status, setStatus] = createSignal<WhisperStatus | null>(whisperStatus());
+  const [loadingStatus, setLoadingStatus] = createSignal(!whisperStatus());
   const [isPreviewMode, setIsPreviewMode] = createSignal(false);
-  const [isInstallingEngine, setIsInstallingEngine] = createSignal(false);
-  const [engineSetupMsg, setEngineSetupMsg] = createSignal("");
   const [errorMsg, setErrorMsg] = createSignal("");
   const [copiedError, setCopiedError] = createSignal(false);
 
-  // Configuration Parameters
-  const [selectedModel, setSelectedModel] = createSignal<string>(whisperDefaultModel() || "base");
-  const [selectedTask, setSelectedTask] = createSignal<string>(whisperDefaultTask() || "transcribe");
-  const [selectedLanguage, setSelectedLanguage] = createSignal<string>("auto");
-  const [selectedDevice, setSelectedDevice] = createSignal<string>(whisperComputeDevice() || "auto");
-  const [liveUsage, setLiveUsage] = createSignal<LiveHardwareUsage | null>(null);
+  // Library & Currently Selected Video
+  const [libraryVideos, setLibraryVideos] = createSignal<VideoEntry[]>([]);
+  const [cachedLyricsList, setCachedLyricsList] = createSignal<CachedLyricItem[]>([]);
+  const [selectedVideo, setSelectedVideo] = createSignal<VideoEntry | null>(null);
+  const [customMediaFilePath, setCustomMediaFilePath] = createSignal<string>("");
 
-  // Workspace 1: Matrix & Batch State
-  const [matrixSearchQuery, setMatrixSearchQuery] = createSignal("");
-  const [matrixStatusFilter, setMatrixStatusFilter] = createSignal<"all" | "missing" | "synced">("all");
-  const [selectedBatchIds, setSelectedBatchIds] = createSignal<string[]>([]);
-  const [isBatchTranscribing, setIsBatchTranscribing] = createSignal(false);
-  const [batchProgress, setBatchProgress] = createSignal<BatchProgressEvent | null>(null);
+  // Video Picker Pop-up Modal State
+  const [showVideoPicker, setShowVideoPicker] = createSignal(false);
+  const [pickerSearch, setPickerSearch] = createSignal("");
+  const [pickerSort, setPickerSort] = createSignal<"date_desc" | "date_asc" | "title_asc" | "channel" | "duration">("date_desc");
+  const [pickerStatusFilter, setPickerStatusFilter] = createSignal<"all" | "synced" | "missing">("all");
 
-  // Workspace 2: Pro Karaoke Inspector & Editor State
-  const [inspectVideoId, setInspectVideoId] = createSignal<string>("");
-  const [sourceMode, setSourceMode] = createSignal<"library" | "custom">("library");
-  const [customAudioPath, setCustomAudioPath] = createSignal<string>("");
+  // Video Player Runtime State
+  let videoEl: HTMLVideoElement | undefined;
+  let lyricsScrollEl: HTMLDivElement | undefined;
+  const [isPlaying, setIsPlaying] = createSignal(false);
+  const [currentTime, setCurrentTime] = createSignal(0);
+  const [duration, setDuration] = createSignal(0);
+  const [volume, setVolume] = createSignal(1);
+  const [isMuted, setIsMuted] = createSignal(false);
+  const [playbackSpeed, setPlaybackSpeed] = createSignal(1.0);
+
+  // Lyrics & Generation State
   const [result, setResult] = createSignal<LyricsResult | null>(null);
-  const [inspectorTab, setInspectorTab] = createSignal<"karaoke" | "editor" | "raw">("karaoke");
-  const [rawTab, setRawTab] = createSignal<"elrc" | "lrc" | "srt" | "vtt" | "json">("elrc");
+  const [activeStudioTab, setActiveStudioTab] = createSignal<"karaoke" | "editor" | "formats">("karaoke");
+  const [rawTab, setRawTab] = createSignal<"elrc" | "lrc" | "vtt" | "srt" | "json">("elrc");
   const [editableLrc, setEditableLrc] = createSignal("");
   const [isSavingLyrics, setIsSavingLyrics] = createSignal(false);
   const [isGenerating, setIsGenerating] = createSignal(false);
@@ -135,92 +122,64 @@ export default function LyricsStudio() {
   const [transcribeProgress, setTranscribeProgress] = createSignal<TranscribeProgress | null>(null);
   const [copied, setCopied] = createSignal(false);
 
-  // Interactive Synchronized Audio Player State
-  let audioRef: HTMLAudioElement | undefined;
-  let lyricsScrollContainer: HTMLDivElement | undefined;
-  const [isPlaying, setIsPlaying] = createSignal(false);
-  const [playbackTime, setPlaybackTime] = createSignal(0);
-  const [audioDuration, setAudioDuration] = createSignal(0);
-  const [playbackSpeed, setPlaybackSpeed] = createSignal(1.0);
+  // Configuration Selectors
+  const [selectedModel, setSelectedModel] = createSignal<string>(whisperDefaultModel() || "base");
+  const [selectedTask, setSelectedTask] = createSignal<string>(whisperDefaultTask() || "transcribe");
+  const [selectedLanguage, setSelectedLanguage] = createSignal<string>("auto");
+  const [selectedDevice, setSelectedDevice] = createSignal<string>(whisperComputeDevice() || "auto");
 
-  // Workspace 3: Model Manager & Benchmark State
-  const [downloadingModel, setDownloadingModel] = createSignal<string | null>(null);
-  const [downloadPercentage, setDownloadPercentage] = createSignal<number>(0);
-  const [downloadSpeedMb, setDownloadSpeedMb] = createSignal<string>("");
-  const [isBenchmarking, setIsBenchmarking] = createSignal(false);
-  const [benchmarkResult, setBenchmarkResult] = createSignal<BenchmarkResult | null>(null);
-
-  const hasInstalledModel = () => (status()?.models || []).some((m) => m.installed);
-  const installedModelsCount = () => (status()?.models || []).filter((m) => m.installed).length;
-
-  // Active track resolution
-  const activeVideo = createMemo(() => {
-    return libraryVideos().find((v) => v.id === inspectVideoId()) || null;
-  });
-
-  const activeAudioPath = createMemo(() => {
-    if (sourceMode() === "custom") return customAudioPath();
-    const vid = activeVideo();
-    return vid ? vid.video_path : "";
-  });
-
-  const activeAudioSrc = createMemo(() => {
-    const p = activeAudioPath();
-    if (!p) return "";
-    try {
-      return convertFileSrc(p);
-    } catch {
-      return "";
-    }
-  });
-
-  // Track lyrics lookup helper
+  // Check lyrics sync status for any video
   const getTrackLyricsStatus = (vid: VideoEntry): { hasLyrics: boolean; format: "karaoke" | "lrc" | "subtitles" | "none" } => {
     const cached = cachedLyricsList();
     const cleanTitle = vid.title.replace(/[^a-zA-Z0-9_\-\. ]/g, "_");
 
-    const matchEnhanced = cached.find((c) =>
-      (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename === `${vid.id}.enhanced.lrc`) &&
-      c.filename.endsWith(".enhanced.lrc")
+    const matchEnhanced = cached.find(
+      (c) =>
+        (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename === `${vid.id}.enhanced.lrc`) &&
+        c.filename.endsWith(".enhanced.lrc")
     );
     if (matchEnhanced) return { hasLyrics: true, format: "karaoke" };
 
-    const matchLrc = cached.find((c) =>
-      (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename === `${vid.id}.lrc`) &&
-      c.filename.endsWith(".lrc")
+    const matchLrc = cached.find(
+      (c) =>
+        (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename === `${vid.id}.lrc`) &&
+        c.filename.endsWith(".lrc")
     );
     if (matchLrc) return { hasLyrics: true, format: "lrc" };
 
-    const matchSub = cached.find((c) =>
-      (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename.startsWith(vid.id)) &&
-      (c.filename.endsWith(".vtt") || c.filename.endsWith(".srt"))
+    const matchSub = cached.find(
+      (c) =>
+        (c.stem === vid.id || c.stem === vid.title || c.stem === cleanTitle || c.filename.startsWith(vid.id)) &&
+        (c.filename.endsWith(".vtt") || c.filename.endsWith(".srt"))
     );
     if (matchSub) return { hasLyrics: true, format: "subtitles" };
 
     return { hasLyrics: false, format: "none" };
   };
 
-  // Matrix Filtered Tracks
-  const filteredMatrixTracks = createMemo(() => {
-    let list = libraryVideos();
-    const q = matrixSearchQuery().toLowerCase().trim();
-    if (q) {
-      list = list.filter((v) => v.title.toLowerCase().includes(q) || (v.channel && v.channel.toLowerCase().includes(q)));
+  // Video Source resolution
+  const activeVideoSrc = createMemo(() => {
+    if (customMediaFilePath()) {
+      try {
+        return convertFileSrc(customMediaFilePath());
+      } catch {
+        return "";
+      }
     }
-    const filter = matrixStatusFilter();
-    if (filter === "missing") {
-      list = list.filter((v) => !getTrackLyricsStatus(v).hasLyrics);
-    } else if (filter === "synced") {
-      list = list.filter((v) => getTrackLyricsStatus(v).hasLyrics);
+    const vid = selectedVideo();
+    if (!vid || !vid.video_path) return "";
+    try {
+      return convertFileSrc(vid.video_path);
+    } catch {
+      return "";
     }
-    return list;
   });
 
-  // Active Lyric Line calculation in Inspector
+  // Active Lyric Segment Index based on Video Playhead
   const activeSegmentIndex = createMemo(() => {
     const res = result();
     if (!res || !res.segments || res.segments.length === 0) return -1;
-    const t = playbackTime();
+    const t = currentTime();
     let idx = -1;
     for (let i = 0; i < res.segments.length; i++) {
       if (res.segments[i].start <= t) {
@@ -232,49 +191,57 @@ export default function LyricsStudio() {
     return idx;
   });
 
-  const fetchStatus = async () => {
-    try {
-      setLoadingStatus(true);
-      const res = await invoke<WhisperStatus>("check_whisper_status");
-      setStatus(res);
-
-      // Auto-select an installed model if the currently selected one isn't installed
-      const installedList = (res.models || []).filter((m) => m.installed);
-      const isCurrentInstalled = (res.models || []).some((m) => m.name === selectedModel() && m.installed);
-      if (!isCurrentInstalled && installedList.length > 0) {
-        setSelectedModel(installedList[0].name);
-        setWhisperDefaultModel(installedList[0].name);
-      } else if (!selectedModel() && res.system?.recommended_default_model) {
-        setSelectedModel(res.system.recommended_default_model);
+  // Auto-scroll Karaoke container to keep active line centered
+  createEffect(() => {
+    const idx = activeSegmentIndex();
+    if (idx >= 0 && lyricsScrollEl && activeStudioTab() === "karaoke") {
+      const activeEl = lyricsScrollEl.querySelector(`[data-segment-index="${idx}"]`) as HTMLElement | null;
+      if (activeEl) {
+        const containerHeight = lyricsScrollEl.clientHeight;
+        const lineTop = activeEl.offsetTop;
+        const lineHeight = activeEl.clientHeight;
+        const targetScroll = lineTop - containerHeight / 2 + lineHeight / 2;
+        lyricsScrollEl.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" });
       }
-
-      if (selectedDevice() === "auto" && res.system?.recommended_device_id) {
-        setSelectedDevice(res.system.recommended_device_id);
-      }
-    } catch (e: any) {
-      console.error("Failed to check whisper status:", e);
-      setErrorMsg(String(e));
-    } finally {
-      setLoadingStatus(false);
     }
-  };
+  });
 
-  const fetchLiveUsage = async () => {
-    try {
-      const live = await invoke<LiveHardwareUsage>("get_live_hardware_usage");
-      setLiveUsage(live);
-    } catch {
-      // silently ignore
+  // Filtered & Sorted Videos for Video Picker Modal
+  const filteredPickerVideos = createMemo(() => {
+    let list = [...libraryVideos()];
+    const q = pickerSearch().toLowerCase().trim();
+    if (q) {
+      list = list.filter(
+        (v) =>
+          v.title.toLowerCase().includes(q) ||
+          (v.channel && v.channel.toLowerCase().includes(q))
+      );
     }
-  };
 
+    const filter = pickerStatusFilter();
+    if (filter === "missing") {
+      list = list.filter((v) => !getTrackLyricsStatus(v).hasLyrics);
+    } else if (filter === "synced") {
+      list = list.filter((v) => getTrackLyricsStatus(v).hasLyrics);
+    }
+
+    const sort = pickerSort();
+    if (sort === "title_asc") {
+      return sortVideos(list, "title", "asc");
+    } else if (sort === "channel") {
+      return sortVideos(list, "channel", "asc");
+    } else if (sort === "date_asc") {
+      return sortVideos(list, "date", "asc");
+    } else {
+      return sortVideos(list, "date", "desc");
+    }
+  });
+
+  // Load Library & History
   const fetchLibrary = async () => {
     try {
       const vids = await invoke<VideoEntry[]>("get_downloaded_videos");
       setLibraryVideos(vids);
-      if (vids.length > 0 && !inspectVideoId()) {
-        setInspectVideoId(vids[0].id);
-      }
     } catch (e) {
       console.error("Failed to load library tracks:", e);
     }
@@ -289,252 +256,51 @@ export default function LyricsStudio() {
     }
   };
 
-  onMount(async () => {
-    await fetchStatus();
-    await fetchLibrary();
-    await fetchHistory();
-    fetchLiveUsage();
-
-    // Check if routed with trackId query param (e.g. from Home or Downloads)
-    const targetTrackId = searchParams.trackId;
-    if (targetTrackId) {
-      const match = libraryVideos().find((v) => v.id === targetTrackId);
-      if (match) {
-        handleInspectTrack(match);
+  const fetchStatus = async (force = false) => {
+    try {
+      if (!status()) setLoadingStatus(true);
+      const res = await initWhisperStatus(force);
+      if (res) {
+        setStatus(res);
+        const installedList = (res.models || []).filter((m) => m.installed);
+        const isCurrentInstalled = (res.models || []).some((m) => m.name === selectedModel() && m.installed);
+        if (!isCurrentInstalled && installedList.length > 0) {
+          setSelectedModel(installedList[0].name);
+          setWhisperDefaultModel(installedList[0].name);
+        } else if (!selectedModel() && res.system?.recommended_default_model) {
+          setSelectedModel(res.system.recommended_default_model);
+        }
+        if (selectedDevice() === "auto" && res.system?.recommended_device_id) {
+          setSelectedDevice(res.system.recommended_device_id);
+        }
       }
-    }
-
-    const liveInterval = setInterval(fetchLiveUsage, 2000);
-
-    const unlistenModel = listen<{
-      model: string;
-      percentage: number;
-      downloaded_mb: number;
-      total_mb: number;
-    }>("whisper-model-progress", (event) => {
-      setDownloadingModel(event.payload.model);
-      setDownloadPercentage(event.payload.percentage);
-      setDownloadSpeedMb(`${event.payload.downloaded_mb} / ${event.payload.total_mb} MB`);
-    });
-
-    const unlistenSetup = listen<string>("whisper-setup-progress", (event) => {
-      setEngineSetupMsg(event.payload);
-    });
-
-    const unlistenTranscribe = listen<TranscribeProgress>("whisper-transcribe-progress", (event) => {
-      setTranscribeProgress(event.payload);
-      if (event.payload.message) {
-        setGenStatusMsg(event.payload.message);
-      }
-    });
-
-    const unlistenBatch = listen<BatchProgressEvent>("whisper-batch-progress", (event) => {
-      setBatchProgress(event.payload);
-    });
-
-    onCleanup(async () => {
-      clearInterval(liveInterval);
-      (await unlistenModel)();
-      (await unlistenSetup)();
-      (await unlistenTranscribe)();
-      (await unlistenBatch)();
-    });
-  });
-
-  // Action Handlers
-  const handleInstallEngine = async () => {
-    if (!isAiUnlocked()) {
-      addToast("Whisper Engine deployment is available to Pro users.", "error");
-      setIsPreviewMode(false);
-      return;
-    }
-
-    try {
-      setIsInstallingEngine(true);
-      setErrorMsg("");
-      setEngineSetupMsg("Deploying Whisper engine binary...");
-      await invoke("install_whisper_binary");
-      addToast("Whisper engine deployed successfully!", "success");
-      await fetchStatus();
     } catch (e: any) {
-      setErrorMsg(`Failed to deploy Whisper engine: ${e}`);
-      addToast("Failed to deploy Whisper engine", "error");
+      console.error("Failed to check whisper status:", e);
+      setErrorMsg(String(e));
     } finally {
-      setIsInstallingEngine(false);
-      setEngineSetupMsg("");
+      setLoadingStatus(false);
     }
   };
 
-  const handleDownloadModel = async (modelName: string) => {
-    if (!isAiUnlocked()) {
-      addToast("Model downloads are locked behind the 6-month Pro subscription.", "error");
-      setIsPreviewMode(false);
-      return;
-    }
-
-    try {
-      setDownloadingModel(modelName);
-      setDownloadPercentage(0);
-      setDownloadSpeedMb("Starting download...");
-      await invoke("download_whisper_model", { modelName });
-      addToast(`Model ${modelName.toUpperCase()} installed successfully!`, "success");
-      await fetchStatus();
-    } catch (e: any) {
-      console.error("Failed to download model:", e);
-      addToast(`Download failed: ${e}`, "error");
-    } finally {
-      setDownloadingModel(null);
-      setDownloadPercentage(0);
-      setDownloadSpeedMb("");
-    }
-  };
-
-  const handleDeleteModel = async (modelName: string) => {
-    if (!isAiUnlocked()) {
-      addToast("Model management is locked behind the 6-Month Pro Subscription.", "error");
-      setIsPreviewMode(false);
-      return;
-    }
-    try {
-      await invoke("delete_whisper_model", { modelName });
-      addToast(`Model ${modelName.toUpperCase()} removed`, "info");
-      await fetchStatus();
-    } catch (e: any) {
-      addToast(`Failed to delete model: ${e}`, "error");
-    }
-  };
-
-  const handleBrowseLocalFile = async () => {
-    try {
-      const selected = await open({
-        multiple: false,
-        filters: [
-          {
-            name: "Audio & Video Files",
-            extensions: ["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "mp4", "mkv", "webm"],
-          },
-        ],
-      });
-      if (selected && typeof selected === "string") {
-        setCustomAudioPath(selected);
-        setSourceMode("custom");
-      }
-    } catch (e) {
-      console.error("File browse cancelled/failed", e);
-    }
-  };
-
-  // Workspace 1 Batch & Quick Selection Handlers
-  const toggleSelectBatchTrack = (id: string) => {
-    setSelectedBatchIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleSelectAllFiltered = (checked: boolean) => {
-    if (checked) {
-      const ids = filteredMatrixTracks().map((t) => t.id);
-      setSelectedBatchIds(Array.from(new Set([...selectedBatchIds(), ...ids])));
-    } else {
-      const filteredIds = new Set(filteredMatrixTracks().map((t) => t.id));
-      setSelectedBatchIds((prev) => prev.filter((id) => !filteredIds.has(id)));
-    }
-  };
-
-  const handleSelectAllMissing = () => {
-    const missingIds = libraryVideos()
-      .filter((v) => !getTrackLyricsStatus(v).hasLyrics)
-      .map((v) => v.id);
-    setSelectedBatchIds(missingIds);
-    addToast(`Selected ${missingIds.length} tracks with missing lyrics.`, "info");
-  };
-
-  const handleRunBatch = async () => {
-    const ids = selectedBatchIds();
-    if (ids.length === 0) {
-      addToast("Please select at least one track for batch transcription.", "error");
-      return;
-    }
-    if (!isAiUnlocked()) {
-      setIsPreviewMode(false);
-      return;
-    }
-
-    try {
-      setIsBatchTranscribing(true);
-      setBatchProgress(null);
-      addToast(`Starting batch Whisper transcription for ${ids.length} tracks...`, "info");
-
-      await invoke("generate_batch_lyrics", {
-        trackIds: ids,
-        model: selectedModel() || "base",
-        task: selectedTask() || "transcribe",
-        language: selectedLanguage() === "auto" ? null : selectedLanguage(),
-        device: selectedDevice() || "auto",
-      });
-
-      addToast(`Batch transcription completed (${ids.length} tracks processed)!`, "success");
-      await fetchHistory();
-      setSelectedBatchIds([]);
-    } catch (err: any) {
-      console.error("Batch transcription error:", err);
-      addToast(`Batch transcription failed: ${err}`, "error");
-    } finally {
-      setIsBatchTranscribing(false);
-      setBatchProgress(null);
-    }
-  };
-
-  // Quick 1-click transcribe for track in Matrix
-  const handleQuickTranscribe = async (vid: VideoEntry) => {
-    if (!isAiUnlocked()) {
-      setIsPreviewMode(false);
-      return;
-    }
-    try {
-      setIsGenerating(true);
-      setErrorMsg("");
-      setGenStatusMsg(`Transcribing "${vid.title}" with Whisper ${selectedModel().toUpperCase()}...`);
-      const res = await invoke<LyricsResult>("generate_track_lyrics", {
-        audioPath: vid.video_path,
-        trackId: vid.id,
-        model: selectedModel() || "base",
-        task: selectedTask() || "transcribe",
-        language: selectedLanguage() === "auto" ? null : selectedLanguage(),
-        device: selectedDevice() || "auto",
-      });
-
-      setResult(res);
-      setEditableLrc(res.enhanced_lrc || res.lrc || "");
-      addToast(`Synced lyrics generated for "${vid.title}"!`, "success");
-      await fetchHistory();
-    } catch (err: any) {
-      console.error("Quick transcribe error:", err);
-      setErrorMsg(`Transcription error: ${err}`);
-      addToast(`Transcription error: ${err}`, "error");
-    } finally {
-      setIsGenerating(false);
-      setGenStatusMsg("");
-    }
-  };
-
-  // Workspace 2: Load track into Pro Inspector
-  const handleInspectTrack = async (vid: VideoEntry) => {
-    setInspectVideoId(vid.id);
-    setSourceMode("library");
-    setActiveWorkspace("inspector");
-    setEditableLrc("");
+  // Video Selection Handler
+  const handleSelectVideo = async (vid: VideoEntry) => {
+    setCustomMediaFilePath("");
+    setSelectedVideo(vid);
+    setShowVideoPicker(false);
     setResult(null);
+    setEditableLrc("");
 
-    if (audioRef) {
-      audioRef.pause();
+    if (videoEl) {
+      videoEl.pause();
       setIsPlaying(false);
+      videoEl.currentTime = 0;
+      setCurrentTime(0);
     }
 
     try {
       const lyrics = await invoke<any>("get_track_lyrics", {
         trackId: vid.id,
-        title: vid.title,
+        trackTitle: vid.title,
       });
 
       if (lyrics && lyrics.has_lyrics) {
@@ -554,26 +320,53 @@ export default function LyricsStudio() {
           })),
         });
         setEditableLrc(lyrics.raw_enhanced_lrc || lyrics.raw_lrc || "");
-        addToast(`Loaded lyrics for "${vid.title}"`, "info");
+        addToast(`Loaded synchronized lyrics for "${vid.title}"`, "info");
       } else {
         setResult(null);
         setEditableLrc("");
-        addToast(`No lyrics found for "${vid.title}". Click Generate to transcribe.`, "info");
       }
     } catch (err) {
       console.error("Failed to load lyrics:", err);
     }
   };
 
-  // Inspector: Generate / Transcribe currently inspected track
-  const handleGenerateInspectTrack = async () => {
-    if (!isAiUnlocked()) {
-      setIsPreviewMode(false);
+  // Browse local audio/video file from OS file picker
+  const handleBrowseLocalFile = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [
+          {
+            name: "Audio & Video Files",
+            extensions: ["mp4", "mkv", "webm", "mp3", "flac", "wav", "m4a", "aac", "ogg", "opus"],
+          },
+        ],
+      });
+      if (selected && typeof selected === "string") {
+        setCustomMediaFilePath(selected);
+        setSelectedVideo(null);
+        setResult(null);
+        setEditableLrc("");
+        setShowVideoPicker(false);
+      }
+    } catch (e) {
+      console.error("File browse cancelled/failed", e);
+    }
+  };
+
+  // Generate / Transcribe Currently Selected Video
+  const handleGenerateLyrics = async () => {
+    if (!isAiUnlocked() && !isPreviewMode()) {
+      addToast("Whisper AI speech-to-lyrics requires an active Pro license.", "error");
       return;
     }
-    const path = activeAudioPath();
-    if (!path) {
-      addToast("Please select a valid audio or video track.", "error");
+
+    const vid = selectedVideo();
+    const localPath = customMediaFilePath();
+    const mediaPath = vid ? vid.video_path : localPath;
+
+    if (!mediaPath) {
+      addToast("Please select a video or import a media file first.", "error");
       return;
     }
 
@@ -584,8 +377,8 @@ export default function LyricsStudio() {
       setGenStatusMsg(`Transcribing audio with Whisper ${selectedModel().toUpperCase()}...`);
 
       const res = await invoke<LyricsResult>("generate_track_lyrics", {
-        audioPath: path,
-        trackId: sourceMode() === "library" ? inspectVideoId() : null,
+        audioPath: mediaPath,
+        trackId: vid ? vid.id : null,
         model: selectedModel(),
         task: selectedTask(),
         language: selectedLanguage() === "auto" ? null : selectedLanguage(),
@@ -597,9 +390,9 @@ export default function LyricsStudio() {
       addToast("Synced lyrics and subtitles generated successfully!", "success");
       await fetchHistory();
 
-      if (audioRef) {
-        audioRef.currentTime = 0;
-        setPlaybackTime(0);
+      if (videoEl) {
+        videoEl.currentTime = 0;
+        setCurrentTime(0);
       }
     } catch (e: any) {
       console.error("Transcription failed:", e);
@@ -612,68 +405,57 @@ export default function LyricsStudio() {
     }
   };
 
-  // Inspector: Timing offset shift
+  // Offset shift nudgers
   const handleShiftOffset = async (offsetSec: number) => {
-    if (!inspectVideoId()) return;
+    const vid = selectedVideo();
+    if (!vid) return;
+
     try {
       await invoke("adjust_lyrics_offset", {
-        trackId: inspectVideoId(),
+        trackId: vid.id,
         offsetSec,
-        offsetSeconds: offsetSec,
       });
       addToast(`Lyrics offset adjusted by ${(offsetSec > 0 ? "+" : "") + offsetSec.toFixed(2)}s`, "info");
-      const vid = activeVideo();
-      if (vid) handleInspectTrack(vid);
+      await handleSelectVideo(vid);
     } catch (err: any) {
       addToast(`Failed to shift offset: ${err}`, "error");
     }
   };
 
+  // 1-Click "Align Intro to Playhead"
   const handleAlignIntroToPlayhead = async () => {
-    if (!inspectVideoId() || !lyricsData() || lyricsData()!.lines.length === 0) return;
-    const firstLineStart = lyricsData()!.lines[0].start;
-    const curTime = previewAudioEl ? previewAudioEl.currentTime : 0;
-    const diff = curTime - firstLineStart;
-    if (Math.abs(diff) < 0.05) {
-      addToast("Lyrics intro is already aligned to playhead.", "info");
+    const vid = selectedVideo();
+    const res = result();
+    if (!vid || !res || !res.segments || res.segments.length === 0) {
+      addToast("No lyrics segments available to align.", "info");
       return;
     }
+
+    const firstLineStart = res.segments[0].start;
+    const curTime = currentTime();
+    const diff = curTime - firstLineStart;
+    if (Math.abs(diff) < 0.05) {
+      addToast("Lyrics intro is already synchronized to playhead.", "info");
+      return;
+    }
+
     await handleShiftOffset(diff);
   };
 
-  // Inspector: Delete lyrics for inspected track
-  const handleDeleteCurrentLyrics = async () => {
-    const tid = inspectVideoId();
-    if (!tid) return;
-    const confirmed = await showConfirmDialog(
-      "Are you sure you want to permanently delete the synced lyrics, karaoke timestamps, and subtitles for this track?",
-      "Delete Lyrics",
-      "warning"
-    );
-    if (!confirmed) return;
-
-    const ok = await deleteLyricsForTrack(tid);
-    if (ok) {
-      setResult(null);
-      setEditableLrc("");
-      await fetchHistory();
-      await fetchLibrary();
-    }
-  };
-
-  // Inspector: Save custom edited lyrics
+  // Save custom edited lyrics
   const handleSaveLyrics = async () => {
-    if (!inspectVideoId() || !editableLrc().trim()) return;
+    const vid = selectedVideo();
+    if (!vid || !editableLrc().trim()) return;
+
     try {
       setIsSavingLyrics(true);
       await invoke("save_custom_lyrics", {
-        trackId: inspectVideoId(),
+        trackId: vid.id,
         lrcContent: editableLrc(),
       });
       addToast("Custom lyrics saved to disk successfully!", "success");
       await fetchHistory();
-      const vid = activeVideo();
-      if (vid) handleInspectTrack(vid);
+      await handleSelectVideo(vid);
     } catch (err: any) {
       addToast(`Failed to save lyrics: ${err}`, "error");
     } finally {
@@ -681,12 +463,37 @@ export default function LyricsStudio() {
     }
   };
 
-  // Play track in Main ViveStream Player
-  const handlePlayInMainPlayer = (vid: VideoEntry) => {
-    setActiveVideo(vid);
-    navigate(`/player/${vid.id}`);
+  // Delete lyrics action
+  const handleDeleteLyrics = async () => {
+    const vid = selectedVideo();
+    if (!vid) return;
+
+    const confirmed = await showConfirmDialog(
+      `Are you sure you want to permanently delete the synced lyrics, karaoke timestamps, and subtitles for "${vid.title}"?`,
+      "Delete Lyrics",
+      "warning"
+    );
+    if (!confirmed) return;
+
+    const ok = await deleteLyricsForTrack(vid.id);
+    if (ok) {
+      setResult(null);
+      setEditableLrc("");
+      await fetchHistory();
+      addToast("Synced lyrics removed.", "info");
+    }
   };
 
+  // Play in main ViveStream player
+  const handlePlayInMainPlayer = () => {
+    const vid = selectedVideo();
+    if (vid) {
+      setActiveVideo(vid);
+      navigate(`/player/${vid.id}`);
+    }
+  };
+
+  // Copy raw formats
   const handleCopyRaw = () => {
     const res = result();
     if (!res) return;
@@ -711,759 +518,693 @@ export default function LyricsStudio() {
     }
   };
 
-  const handleCopyError = async () => {
-    if (!errorMsg()) return;
-    try {
-      await navigator.clipboard.writeText(errorMsg());
-      setCopiedError(true);
-      addToast("Error message copied to clipboard!", "success");
-      setTimeout(() => setCopiedError(false), 2500);
-    } catch {
-      addToast("Failed to copy to clipboard", "error");
-    }
-  };
-
-  const handleRunBenchmark = async () => {
-    if (!isAiUnlocked()) {
-      addToast("Neural benchmarks are locked behind the 6-Month Pro Subscription.", "error");
-      setIsPreviewMode(false);
-      return;
-    }
-    try {
-      setIsBenchmarking(true);
-      setBenchmarkResult(null);
-      addToast("Starting Candle Whisper benchmark...", "info");
-      const res = await invoke<BenchmarkResult>("run_whisper_benchmark", {
-        model: selectedModel() || "base",
-        device: selectedDevice() || "auto",
-      });
-      setBenchmarkResult(res);
-      addToast(`Benchmark complete: ${res.speedup}!`, "success");
-    } catch (e: any) {
-      console.error("Benchmark failed:", e);
-      addToast(`Benchmark failed: ${e}`, "error");
-    } finally {
-      setIsBenchmarking(false);
-    }
-  };
-
-  // Audio Player Controls
-  const togglePlayPause = () => {
-    if (!audioRef) return;
-    if (isPlaying()) {
-      audioRef.pause();
-      setIsPlaying(false);
+  // Video Player Control Handlers
+  const togglePlay = () => {
+    if (!videoEl) return;
+    if (videoEl.paused) {
+      videoEl.play();
+      setIsPlaying(true);
     } else {
-      audioRef.play().then(() => setIsPlaying(true)).catch((e) => console.error("Playback error:", e));
+      videoEl.pause();
+      setIsPlaying(false);
     }
   };
 
-  const handleSeek = (newTime: number) => {
-    if (!audioRef) return;
-    audioRef.currentTime = newTime;
-    setPlaybackTime(newTime);
+  const handleSeek = (timeSec: number) => {
+    if (!videoEl) return;
+    videoEl.currentTime = timeSec;
+    setCurrentTime(timeSec);
   };
 
-  const handleSpeedChange = (speed: number) => {
-    setPlaybackSpeed(speed);
-    if (audioRef) audioRef.playbackRate = speed;
+  const handleStepTime = (offsetSec: number) => {
+    if (!videoEl) return;
+    const next = Math.max(0, Math.min(duration(), videoEl.currentTime + offsetSec));
+    videoEl.currentTime = next;
+    setCurrentTime(next);
   };
 
-  const formatTimestamp = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return "00:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  const handleVolumeChange = (vol: number) => {
+    if (!videoEl) return;
+    videoEl.volume = vol;
+    setVolume(vol);
+    setIsMuted(vol === 0);
   };
+
+  const toggleMute = () => {
+    if (!videoEl) return;
+    const next = !isMuted();
+    videoEl.muted = next;
+    setIsMuted(next);
+  };
+
+  const handleSpeedChange = (spd: number) => {
+    if (!videoEl) return;
+    videoEl.playbackRate = spd;
+    setPlaybackSpeed(spd);
+  };
+
+  // Lifecycle & Progress listeners
+  onMount(async () => {
+    await fetchStatus();
+    await fetchLibrary();
+    await fetchHistory();
+
+    const unlistenTranscribe = listen<TranscribeProgress>("whisper-transcribe-progress", (event) => {
+      setTranscribeProgress(event.payload);
+      if (event.payload.message) {
+        setGenStatusMsg(event.payload.message);
+      }
+    });
+
+    onCleanup(async () => {
+      (await unlistenTranscribe)();
+    });
+  });
+
+  // Reactive URL parameter resolver: handles /lyrics?trackId=XYZ
+  createEffect(() => {
+    const tid = searchParams.trackId;
+    const vids = libraryVideos();
+    if (tid && vids.length > 0) {
+      const match = vids.find((v) => v.id === tid);
+      if (match && (!selectedVideo() || selectedVideo()?.id !== tid)) {
+        handleSelectVideo(match);
+      }
+    }
+  });
 
   return (
     <Show
       when={isAiUnlocked() || isPreviewMode()}
-      fallback={<AiPaywall onPreviewToggle={() => setIsPreviewMode(true)} isPreviewing={false} />}
+      fallback={
+        <AiPaywall
+          onPreviewToggle={() => setIsPreviewMode(true)}
+          isPreviewing={isPreviewMode()}
+        />
+      }
     >
-      <div class="ai-page-container">
-        {/* Preview Mode Locked Banner */}
-        <Show when={!isAiUnlocked()}>
-          <div class="ai-preview-banner">
-            <div class="ai-preview-banner-text">
-              <i class="ph-fill ph-lock-key" />
-              <span>
-                AI Studio Preview Mode — Generation is locked behind the 6-Month Pro Subscription (Lemon Squeezy).
-              </span>
-            </div>
-            <button type="button" class="ai-btn-sm" onClick={() => setIsPreviewMode(false)}>
-              <i class="ph ph-shopping-cart-simple" /> View Paywall
-            </button>
-          </div>
-        </Show>
-
-        {/* Global Pro Header & Telemetry Strip */}
-        <header class="ai-header">
-          <div class="ai-header-left">
-            <div class="ai-badge-row">
-              <Show
-                when={isAiUnlocked()}
-                fallback={
-                  <span class="ai-badge warning">
-                    <i class="ph-fill ph-lock-key" /> Preview Mode
-                  </span>
-                }
-              >
-                <span class="ai-badge pro" title={licenseData()?.customer_email ? `Customer: ${licenseData()!.customer_email}` : "6-Month Subscription"}>
-                  <i class="ph-fill ph-seal-check" /> Pro Active ({licenseData()?.customer_email || "6-Month Plan"})
-                </span>
-              </Show>
-
-              <span class="ai-badge dark">
-                <i class="ph-bold ph-lightning" /> Pure Rust Candle Engine
+      <div class="lyrics-studio-container">
+        {/* Sleek Top Studio Header */}
+        <header class="studio-top-header">
+          <div class="studio-header-left">
+            <div class="studio-badge-row">
+              <span class="studio-badge pro">
+                <i class="ph-fill ph-seal-check" /> Pro Studio Engine
               </span>
 
-              <span class="ai-telemetry-pill">
-                <span class="ai-led-dot active" />
+              <span class="studio-telemetry-pill">
+                <span class={`studio-led ${loadingStatus() ? "warning" : status()?.binary_installed ? "active" : "warning"}`} />
+                {loadingStatus() ? "INITIALIZING..." : status()?.binary_installed ? "ENGINE ONLINE" : "ENGINE MISSING"}
+              </span>
+
+              <span class="studio-telemetry-pill">
+                <i class="ph-bold ph-cpu" />
                 {status()?.system?.primary_gpu
-                  ? `${status()!.system!.primary_gpu!.name.toUpperCase()} (${(status()!.system!.primary_gpu!.vram_total_mb / 1024).toFixed(0)}GB VRAM)`
+                  ? `${status()!.system!.primary_gpu!.name.toUpperCase()}`
                   : "CPU MULTI-THREAD"}
               </span>
 
-              <span class="ai-telemetry-pill">
-                <span class={`ai-led-dot ${status()?.binary_installed ? "active" : "warning"}`} />
-                {status()?.binary_installed ? "ENGINE ONLINE" : "ENGINE MISSING"}
-              </span>
-
-              <span class="ai-telemetry-pill">
-                <span class={`ai-led-dot ${hasInstalledModel() ? "active" : "neutral"}`} />
-                {installedModelsCount()} MODELS MOUNTED
+              <span class="studio-telemetry-pill">
+                <i class="ph-bold ph-sparkle" />
+                MODEL: {selectedModel().toUpperCase()}
               </span>
             </div>
 
-            <h1 class="ai-title">Lyrics Studio // Synced Lyrics & Subtitles</h1>
-            <p class="ai-subtitle">
-              Syllable-level karaoke alignments • Library Matrix • Pro LRC Editor • Pure Rust Whisper AI
+            <h1 class="studio-title">Lyrics Studio</h1>
+            <p class="studio-subtitle">
+              Inspect, generate, and synchronize word-level karaoke lyrics and subtitles using Whisper AI.
             </p>
           </div>
 
-          <div class="ai-header-actions">
-            {/* 2 Workspaces Switcher */}
-            <div class="ai-nav-switcher" role="tablist">
-              <button
-                type="button"
-                class={`ai-nav-tab ${activeWorkspace() === "matrix" ? "active" : ""}`}
-                onClick={() => setActiveWorkspace("matrix")}
-              >
-                <i class="ph ph-table" /> Library Matrix & Batch
-              </button>
-              <button
-                type="button"
-                class={`ai-nav-tab ${activeWorkspace() === "inspector" ? "active" : ""}`}
-                onClick={() => setActiveWorkspace("inspector")}
-              >
-                <i class="ph ph-microphone-stage" /> Karaoke Inspector & Editor
-              </button>
-            </div>
+          <div class="studio-header-actions">
+            <button
+              type="button"
+              class="studio-btn-primary"
+              onClick={() => setShowVideoPicker(true)}
+              title="Select or Change Video"
+            >
+              <i class="ph-bold ph-video-camera" />
+              <span>{selectedVideo() || customMediaFilePath() ? "Change Video" : "Select Video"}</span>
+            </button>
+
+            <A href="/ai" class="studio-btn-secondary" title="Configure AI engine models & hardware">
+              <i class="ph-bold ph-sliders" />
+              <span>Models & AI Settings</span>
+            </A>
+
+            <button
+              type="button"
+              class="studio-btn-secondary"
+              onClick={() => handleOpenFolder("lyrics")}
+              title="Open local lyrics storage directory"
+            >
+              <i class="ph-bold ph-folder-open" />
+              <span>Lyrics Folder</span>
+            </button>
           </div>
         </header>
 
         {/* Global Error Banner */}
         <Show when={errorMsg()}>
-          <div class="ai-alert-banner error" style={{ "user-select": "text", "-webkit-user-select": "text" }}>
+          <div class="studio-alert-banner error">
             <i class="ph-fill ph-warning-circle" />
-            <div class="ai-alert-content" style={{ "user-select": "text", "-webkit-user-select": "text" }}>
+            <div class="studio-alert-content">
               <strong>Engine Alert:</strong> {errorMsg()}
             </div>
-            <div class="ai-alert-actions">
+            <div class="studio-alert-actions">
               <button
                 type="button"
-                class="ai-btn-sm"
-                onClick={handleCopyError}
-                title="Copy error message to clipboard"
-                style={{ "display": "inline-flex", "align-items": "center", "gap": "6px", "font-weight": "800" }}
+                class="studio-btn-xs"
+                onClick={() => {
+                  navigator.clipboard.writeText(errorMsg());
+                  setCopiedError(true);
+                  setTimeout(() => setCopiedError(false), 2000);
+                }}
               >
                 <i class={`ph-bold ${copiedError() ? "ph-check" : "ph-copy"}`} />
-                <span>{copiedError() ? "Copied!" : "Copy Error"}</span>
+                <span>{copiedError() ? "Copied" : "Copy Log"}</span>
               </button>
-              <button
-                type="button"
-                class="ai-btn-sm"
-                onClick={() => setErrorMsg("")}
+              <button type="button" class="studio-alert-close" onClick={() => setErrorMsg("")}>
+                <i class="ph-bold ph-x" />
+              </button>
+            </div>
+          </div>
+        </Show>
+
+        {/* Unified Studio Grid: Left (Video Player) + Right (Lyrics Visualization & Controls) */}
+        <div class="studio-split-layout">
+          {/* LEFT SIDE: Video Player & Track Details */}
+          <div class="studio-left-column">
+            <div class="studio-video-panel">
+              <Show
+                when={activeVideoSrc()}
+                fallback={
+                  <div class="studio-player-placeholder">
+                    <div class="placeholder-mesh-glow" />
+                    <div class="placeholder-content">
+                      <div class="placeholder-icon-ring">
+                        <i class="ph-bold ph-video" />
+                      </div>
+                      <h3>No Video Selected</h3>
+                      <p>
+                        Select a video from your downloaded library or import a media file to inspect, edit, or generate synchronized lyrics.
+                      </p>
+                      <div class="placeholder-btn-group">
+                        <button
+                          type="button"
+                          class="studio-btn-primary pulse"
+                          onClick={() => setShowVideoPicker(true)}
+                        >
+                          <i class="ph-bold ph-list-plus" />
+                          <span>Select Video</span>
+                        </button>
+                        <button
+                          type="button"
+                          class="studio-btn-secondary"
+                          onClick={handleBrowseLocalFile}
+                        >
+                          <i class="ph-bold ph-file-arrow-up" />
+                          <span>Browse Local Media</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                }
               >
-                <i class="ph ph-x" />
-              </button>
-            </div>
-          </div>
-        </Show>
-
-        {/* Step 1 Setup Card if Engine Missing */}
-        <Show when={!loadingStatus() && !status()?.binary_installed}>
-          <div class="ai-setup-card">
-            <div class="ai-setup-icon-box">
-              <i class="ph-fill ph-cpu" />
-            </div>
-            <div class="ai-setup-content">
-              <div class="ai-badge-row">
-                <span class="ai-badge warning">
-                  <i class="ph-bold ph-warning" /> Step 1: Engine Setup Required
-                </span>
-                <span class="ai-subtitle">Standalone Candle Inference Runtime</span>
-              </div>
-              <h2 class="ai-setup-title">Deploy Whisper Neural Engine</h2>
-              <p class="ai-setup-desc">
-                ViveStream AI Studio uses a standalone pure-Rust Candle inference binary to transcribe lyrics locally on your CPU and GPU. One-click setup automatically provisions the engine from verified releases.
-              </p>
-              <div class="ai-setup-actions">
-                <button
-                  type="button"
-                  class="ai-btn-primary"
-                  disabled={isInstallingEngine()}
-                  onClick={handleInstallEngine}
-                >
-                  {isInstallingEngine() ? (
-                    <>
-                      <i class="ph ph-spinner ph-spin" /> {engineSetupMsg() || "Deploying Engine..."}
-                    </>
-                  ) : (
-                    <>
-                      <i class="ph-bold ph-download-simple" /> Install & Deploy Whisper Engine
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Show>
-
-        {/* Step 2 Setup Card if Engine Ready but No Models */}
-        <Show when={!loadingStatus() && status()?.binary_installed && !hasInstalledModel()}>
-          <div class="ai-setup-card model-setup">
-            <div class="ai-setup-icon-box pro">
-              <i class="ph-fill ph-database" />
-            </div>
-            <div class="ai-setup-content">
-              <div class="ai-badge-row">
-                <span class="ai-badge pro">
-                  <i class="ph-bold ph-check" /> Step 2: Download Model Weights
-                </span>
-                <span class="ai-subtitle">
-                  Hardware Recommended: {status()?.system?.recommended_default_model?.toUpperCase() || "BASE"}
-                </span>
-              </div>
-              <h2 class="ai-setup-title">Download Recommended Whisper Model</h2>
-              <p class="ai-setup-desc">
-                Your hardware diagnostic recommends the <strong>{status()?.system?.recommended_default_model?.toUpperCase() || "BASE"}</strong> model (~290 MB) for optimal 2–4s transcription speed and low memory footprint.
-              </p>
-              <div class="ai-setup-actions">
-                <button
-                  type="button"
-                  class="ai-btn-primary"
-                  disabled={downloadingModel() !== null}
-                  onClick={() => handleDownloadModel(status()?.system?.recommended_default_model || "base")}
-                >
-                  {downloadingModel() ? (
-                    <>
-                      <i class="ph ph-spinner ph-spin" /> Downloading {downloadingModel()} ({downloadPercentage()}% - {downloadSpeedMb()})
-                    </>
-                  ) : (
-                    <>
-                      <i class="ph-bold ph-download-simple" /> Download Recommended Model ({status()?.system?.recommended_default_model?.toUpperCase() || "BASE"})
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </Show>
-
-        {/* ========================================================================= */}
-        {/* WORKSPACE 1: LIBRARY LYRICS MATRIX & BATCH QUEUE                           */}
-        {/* ========================================================================= */}
-        <Show when={activeWorkspace() === "matrix"}>
-          <div class="ai-matrix-workspace">
-            {/* Matrix Toolbar */}
-            <div class="ai-matrix-toolbar">
-              <div class="ai-matrix-search">
-                <i class="ph-bold ph-magnifying-glass" />
-                <input
-                  type="text"
-                  placeholder="Filter library tracks by song title or artist..."
-                  value={matrixSearchQuery()}
-                  onInput={(e) => setMatrixSearchQuery(e.currentTarget.value)}
-                />
-              </div>
-
-              {/* Status Filters */}
-              <div class="ai-matrix-filter-pills">
-                <button
-                  type="button"
-                  class={`matrix-filter-btn ${matrixStatusFilter() === "all" ? "active" : ""}`}
-                  onClick={() => setMatrixStatusFilter("all")}
-                >
-                  All Tracks ({libraryVideos().length})
-                </button>
-                <button
-                  type="button"
-                  class={`matrix-filter-btn missing ${matrixStatusFilter() === "missing" ? "active" : ""}`}
-                  onClick={() => setMatrixStatusFilter("missing")}
-                >
-                  <i class="ph-fill ph-warning-circle" /> Missing Lyrics ({libraryVideos().filter((v) => !getTrackLyricsStatus(v).hasLyrics).length})
-                </button>
-                <button
-                  type="button"
-                  class={`matrix-filter-btn synced ${matrixStatusFilter() === "synced" ? "active" : ""}`}
-                  onClick={() => setMatrixStatusFilter("synced")}
-                >
-                  <i class="ph-fill ph-check-circle" /> Synced ({libraryVideos().filter((v) => getTrackLyricsStatus(v).hasLyrics).length})
-                </button>
-              </div>
-
-              {/* Selection shortcuts */}
-              <div class="ai-matrix-selection-actions">
-                <button
-                  type="button"
-                  class="ai-btn-sm"
-                  onClick={handleSelectAllMissing}
-                  title="Select all tracks without lyrics"
-                >
-                  <i class="ph-bold ph-checks" /> Select Missing
-                </button>
-                <Show when={selectedBatchIds().length > 0}>
-                  <button
-                    type="button"
-                    class="ai-btn-sm neutral"
-                    onClick={() => setSelectedBatchIds([])}
-                  >
-                    Clear ({selectedBatchIds().length})
-                  </button>
-                </Show>
-              </div>
-            </div>
-
-            {/* Batch Action Strip (Shown when 1+ tracks selected) */}
-            <Show when={selectedBatchIds().length > 0}>
-              <div class="ai-batch-action-bar">
-                <div class="ai-batch-info">
-                  <span class="ai-batch-count">
-                    <i class="ph-bold ph-check-square" />
-                    <strong>{selectedBatchIds().length}</strong> tracks selected for batch transcription
-                  </span>
-                </div>
-
-                <div class="ai-batch-configs">
-                  <div class="ai-batch-select-wrap">
-                    <label>Model:</label>
-                    <select
-                      value={selectedModel()}
-                      onChange={(e) => setSelectedModel(e.currentTarget.value)}
-                    >
-                      <option value="tiny">Tiny (~75 MB)</option>
-                      <option value="base">Base (~290 MB - Optimal)</option>
-                      <option value="small">Small (~960 MB)</option>
-                      <option value="medium">Medium (~3.0 GB)</option>
-                      <option value="large-v3">Large-v3 (~6.2 GB)</option>
-                    </select>
-                  </div>
-
-                  <div class="ai-batch-select-wrap">
-                    <label>Device:</label>
-                    <select
-                      value={selectedDevice()}
-                      onChange={(e) => {
-                        setSelectedDevice(e.currentTarget.value);
-                        updateWhisperComputeDevice(e.currentTarget.value);
-                      }}
-                    >
-                      <option value="auto">Auto (GPU Preferred)</option>
-                      <option value="cuda">Vulkan / GPU</option>
-                      <option value="cpu">CPU Rayon Multi-thread</option>
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    class="ai-batch-run-btn"
-                    disabled={isBatchTranscribing()}
-                    onClick={handleRunBatch}
-                  >
-                    <Show
-                      when={isBatchTranscribing()}
-                      fallback={
-                        <>
-                          <i class="ph-bold ph-lightning" />
-                          <span>Transcribe Selected ({selectedBatchIds().length})</span>
-                        </>
-                      }
-                    >
-                      <i class="ph-bold ph-spinner animate-spin" />
-                      <span>Transcribing Batch...</span>
-                    </Show>
-                  </button>
-                </div>
-              </div>
-            </Show>
-
-            {/* Batch Progress Card */}
-            <Show when={isBatchTranscribing() && batchProgress()}>
-              <div class="ai-batch-progress-card">
-                <div class="batch-progress-header">
-                  <div class="batch-progress-title">
-                    <i class="ph-bold ph-spinner animate-spin" />
-                    <span>
-                      Batch Transcription in Progress: <strong>{batchProgress()?.current_index}</strong> of <strong>{batchProgress()?.total_tracks}</strong>
-                    </span>
-                  </div>
-                  <span class="batch-progress-percent">{Math.round(batchProgress()?.percent || 0)}%</span>
-                </div>
-
-                <div class="batch-progress-bar-track">
-                  <div
-                    class="batch-progress-bar-fill"
-                    style={{ width: `${batchProgress()?.percent || 0}%` }}
+                {/* Active Video Player */}
+                <div class="studio-video-wrapper">
+                  <video
+                    ref={videoEl}
+                    src={activeVideoSrc()}
+                    class="studio-video-element"
+                    onTimeUpdate={() => {
+                      if (videoEl) setCurrentTime(videoEl.currentTime);
+                    }}
+                    onLoadedMetadata={() => {
+                      if (videoEl) setDuration(videoEl.duration);
+                    }}
+                    onPlay={() => setIsPlaying(true)}
+                    onPause={() => setIsPlaying(false)}
+                    onEnded={() => setIsPlaying(false)}
                   />
-                </div>
 
-                <div class="batch-progress-footer">
-                  <span class="batch-current-title">
-                    Now processing: <strong>{batchProgress()?.title}</strong>
-                  </span>
-                  <span class="batch-current-stage">
-                    Stage: <em>{batchProgress()?.stage}</em>
-                  </span>
-                </div>
-              </div>
-            </Show>
-
-            {/* Matrix Table */}
-            <div class="ai-matrix-table-wrap">
-              <table class="ai-matrix-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: "44px" }}>
+                  {/* Sleek On-Screen Video Controls */}
+                  <div class="studio-controls-bar">
+                    <div class="timeline-seek-row">
                       <input
-                        type="checkbox"
-                        checked={
-                          filteredMatrixTracks().length > 0 &&
-                          filteredMatrixTracks().every((t) => selectedBatchIds().includes(t.id))
-                        }
-                        onChange={(e) => handleSelectAllFiltered(e.currentTarget.checked)}
-                        title="Select All Filtered"
+                        type="range"
+                        min="0"
+                        max={duration() || 100}
+                        step="0.05"
+                        value={currentTime()}
+                        onInput={(e) => handleSeek(parseFloat(e.currentTarget.value))}
+                        class="studio-seek-slider"
                       />
-                    </th>
-                    <th>TRACK INFO</th>
-                    <th style={{ width: "180px" }}>LYRICS STATUS</th>
-                    <th style={{ width: "260px" }}>ACTIONS</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For
-                    each={filteredMatrixTracks()}
+                    </div>
+
+                    <div class="controls-action-row">
+                      <div class="controls-left">
+                        <button
+                          type="button"
+                          class="player-ctrl-btn primary"
+                          onClick={togglePlay}
+                          title={isPlaying() ? "Pause (Space)" : "Play (Space)"}
+                        >
+                          <i class={`ph-fill ph-${isPlaying() ? "pause" : "play"}`} />
+                        </button>
+
+                        <button
+                          type="button"
+                          class="player-ctrl-btn"
+                          onClick={() => handleStepTime(-5)}
+                          title="Rewind 5s"
+                        >
+                          <i class="ph-bold ph-arrow-counter-clockwise" />
+                        </button>
+
+                        <button
+                          type="button"
+                          class="player-ctrl-btn"
+                          onClick={() => handleStepTime(5)}
+                          title="Forward 5s"
+                        >
+                          <i class="ph-bold ph-arrow-clockwise" />
+                        </button>
+
+                        <div class="time-display-pill">
+                          <span class="current">{formatTime(currentTime())}</span>
+                          <span class="sep">/</span>
+                          <span class="total">{formatTime(duration())}</span>
+                        </div>
+                      </div>
+
+                      <div class="controls-right">
+                        <div class="speed-selector">
+                          <button
+                            type="button"
+                            class={`speed-chip ${playbackSpeed() === 0.75 ? "active" : ""}`}
+                            onClick={() => handleSpeedChange(0.75)}
+                          >
+                            0.75x
+                          </button>
+                          <button
+                            type="button"
+                            class={`speed-chip ${playbackSpeed() === 1.0 ? "active" : ""}`}
+                            onClick={() => handleSpeedChange(1.0)}
+                          >
+                            1x
+                          </button>
+                          <button
+                            type="button"
+                            class={`speed-chip ${playbackSpeed() === 1.25 ? "active" : ""}`}
+                            onClick={() => handleSpeedChange(1.25)}
+                          >
+                            1.25x
+                          </button>
+                        </div>
+
+                        <div class="volume-group">
+                          <button type="button" class="player-ctrl-btn" onClick={toggleMute} title="Mute/Unmute">
+                            <i class={`ph-bold ph-speaker-${isMuted() || volume() === 0 ? "x" : volume() < 0.5 ? "low" : "high"}`} />
+                          </button>
+                          <input
+                            type="range"
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={isMuted() ? 0 : volume()}
+                            onInput={(e) => handleVolumeChange(parseFloat(e.currentTarget.value))}
+                            class="volume-slider"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Show>
+            </div>
+
+            {/* Video Metadata & Quick Switch Card */}
+            <Show when={selectedVideo() || customMediaFilePath()}>
+              <div class="studio-track-card">
+                <div class="track-card-thumb">
+                  <Show
+                    when={selectedVideo()}
                     fallback={
-                      <tr>
-                        <td colspan="4" class="ai-table-empty">
-                          <i class="ph-bold ph-waveform" />
-                          <p>No tracks match the filter.</p>
-                        </td>
-                      </tr>
+                      <div class="custom-file-thumb">
+                        <i class="ph-bold ph-file-audio" />
+                      </div>
                     }
                   >
-                    {(vid) => {
-                      const st = getTrackLyricsStatus(vid);
-                      const isSelected = () => selectedBatchIds().includes(vid.id);
-
-                      return (
-                        <tr class={`ai-matrix-row ${isSelected() ? "selected" : ""}`}>
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={isSelected()}
-                              onChange={() => toggleSelectBatchTrack(vid.id)}
-                            />
-                          </td>
-                          <td class="ai-matrix-track-cell">
-                            <img
-                              src={convertFileSrc(vid.thumbnail_path)}
-                              alt={vid.title}
-                              class="matrix-thumb"
-                            />
-                            <div class="matrix-track-info">
-                              <span class="matrix-track-title" title={vid.title}>
-                                {vid.title}
-                              </span>
-                              <span class="matrix-track-channel">
-                                {vid.channel || "Local Media"}
-                              </span>
-                            </div>
-                          </td>
-                          <td>
-                            <Show
-                              when={st.hasLyrics}
-                              fallback={
-                                <span class="matrix-status-pill missing">
-                                  <i class="ph-bold ph-x-circle" /> Missing Lyrics
-                                </span>
-                              }
-                            >
-                              <span class={`matrix-status-pill ${st.format}`}>
-                                <i class="ph-bold ph-check-circle" />
-                                {st.format === "karaoke"
-                                  ? "Word-Synced Karaoke"
-                                  : st.format === "lrc"
-                                  ? "Line-Synced LRC"
-                                  : "Subtitles (VTT)"}
-                              </span>
-                            </Show>
-                          </td>
-                          <td class="ai-matrix-actions-cell">
-                            <div class="matrix-action-group">
-                              <Show
-                                when={st.hasLyrics}
-                                fallback={
-                                  <button
-                                    type="button"
-                                    class="matrix-btn-action transcribe"
-                                    disabled={isGenerating()}
-                                    onClick={() => handleQuickTranscribe(vid)}
-                                    title="Transcribe this track with Whisper"
-                                  >
-                                    <i class="ph-bold ph-sparkle" /> Transcribe
-                                  </button>
-                                }
-                              >
-                                <button
-                                  type="button"
-                                  class="matrix-btn-action inspect"
-                                  onClick={() => handleInspectTrack(vid)}
-                                  title="Open Karaoke Inspector & Editor"
-                                >
-                                  <i class="ph-bold ph-microphone-stage" /> Inspect & Edit
-                                </button>
-                              </Show>
-
-                              <button
-                                type="button"
-                                class="matrix-btn-action play"
-                                onClick={() => handlePlayInMainPlayer(vid)}
-                                title="Play in Media Player"
-                              >
-                                <i class="ph-fill ph-play" /> Play
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    }}
-                  </For>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </Show>
-
-        {/* ========================================================================= */}
-        {/* WORKSPACE 2: PRO KARAOKE INSPECTOR & TIMING EDITOR                         */}
-        {/* ========================================================================= */}
-        <Show when={activeWorkspace() === "inspector"}>
-          <div class="ai-inspector-workspace">
-            {/* Inspector Top Bar */}
-            <div class="ai-inspector-header">
-              <div class="inspector-header-left">
-                <button
-                  type="button"
-                  class="ai-btn-sm"
-                  onClick={() => setActiveWorkspace("matrix")}
-                  title="Return to Library Matrix"
-                >
-                  <i class="ph-bold ph-arrow-left" /> Back to Matrix
-                </button>
-                <div class="inspector-track-title-wrap">
-                  <h2 class="inspector-track-title">
-                    {activeVideo()?.title || customAudioPath().split(/[\\/]/).pop() || "Select Track"}
-                  </h2>
-                  <span class="inspector-track-sub">
-                    {activeVideo()?.channel || (sourceMode() === "custom" ? "Custom File" : "No track selected")}
-                  </span>
-                </div>
-              </div>
-
-              <div class="inspector-header-right">
-                {/* Calibration Offset Bar */}
-                <div class="inspector-offset-bar" title="Calibrate Lyrics Timing Offset">
-                  <span class="offset-title">Timing Offset:</span>
-                  <button type="button" class="offset-chip align-chip" onClick={handleAlignIntroToPlayhead} title="Align lyrics intro to audio playhead">
-                    <i class="ph-bold ph-target" /> Align Intro
-                  </button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-1.0)}>-1.0s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(-0.2)}>-0.2s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(0.2)}>+0.2s</button>
-                  <button type="button" class="offset-chip" onClick={() => handleShiftOffset(1.0)}>+1.0s</button>
-                </div>
-
-                <Show when={result() && inspectVideoId()}>
-                  <button
-                    type="button"
-                    class="ai-btn-danger-outline"
-                    onClick={handleDeleteCurrentLyrics}
-                    title="Permanently delete synced lyrics files for this track"
-                  >
-                    <i class="ph-bold ph-trash" /> Delete Lyrics
-                  </button>
-                </Show>
-
-                <Show when={activeVideo()}>
-                  <button
-                    type="button"
-                    class="ai-btn-primary"
-                    onClick={() => handlePlayInMainPlayer(activeVideo()!)}
-                  >
-                    <i class="ph-fill ph-play" /> Open in Media Player
-                  </button>
-                </Show>
-              </div>
-            </div>
-
-            {/* Audio Transport Bar */}
-            <div class="ai-inspector-transport">
-              <audio
-                ref={audioRef}
-                src={activeAudioSrc()}
-                onTimeUpdate={(e) => setPlaybackTime(e.currentTarget.currentTime)}
-                onLoadedMetadata={(e) => setAudioDuration(e.currentTarget.duration)}
-                onEnded={() => setIsPlaying(false)}
-              />
-
-              <div class="transport-controls">
-                <button
-                  type="button"
-                  class="transport-play-btn"
-                  onClick={togglePlayPause}
-                  title={isPlaying() ? "Pause" : "Play"}
-                >
-                  <i class={`ph-fill ${isPlaying() ? "ph-pause" : "ph-play"}`} />
-                </button>
-
-                <div class="transport-timecode">
-                  <span>{formatTimestamp(playbackTime())}</span>
-                  <span class="time-divider">/</span>
-                  <span>{formatTimestamp(audioDuration())}</span>
-                </div>
-
-                {/* Scrubber timeline */}
-                <div class="transport-scrubber-wrap">
-                  <input
-                    type="range"
-                    min="0"
-                    max={audioDuration() || 100}
-                    step="0.05"
-                    value={playbackTime()}
-                    onInput={(e) => handleSeek(parseFloat(e.currentTarget.value))}
-                    class="transport-scrubber"
-                  />
-                </div>
-
-                {/* Speed buttons */}
-                <div class="transport-speed-group">
-                  <button
-                    type="button"
-                    class={`speed-chip ${playbackSpeed() === 0.75 ? "active" : ""}`}
-                    onClick={() => handleSpeedChange(0.75)}
-                  >
-                    0.75x
-                  </button>
-                  <button
-                    type="button"
-                    class={`speed-chip ${playbackSpeed() === 1.0 ? "active" : ""}`}
-                    onClick={() => handleSpeedChange(1.0)}
-                  >
-                    1x
-                  </button>
-                  <button
-                    type="button"
-                    class={`speed-chip ${playbackSpeed() === 1.25 ? "active" : ""}`}
-                    onClick={() => handleSpeedChange(1.25)}
-                  >
-                    1.25x
-                  </button>
-                </div>
-
-                {/* Generate / Retranscribe trigger */}
-                <button
-                  type="button"
-                  class="ai-btn-sm pro"
-                  disabled={isGenerating()}
-                  onClick={handleGenerateInspectTrack}
-                >
-                  <Show when={isGenerating()} fallback={<><i class="ph-bold ph-lightning" /> Transcribe Track</>}>
-                    <i class="ph-bold ph-spinner animate-spin" /> Transcribing...
+                    <img src={getThumbnailUrl(selectedVideo()!)} alt={selectedVideo()!.title} />
                   </Show>
-                </button>
+                </div>
+
+                <div class="track-card-details">
+                  <h3 class="track-title" title={selectedVideo()?.title || customMediaFilePath()}>
+                    {selectedVideo()?.title || customMediaFilePath().split(/[\\/]/).pop()}
+                  </h3>
+                  <p class="track-channel">
+                    {selectedVideo()?.channel || "Custom Imported File"}
+                  </p>
+                  <div class="track-status-row">
+                    <span
+                      class={`sync-status-pill ${
+                        result()
+                          ? result()?.enhanced_lrc
+                            ? "karaoke"
+                            : "lrc"
+                          : "missing"
+                      }`}
+                    >
+                      <i
+                        class={`ph-fill ${
+                          result()
+                            ? result()?.enhanced_lrc
+                              ? "ph-microphone-stage"
+                              : "ph-waveform"
+                            : "ph-x-circle"
+                        }`}
+                      />
+                      {result()
+                        ? result()?.enhanced_lrc
+                          ? "Word-Synced Karaoke"
+                          : "Line-Synced LRC"
+                        : "No Synced Lyrics Found"}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="track-card-actions">
+                  <button
+                    type="button"
+                    class="studio-btn-sm"
+                    onClick={() => setShowVideoPicker(true)}
+                    title="Choose a different video from library"
+                  >
+                    <i class="ph-bold ph-arrows-left-right" />
+                    <span>Change</span>
+                  </button>
+
+                  <Show when={selectedVideo()}>
+                    <button
+                      type="button"
+                      class="studio-btn-sm"
+                      onClick={handlePlayInMainPlayer}
+                      title="Open and play this track in the full ViveStream Player"
+                    >
+                      <i class="ph-bold ph-play-circle" />
+                      <span>Play in Player</span>
+                    </button>
+                  </Show>
+                </div>
+              </div>
+            </Show>
+          </div>
+
+          {/* RIGHT SIDE: Lyrics Visualization, Editor & Neural Controls */}
+          <div class="studio-right-column">
+            {/* Neural Engine Parameters Toolbar */}
+            <div class="studio-config-toolbar">
+              <div class="config-item">
+                <label>Whisper Model:</label>
+                <select
+                  value={selectedModel()}
+                  onChange={(e) => {
+                    setSelectedModel(e.currentTarget.value);
+                    setWhisperDefaultModel(e.currentTarget.value);
+                  }}
+                  class="studio-select"
+                >
+                  <For each={status()?.models || []}>
+                    {(m) => (
+                      <option value={m.name}>
+                        {m.name.toUpperCase()} {m.installed ? "• [Installed]" : "• [Remote]"}
+                      </option>
+                    )}
+                  </For>
+                </select>
+              </div>
+
+              <div class="config-item">
+                <label>Acceleration:</label>
+                <select
+                  value={selectedDevice()}
+                  onChange={(e) => {
+                    setSelectedDevice(e.currentTarget.value);
+                    updateWhisperComputeDevice(e.currentTarget.value);
+                  }}
+                  class="studio-select"
+                >
+                  <option value="auto">Auto (Intel Arc GPU Preferred)</option>
+                  <option value="gpu:0">
+                    GPU: {status()?.system?.primary_gpu?.name || "Discrete GPU"}
+                  </option>
+                  <option value="cpu">CPU (Multi-Threaded Rayon)</option>
+                </select>
+              </div>
+
+              <div class="config-item">
+                <label>Task:</label>
+                <select
+                  value={selectedTask()}
+                  onChange={(e) => {
+                    setSelectedTask(e.currentTarget.value);
+                    setWhisperDefaultTask(e.currentTarget.value);
+                  }}
+                  class="studio-select"
+                >
+                  <option value="transcribe">Transcribe (Original)</option>
+                  <option value="translate">Translate to English</option>
+                </select>
+              </div>
+
+              <div class="config-item">
+                <label>Language:</label>
+                <select
+                  value={selectedLanguage()}
+                  onChange={(e) => setSelectedLanguage(e.currentTarget.value)}
+                  class="studio-select"
+                >
+                  <option value="auto">Auto-Detect</option>
+                  <option value="en">English</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="zh">Chinese</option>
+                </select>
               </div>
             </div>
 
-            {/* Inspector Workspace Sub-Tabs */}
-            <div class="ai-inspector-tabs-nav">
-              <button
-                type="button"
-                class={`inspector-tab-btn ${inspectorTab() === "karaoke" ? "active" : ""}`}
-                onClick={() => setInspectorTab("karaoke")}
+            {/* Generation & Calibration Action Strip */}
+            <div class="studio-action-strip">
+              <Show
+                when={result()}
+                fallback={
+                  <div class="generate-prompt-box">
+                    <button
+                      type="button"
+                      class="studio-btn-generate"
+                      disabled={isGenerating() || (!selectedVideo() && !customMediaFilePath())}
+                      onClick={handleGenerateLyrics}
+                    >
+                      <Show
+                        when={isGenerating()}
+                        fallback={
+                          <>
+                            <i class="ph-bold ph-sparkle" />
+                            <span>Generate Synced Lyrics with Whisper</span>
+                          </>
+                        }
+                      >
+                        <i class="ph ph-spinner ph-spin" />
+                        <span>Transcribing Audio...</span>
+                      </Show>
+                    </button>
+                    <span class="generate-subtext">
+                      Pure Rust Candle neural recognition with word-accurate syllable timestamps.
+                    </span>
+                  </div>
+                }
               >
-                <i class="ph-bold ph-waveform" /> Synchronized Karaoke View
-              </button>
-              <button
-                type="button"
-                class={`inspector-tab-btn ${inspectorTab() === "editor" ? "active" : ""}`}
-                onClick={() => setInspectorTab("editor")}
-              >
-                <i class="ph-bold ph-pencil-simple-line" /> Pro LRC Text Editor
-              </button>
-              <button
-                type="button"
-                class={`inspector-tab-btn ${inspectorTab() === "raw" ? "active" : ""}`}
-                onClick={() => setInspectorTab("raw")}
-              >
-                <i class="ph-bold ph-code" /> Raw Exports (VTT, SRT, JSON)
-              </button>
+                {/* Calibration controls when lyrics exist */}
+                <div class="calibration-row">
+                  <div class="offset-nudgers">
+                    <span class="nudger-label">Offset:</span>
+                    <button type="button" class="nudger-btn" onClick={() => handleShiftOffset(-1.0)} title="Shift earlier 1.0s">
+                      -1s
+                    </button>
+                    <button type="button" class="nudger-btn" onClick={() => handleShiftOffset(-0.2)} title="Shift earlier 0.2s">
+                      -0.2s
+                    </button>
+                    <button type="button" class="nudger-btn" onClick={() => handleShiftOffset(0.2)} title="Shift later 0.2s">
+                      +0.2s
+                    </button>
+                    <button type="button" class="nudger-btn" onClick={() => handleShiftOffset(1.0)} title="Shift later 1.0s">
+                      +1s
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="studio-btn-align"
+                    onClick={handleAlignIntroToPlayhead}
+                    title="Lock the first sung lyric line directly to the current video playhead"
+                  >
+                    <i class="ph-bold ph-target" />
+                    <span>Align Intro to Playhead</span>
+                  </button>
+
+                  <div class="action-strip-end">
+                    <button
+                      type="button"
+                      class="studio-btn-secondary-sm"
+                      disabled={isGenerating()}
+                      onClick={handleGenerateLyrics}
+                      title="Re-run Whisper neural transcription on this track"
+                    >
+                      <i class="ph-bold ph-arrows-clockwise" />
+                      <span>Regenerate</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="studio-btn-danger-sm"
+                      onClick={handleDeleteLyrics}
+                      title="Delete all synced lyrics & subtitles for this track"
+                    >
+                      <i class="ph-bold ph-trash" />
+                      <span>Delete</span>
+                    </button>
+                  </div>
+                </div>
+              </Show>
+
+              {/* Real-time Transcription Progress Indicator */}
+              <Show when={isGenerating()}>
+                <div class="studio-progress-card">
+                  <div class="progress-info-row">
+                    <span class="progress-msg">
+                      <i class="ph-fill ph-waveform lyrics-pulse" />
+                      {genStatusMsg() || transcribeProgress()?.message || "Running neural speech decoder..."}
+                    </span>
+                    <span class="progress-pct">
+                      {Math.round(transcribeProgress()?.percent || 0)}%
+                    </span>
+                  </div>
+                  <div class="studio-progress-track">
+                    <div
+                      class="studio-progress-fill"
+                      style={{ width: `${Math.max(5, Math.min(100, transcribeProgress()?.percent || 0))}%` }}
+                    />
+                  </div>
+                </div>
+              </Show>
             </div>
 
-            {/* Tab 1: Live Karaoke Stream */}
-            <Show when={inspectorTab() === "karaoke"}>
-              <div class="ai-karaoke-stream-panel" ref={lyricsScrollContainer}>
+            {/* Studio Workspace Tabs: Karaoke, Editor, Formats */}
+            <div class="studio-tabs-bar">
+              <div class="tabs-left">
+                <button
+                  type="button"
+                  class={`studio-tab-btn ${activeStudioTab() === "karaoke" ? "active" : ""}`}
+                  onClick={() => setActiveStudioTab("karaoke")}
+                >
+                  <i class="ph-fill ph-microphone-stage" />
+                  <span>Karaoke Stream</span>
+                </button>
+                <button
+                  type="button"
+                  class={`studio-tab-btn ${activeStudioTab() === "editor" ? "active" : ""}`}
+                  onClick={() => setActiveStudioTab("editor")}
+                >
+                  <i class="ph-fill ph-note-pencil" />
+                  <span>LRC Editor</span>
+                </button>
+                <button
+                  type="button"
+                  class={`studio-tab-btn ${activeStudioTab() === "formats" ? "active" : ""}`}
+                  onClick={() => setActiveStudioTab("formats")}
+                >
+                  <i class="ph-fill ph-code" />
+                  <span>Export & Formats</span>
+                </button>
+              </div>
+
+              <div class="tabs-right">
+                <Show when={activeStudioTab() === "editor"}>
+                  <button
+                    type="button"
+                    class="studio-btn-primary-sm"
+                    disabled={isSavingLyrics() || !editableLrc().trim()}
+                    onClick={handleSaveLyrics}
+                  >
+                    <i class="ph-bold ph-floppy-disk" />
+                    <span>{isSavingLyrics() ? "Saving..." : "Save to Disk"}</span>
+                  </button>
+                </Show>
+
+                <Show when={activeStudioTab() === "formats"}>
+                  <button type="button" class="studio-btn-secondary-sm" onClick={handleCopyRaw}>
+                    <i class={`ph-bold ${copied() ? "ph-check" : "ph-copy"}`} />
+                    <span>{copied() ? "Copied" : "Copy to Clipboard"}</span>
+                  </button>
+                </Show>
+              </div>
+            </div>
+
+            {/* TAB 1: Live Interactive Karaoke Stream */}
+            <Show when={activeStudioTab() === "karaoke"}>
+              <div class="studio-karaoke-viewer" ref={lyricsScrollEl}>
                 <Show
-                  when={result()?.segments && result()!.segments.length > 0}
+                  when={result() && result()!.segments && result()!.segments.length > 0}
                   fallback={
-                    <div class="ai-inspector-empty">
-                      <i class="ph-bold ph-sparkle" />
-                      <h3>No Synced Lyrics Loaded</h3>
-                      <p>Click "Transcribe Track" above or choose a track from the Matrix to inspect its word-level alignments.</p>
+                    <div class="karaoke-empty-box">
+                      <i class="ph-fill ph-waveform" />
+                      <h4>No Lyrics to Display</h4>
+                      <p>
+                        Load a video and click "Generate Synced Lyrics with Whisper" to watch real-time synchronized karaoke syllables.
+                      </p>
                     </div>
                   }
                 >
-                  <div class="karaoke-stream-rows">
-                    <For each={result()?.segments}>
-                      {(seg, idx) => {
-                        const isActive = () => activeSegmentIndex() === idx();
-                        const isPast = () => activeSegmentIndex() > idx();
+                  <div class="karaoke-lines-list">
+                    <For each={result()!.segments}>
+                      {(seg, segIdx) => {
+                        const isActive = () => activeSegmentIndex() === segIdx();
+                        const isPast = () => activeSegmentIndex() > segIdx();
 
                         return (
                           <div
-                            class={`karaoke-stream-row ${isActive() ? "is-active" : ""} ${isPast() ? "is-past" : ""}`}
+                            data-segment-index={segIdx()}
+                            class={`karaoke-line-row ${isActive() ? "is-active" : ""} ${isPast() ? "is-past" : ""}`}
                             onClick={() => handleSeek(seg.start)}
-                            title={`Jump to ${formatTimestamp(seg.start)}`}
+                            title={`Jump video playhead to ${formatTime(seg.start)}`}
                           >
-                            <span class="karaoke-row-time">{formatTimestamp(seg.start)}</span>
+                            <span class="line-timestamp">{formatTime(seg.start)}</span>
 
-                            <div class="karaoke-row-words">
+                            <div class="line-text-wrap">
                               <Show
                                 when={seg.words && seg.words.length > 0}
-                                fallback={<span class="karaoke-plain-line">{seg.text}</span>}
+                                fallback={<span class="plain-line-text">{seg.text}</span>}
                               >
-                                <For each={seg.words}>
-                                  {(w) => {
-                                    const sung = () => playbackTime() >= w.end;
-                                    const active = () => playbackTime() >= w.start && playbackTime() < w.end;
-                                    return (
-                                      <span class={`karaoke-syllable ${sung() ? "sung" : ""} ${active() ? "active" : ""}`}>
-                                        {w.word}{" "}
-                                      </span>
-                                    );
-                                  }}
-                                </For>
+                                <div class="karaoke-words-row">
+                                  <For each={seg.words}>
+                                    {(w) => {
+                                      const isWordActive = () => currentTime() >= w.start && currentTime() <= w.end;
+                                      const isWordSung = () => currentTime() > w.end;
+                                      return (
+                                        <span
+                                          class={`karaoke-word ${isWordActive() ? "active" : ""} ${isWordSung() ? "sung" : ""}`}
+                                        >
+                                          {w.word}{" "}
+                                        </span>
+                                      );
+                                    }}
+                                  </For>
+                                </div>
                               </Show>
                             </div>
                           </div>
@@ -1475,117 +1216,252 @@ export default function LyricsStudio() {
               </div>
             </Show>
 
-            {/* Tab 2: Pro LRC Text Editor */}
-            <Show when={inspectorTab() === "editor"}>
-              <div class="ai-lrc-editor-panel">
-                <div class="editor-toolbar">
-                  <div class="editor-toolbar-left">
-                    <span class="editor-note">
-                      <i class="ph-bold ph-info" /> Edit LRC lines and timestamps directly. Click Save to persist to disk.
-                    </span>
-                  </div>
-                  <div class="editor-toolbar-right">
-                    <button
-                      type="button"
-                      class="ai-btn-sm"
-                      onClick={() => {
-                        const timeTag = `[${formatTimestamp(playbackTime())}.00] `;
-                        setEditableLrc((prev) => prev + "\n" + timeTag);
-                      }}
-                      title="Append current audio timecode tag"
-                    >
-                      <i class="ph-bold ph-clock" /> Stamp Current Time
-                    </button>
-                    <button
-                      type="button"
-                      class="ai-btn-primary"
-                      disabled={isSavingLyrics()}
-                      onClick={handleSaveLyrics}
-                    >
-                      <Show when={isSavingLyrics()} fallback={<><i class="ph-bold ph-floppy-disk" /> Save Changes</>}>
-                        <i class="ph-bold ph-spinner animate-spin" /> Saving...
-                      </Show>
-                    </button>
-                  </div>
+            {/* TAB 2: Direct LRC & Timestamp Editor */}
+            <Show when={activeStudioTab() === "editor"}>
+              <div class="studio-editor-container">
+                <div class="editor-subbar">
+                  <span class="editor-hint">
+                    Edit synced lyrics directly. Use the stamp button to insert the current video playhead timestamp.
+                  </span>
+                  <button
+                    type="button"
+                    class="stamp-time-btn"
+                    onClick={() => {
+                      const t = currentTime();
+                      const m = Math.floor(t / 60);
+                      const s = (t % 60).toFixed(2);
+                      const tag = `[${m.toString().padStart(2, "0")}:${s.padStart(5, "0")}] `;
+                      setEditableLrc((prev) => `${prev}\n${tag}`);
+                    }}
+                  >
+                    <i class="ph-bold ph-clock" />
+                    <span>Stamp Playhead ({formatTime(currentTime())})</span>
+                  </button>
                 </div>
 
                 <textarea
-                  class="ai-lrc-textarea"
+                  class="studio-lrc-textarea"
                   value={editableLrc()}
                   onInput={(e) => setEditableLrc(e.currentTarget.value)}
-                  placeholder="Paste or edit [mm:ss.xx] LRC formatted lyrics here..."
-                  rows={20}
+                  placeholder="[00:00.00] Enter synchronized lyrics here..."
                   spellcheck={false}
                 />
               </div>
             </Show>
 
-            {/* Tab 3: Raw Exports */}
-            <Show when={inspectorTab() === "raw"}>
-              <div class="ai-raw-export-panel">
-                <div class="raw-export-header">
-                  <div class="raw-format-pills">
-                    <button
-                      type="button"
-                      class={`raw-pill ${rawTab() === "elrc" ? "active" : ""}`}
-                      onClick={() => setRawTab("elrc")}
-                    >
-                      Enhanced LRC
-                    </button>
-                    <button
-                      type="button"
-                      class={`raw-pill ${rawTab() === "lrc" ? "active" : ""}`}
-                      onClick={() => setRawTab("lrc")}
-                    >
-                      Standard LRC
-                    </button>
-                    <button
-                      type="button"
-                      class={`raw-pill ${rawTab() === "vtt" ? "active" : ""}`}
-                      onClick={() => setRawTab("vtt")}
-                    >
-                      WebVTT
-                    </button>
-                    <button
-                      type="button"
-                      class={`raw-pill ${rawTab() === "srt" ? "active" : ""}`}
-                      onClick={() => setRawTab("srt")}
-                    >
-                      SubRip (SRT)
-                    </button>
-                    <button
-                      type="button"
-                      class={`raw-pill ${rawTab() === "json" ? "active" : ""}`}
-                      onClick={() => setRawTab("json")}
-                    >
-                      Raw JSON
-                    </button>
-                  </div>
+            {/* TAB 3: Multi-Format Exporter */}
+            <Show when={activeStudioTab() === "formats"}>
+              <div class="studio-formats-container">
+                <div class="formats-pill-selector">
+                  <button
+                    type="button"
+                    class={`fmt-pill ${rawTab() === "elrc" ? "active" : ""}`}
+                    onClick={() => setRawTab("elrc")}
+                  >
+                    Enhanced LRC (.elrc)
+                  </button>
+                  <button
+                    type="button"
+                    class={`fmt-pill ${rawTab() === "lrc" ? "active" : ""}`}
+                    onClick={() => setRawTab("lrc")}
+                  >
+                    Standard LRC (.lrc)
+                  </button>
+                  <button
+                    type="button"
+                    class={`fmt-pill ${rawTab() === "vtt" ? "active" : ""}`}
+                    onClick={() => setRawTab("vtt")}
+                  >
+                    WebVTT (.vtt)
+                  </button>
+                  <button
+                    type="button"
+                    class={`fmt-pill ${rawTab() === "srt" ? "active" : ""}`}
+                    onClick={() => setRawTab("srt")}
+                  >
+                    SubRip (.srt)
+                  </button>
+                  <button
+                    type="button"
+                    class={`fmt-pill ${rawTab() === "json" ? "active" : ""}`}
+                    onClick={() => setRawTab("json")}
+                  >
+                    Raw Whisper JSON
+                  </button>
+                </div>
 
-                  <div class="raw-actions">
-                    <button type="button" class="ai-btn-sm" onClick={handleCopyRaw}>
-                      <i class={`ph-bold ${copied() ? "ph-check" : "ph-copy"}`} />
-                      <span>{copied() ? "Copied!" : "Copy"}</span>
-                    </button>
-                    <button type="button" class="ai-btn-sm" onClick={() => handleOpenFolder("lyrics")}>
-                      <i class="ph-bold ph-folder-open" /> Open Lyrics Folder
-                    </button>
+                <div class="format-code-block">
+                  <pre>
+                    <code>
+                      {(() => {
+                        const res = result();
+                        if (!res) return "// No lyrics generated yet. Run Whisper neural recognition to inspect formats.";
+                        if (rawTab() === "elrc") return res.enhanced_lrc || res.lrc;
+                        if (rawTab() === "lrc") return res.lrc;
+                        if (rawTab() === "srt") return res.srt;
+                        if (rawTab() === "vtt") return res.srt ? res.srt.replace(/,/g, ".") : "";
+                        if (rawTab() === "json") return JSON.stringify(res, null, 2);
+                        return "";
+                      })()}
+                    </code>
+                  </pre>
+                </div>
+              </div>
+            </Show>
+          </div>
+        </div>
+
+        {/* POP-UP MODAL: Video Selection Window (Homepage Grid Layout) */}
+        <Show when={showVideoPicker()}>
+          <div class="video-picker-overlay" onClick={() => setShowVideoPicker(false)}>
+            <div class="video-picker-modal" onClick={(e) => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div class="modal-header">
+                <div class="modal-title-group">
+                  <i class="ph-bold ph-video-camera modal-icon" />
+                  <div>
+                    <h2>Select Video from Library</h2>
+                    <p>Choose any video to load into Lyrics Studio for playback and synchronization.</p>
                   </div>
                 </div>
 
-                <pre class="raw-export-content">
-                  {rawTab() === "elrc"
-                    ? result()?.enhanced_lrc || "No Enhanced LRC data"
-                    : rawTab() === "lrc"
-                    ? result()?.lrc || "No LRC data"
-                    : rawTab() === "vtt"
-                    ? result()?.srt ? result()!.srt.replace(/,/g, ".") : "No WebVTT data"
-                    : rawTab() === "srt"
-                    ? result()?.srt || "No SRT data"
-                    : JSON.stringify(result(), null, 2)}
-                </pre>
+                <button
+                  type="button"
+                  class="modal-close-btn"
+                  onClick={() => setShowVideoPicker(false)}
+                  title="Close (Esc)"
+                >
+                  <i class="ph-bold ph-x" />
+                </button>
               </div>
-            </Show>
+
+              {/* Search & Filter Toolbar */}
+              <div class="modal-toolbar">
+                <div class="modal-search-box">
+                  <i class="ph-bold ph-magnifying-glass" />
+                  <input
+                    type="text"
+                    placeholder="Search videos by title or artist..."
+                    value={pickerSearch()}
+                    onInput={(e) => setPickerSearch(e.currentTarget.value)}
+                    autofocus
+                  />
+                  <Show when={pickerSearch()}>
+                    <button
+                      type="button"
+                      class="search-clear-btn"
+                      onClick={() => setPickerSearch("")}
+                    >
+                      <i class="ph-bold ph-x-circle" />
+                    </button>
+                  </Show>
+                </div>
+
+                <div class="modal-filter-group">
+                  <button
+                    type="button"
+                    class={`modal-filter-chip ${pickerStatusFilter() === "all" ? "active" : ""}`}
+                    onClick={() => setPickerStatusFilter("all")}
+                  >
+                    All ({libraryVideos().length})
+                  </button>
+                  <button
+                    type="button"
+                    class={`modal-filter-chip ${pickerStatusFilter() === "synced" ? "active" : ""}`}
+                    onClick={() => setPickerStatusFilter("synced")}
+                  >
+                    Synced Lyrics
+                  </button>
+                  <button
+                    type="button"
+                    class={`modal-filter-chip ${pickerStatusFilter() === "missing" ? "active" : ""}`}
+                    onClick={() => setPickerStatusFilter("missing")}
+                  >
+                    Missing Lyrics
+                  </button>
+                </div>
+
+                <div class="modal-sort-box">
+                  <label>Sort:</label>
+                  <select
+                    value={pickerSort()}
+                    onChange={(e: any) => setPickerSort(e.currentTarget.value)}
+                    class="studio-select"
+                  >
+                    <option value="date_desc">Recently Added</option>
+                    <option value="date_asc">Oldest First</option>
+                    <option value="title_asc">Title (A-Z)</option>
+                    <option value="channel">Channel / Artist</option>
+                    <option value="duration">Duration</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Modal Video Grid */}
+              <div class="modal-video-grid">
+                <Show
+                  when={filteredPickerVideos().length > 0}
+                  fallback={
+                    <div class="picker-empty-state">
+                      <i class="ph-bold ph-magnifying-glass" />
+                      <h4>No matching videos found</h4>
+                      <p>Try searching with a different title or clearing the status filter.</p>
+                    </div>
+                  }
+                >
+                  <For each={filteredPickerVideos()}>
+                    {(vid) => {
+                      const status = () => getTrackLyricsStatus(vid);
+                      const isCurrent = () => selectedVideo()?.id === vid.id;
+
+                      return (
+                        <div
+                          class={`picker-video-card ${isCurrent() ? "is-selected" : ""}`}
+                          onClick={() => handleSelectVideo(vid)}
+                        >
+                          <div class="picker-thumb-wrapper">
+                            <img src={getThumbnailUrl(vid)} alt={vid.title} loading="lazy" />
+                            <span class="picker-duration">Local Video</span>
+
+                            <Show when={status().hasLyrics}>
+                              <span class={`picker-sync-badge ${status().format}`}>
+                                <i class="ph-fill ph-check" />
+                                {status().format === "karaoke" ? "Karaoke" : "LRC"}
+                              </span>
+                            </Show>
+                          </div>
+
+                          <div class="picker-meta">
+                            <h4 class="picker-title" title={vid.title}>
+                              {vid.title}
+                            </h4>
+                            <p class="picker-channel" title={vid.channel}>
+                              {vid.channel}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  </For>
+                </Show>
+              </div>
+
+              {/* Modal Footer */}
+              <div class="modal-footer">
+                <span class="modal-count-text">
+                  Showing {filteredPickerVideos().length} of {libraryVideos().length} library tracks
+                </span>
+
+                <button
+                  type="button"
+                  class="studio-btn-secondary"
+                  onClick={handleBrowseLocalFile}
+                >
+                  <i class="ph-bold ph-file-arrow-up" />
+                  <span>Import External File</span>
+                </button>
+              </div>
+            </div>
           </div>
         </Show>
       </div>
