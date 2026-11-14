@@ -1,5 +1,4 @@
 import { render, screen, waitFor } from "@solidjs/testing-library";
-import { MemoryRouter, Route } from "@solidjs/router";
 import App from "../App";
 import { vi } from "vitest";
 
