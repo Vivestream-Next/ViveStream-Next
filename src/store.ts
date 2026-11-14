@@ -46,8 +46,8 @@ const getNum = (key: string, def: number) => {
 const initialAnimState = getBool("useAnimatedIcons", true);
 const initialHoverState = getBool("sidebarHoverMode", true);
 const initialTheme = getStr("appTheme", "dark");
-const initialPalette = getStr("appPalette", "sunset");
-const initialCustomColor = getStr("customAccentColor", "#f25c54");
+const initialPalette = getStr("appPalette", "monochrome");
+const initialCustomColor = getStr("customAccentColor", "#ffffff");
 const initialStyle =
   (getStr("designStyle", "neo-brutalism") as
     "neo-brutalism" | "claymorphism") || "neo-brutalism";
