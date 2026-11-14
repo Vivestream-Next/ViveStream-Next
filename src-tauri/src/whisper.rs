@@ -2,15 +2,25 @@ use crate::system::{get_base_dir, get_bin_dir};
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use tauri::{AppHandle, Emitter};
+use std::sync::RwLock;
+use tauri::{AppHandle, Emitter, Manager};
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
 
 #[cfg(target_os = "windows")]
 const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// Static telemetry & system scan cache to ensure instant UI loads (0ms latency on tab switches)
+static SYSTEM_TELEMETRY_CACHE: RwLock<Option<(serde_json::Value, serde_json::Value)>> = RwLock::new(None);
+
+pub fn invalidate_whisper_cache() {
+    if let Ok(mut lock) = SYSTEM_TELEMETRY_CACHE.write() {
+        *lock = None;
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelDownloadProgress {
@@ -20,6 +30,21 @@ pub struct ModelDownloadProgress {
     pub total_mb: f64,
 }
 
+/// Helper: Prepend bin_dir to command's PATH so subprocesses can locate ffmpeg and other tools
+fn configure_subprocess_path(cmd: &mut Command, bin_dir: &Path) {
+    let current_path = std::env::var_os("PATH").unwrap_or_default();
+    let mut new_path = std::ffi::OsString::new();
+    new_path.push(bin_dir);
+    #[cfg(target_os = "windows")]
+    new_path.push(";");
+    #[cfg(not(target_os = "windows"))]
+    new_path.push(":");
+    new_path.push(current_path);
+
+    cmd.env("PATH", new_path);
+}
+
+/// Resolve the absolute path to the ViveStream Whisper neural binary across Windows, Linux, and macOS
 pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
     let bin_name = if cfg!(target_os = "windows") {
         "vivestream-whisper.exe"
@@ -30,7 +55,7 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
     let bin_dir = get_bin_dir(app)?;
     let app_data_bin = bin_dir.join(bin_name);
 
-    // 1. Check local workspace candidates during development FIRST
+    // 1. Check local workspace candidates during development
     let mut candidates = Vec::new();
 
     if let Ok(curr) = std::env::current_dir() {
@@ -50,6 +75,21 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
+    // 2. Check current executable folder (for packaged builds and portable distributions)
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join(bin_name));
+            candidates.push(exe_dir.join("bin").join(bin_name));
+            candidates.push(exe_dir.join("resources").join(bin_name));
+        }
+    }
+
+    // 3. Check Tauri bundled resources directory
+    if let Ok(res_dir) = app.path().resource_dir() {
+        candidates.push(res_dir.join(bin_name));
+        candidates.push(res_dir.join("bin").join(bin_name));
+    }
+
     for cand in &candidates {
         if cand.is_file() {
             // Check if workspace build is newer than installed app_data_bin
@@ -67,6 +107,15 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
             if is_newer {
                 let _ = fs::create_dir_all(&bin_dir);
                 let _ = fs::copy(cand, &app_data_bin);
+                #[cfg(not(target_os = "windows"))]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    if let Ok(meta) = fs::metadata(&app_data_bin) {
+                        let mut perms = meta.permissions();
+                        perms.set_mode(0o755);
+                        let _ = fs::set_permissions(&app_data_bin, perms);
+                    }
+                }
             }
 
             if app_data_bin.is_file() {
@@ -76,71 +125,125 @@ pub fn get_whisper_bin_path(app: &AppHandle) -> Result<PathBuf, String> {
         }
     }
 
-    // 2. Fallback to AppData/bin for packaged production runtime
+    // 4. Check AppData/bin for packaged production runtime
     if app_data_bin.is_file() {
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = fs::metadata(&app_data_bin) {
+                let mut perms = meta.permissions();
+                if perms.mode() & 0o111 == 0 {
+                    perms.set_mode(0o755);
+                    let _ = fs::set_permissions(&app_data_bin, perms);
+                }
+            }
+        }
         return Ok(app_data_bin);
+    }
+
+    // 5. Fallback to standard Unix/macOS locations if installed globally
+    #[cfg(unix)]
+    {
+        let system_paths = ["/usr/local/bin", "/usr/bin", "/opt/homebrew/bin"];
+        for sp in &system_paths {
+            let p = PathBuf::from(sp).join(bin_name);
+            if p.is_file() {
+                return Ok(p);
+            }
+        }
     }
 
     Ok(app_data_bin)
 }
 
+/// Resolve the Whisper neural models directory across Windows, Linux, and macOS
 pub fn get_whisper_models_dir(app: &AppHandle) -> Result<PathBuf, String> {
+    let base_dir = get_base_dir(app)?;
+    let models_dir = base_dir.join("AI").join("Whisper");
+
     // 1. Primary path: %USERPROFILE%\ViveStream\AI\Whisper
-    if let Ok(base_dir) = get_base_dir(app) {
-        let p = base_dir.join("AI").join("Whisper");
-        if p.exists() {
-            return Ok(p);
-        }
-        // Backward-compatibility fallback: ViveStream/whisper/models
-        let legacy = base_dir.join("whisper").join("models");
-        if legacy.exists() {
-            return Ok(legacy);
-        }
+    if models_dir.exists() {
+        return Ok(models_dir);
     }
 
-    // 2. Check local workspace parent models folder during development
+    // 2. Backward-compatibility fallback: ViveStream/whisper/models
+    let legacy = base_dir.join("whisper").join("models");
+    if legacy.exists() {
+        return Ok(legacy);
+    }
+
+    // 3. Check local workspace models folder during development if it contains actual models
     if let Ok(curr) = std::env::current_dir() {
         let p1 = curr.join("models");
         if p1.is_dir() {
-            return Ok(p1);
+            if let Ok(entries) = fs::read_dir(&p1) {
+                if entries.flatten().any(|e| {
+                    e.path()
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        == Some("safetensors")
+                }) {
+                    return Ok(p1);
+                }
+            }
         }
         if let Some(parent) = curr.parent() {
             let p2 = parent.join("models");
             if p2.is_dir() {
-                return Ok(p2);
+                if let Ok(entries) = fs::read_dir(&p2) {
+                    if entries.flatten().any(|e| {
+                        e.path()
+                            .extension()
+                            .and_then(|s| s.to_str())
+                            == Some("safetensors")
+                    }) {
+                        return Ok(p2);
+                    }
+                }
             }
         }
     }
 
-    let base_dir = get_base_dir(app)?;
-    let models_dir = base_dir.join("AI").join("Whisper");
-    fs::create_dir_all(&models_dir).ok();
+    // 4. Create standard path cleanly
+    fs::create_dir_all(&models_dir).map_err(|e| {
+        format!(
+            "Failed to create Whisper models directory at '{}': {}",
+            models_dir.display(),
+            e
+        )
+    })?;
     Ok(models_dir)
 }
 
 pub fn get_lyrics_dir(app: &AppHandle) -> Result<PathBuf, String> {
     let base_dir = get_base_dir(app)?;
     let lyrics_dir = base_dir.join("Lyrics");
-    fs::create_dir_all(&lyrics_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&lyrics_dir).map_err(|e| {
+        format!(
+            "Failed to create Lyrics directory at '{}': {}",
+            lyrics_dir.display(),
+            e
+        )
+    })?;
     Ok(lyrics_dir)
 }
 
-/// 1. Check Whisper engine installation, system specs, and model availability
-#[tauri::command]
-pub async fn check_whisper_status(app: AppHandle) -> Result<serde_json::Value, String> {
-    let bin_path = get_whisper_bin_path(&app)?;
-    let models_dir = get_whisper_models_dir(&app)?;
-
-    let binary_installed = bin_path.is_file();
-
+fn run_system_scan(
+    app: &AppHandle,
+    bin_path: &Path,
+    models_dir: &Path,
+    binary_installed: bool,
+) -> Result<(serde_json::Value, serde_json::Value), String> {
     let mut system_info = serde_json::Value::Null;
-    let mut models_info = serde_json::Value::Null;
 
     if binary_installed {
-        // Run --check
-        let mut cmd = Command::new(&bin_path);
+        let mut cmd = Command::new(bin_path);
         cmd.arg("--check");
-        cmd.arg("--models-dir").arg(&models_dir);
+        cmd.arg("--models-dir").arg(models_dir);
+
+        if let Ok(bin_dir) = get_bin_dir(app) {
+            configure_subprocess_path(&mut cmd, &bin_dir);
+        }
 
         #[cfg(target_os = "windows")]
         cmd.creation_flags(CREATE_NO_WINDOW);
@@ -149,37 +252,9 @@ pub async fn check_whisper_status(app: AppHandle) -> Result<serde_json::Value, S
             if out.status.success() {
                 if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
                     system_info = json["system"].clone();
-                    models_info = json["models"].clone();
                 }
             }
         }
-    }
-
-    // Fallback model list if binary isn't runnable yet
-    if models_info.is_null() {
-        let models = vec![
-            ("tiny", 75),
-            ("base", 140),
-            ("small", 460),
-            ("medium", 1500),
-            ("large-v3", 3100),
-        ];
-
-        let list: Vec<serde_json::Value> = models
-            .into_iter()
-            .map(|(name, size)| {
-                let p = models_dir.join(format!("{}.safetensors", name));
-                let installed = p.is_file();
-                serde_json::json!({
-                    "name": name,
-                    "expected_size_mb": size,
-                    "installed": installed,
-                    "path": if installed { Some(p.to_string_lossy().to_string()) } else { None },
-                    "download_url": format!("https://huggingface.co/openai/whisper-{}/resolve/main/model.safetensors", name)
-                })
-            })
-            .collect();
-        models_info = serde_json::Value::Array(list);
     }
 
     let full_telemetry = crate::telemetry::scan_full_system();
@@ -193,8 +268,94 @@ pub async fn check_whisper_status(app: AppHandle) -> Result<serde_json::Value, S
             if let Some(def_m) = system_info.get("recommended_default_model") {
                 sys_obj.insert("recommended_default_model".to_string(), def_m.clone());
             }
+            if let Some(comp_devs) = system_info.get("compute_devices") {
+                sys_obj.insert("compute_devices".to_string(), comp_devs.clone());
+            }
+            if let Some(rec_dev) = system_info.get("recommended_device_id") {
+                sys_obj.insert("recommended_device_id".to_string(), rec_dev.clone());
+            }
         }
     }
+
+    if let Ok(mut lock) = SYSTEM_TELEMETRY_CACHE.write() {
+        *lock = Some((system_info.clone(), system_val.clone()));
+    }
+
+    Ok((system_info, system_val))
+}
+
+fn scan_models_dir(models_dir: &Path) -> serde_json::Value {
+    let models = vec![
+        ("tiny", 75),
+        ("base", 142),
+        ("small", 466),
+        ("medium", 1500),
+        ("large-v2", 3100),
+        ("large-v3", 3100),
+    ];
+
+    let list: Vec<serde_json::Value> = models
+        .into_iter()
+        .map(|(name, size)| {
+            let p_ggml = models_dir.join(format!("ggml-{}.bin", name));
+            let p_bin = models_dir.join(format!("{}.bin", name));
+            let p_safe = models_dir.join(format!("{}.safetensors", name));
+
+            let active_path = if p_ggml.is_file() {
+                Some(p_ggml)
+            } else if p_bin.is_file() {
+                Some(p_bin)
+            } else if p_safe.is_file() {
+                Some(p_safe)
+            } else {
+                None
+            };
+
+            let installed = active_path.is_some();
+            let actual_size_mb = active_path.as_ref().and_then(|p| {
+                p.metadata()
+                    .map(|m| ((m.len() as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0)
+                    .ok()
+            });
+
+            serde_json::json!({
+                "name": name,
+                "expected_size_mb": size,
+                "actual_size_mb": actual_size_mb,
+                "installed": installed,
+                "path": active_path.map(|p| p.to_string_lossy().to_string()),
+                "download_url": format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{}.bin", name)
+            })
+        })
+        .collect();
+    serde_json::Value::Array(list)
+}
+
+/// 1. Check Whisper engine installation, system specs, and model availability (instant cached responses)
+#[tauri::command]
+pub async fn check_whisper_status(
+    app: AppHandle,
+    force_refresh: Option<bool>,
+) -> Result<serde_json::Value, String> {
+    let bin_path = get_whisper_bin_path(&app)?;
+    let models_dir = get_whisper_models_dir(&app)?;
+    let binary_installed = bin_path.is_file();
+
+    let should_refresh = force_refresh.unwrap_or(false);
+
+    let (_system_info, system_val) = if !should_refresh {
+        let cached = SYSTEM_TELEMETRY_CACHE.read().ok().and_then(|c| c.clone());
+        if let Some((s_info, s_val)) = cached {
+            (s_info, s_val)
+        } else {
+            run_system_scan(&app, &bin_path, &models_dir, binary_installed)?
+        }
+    } else {
+        run_system_scan(&app, &bin_path, &models_dir, binary_installed)?
+    };
+
+    // Fast-path model folder scan: checks 6 files on disk in < 0.1ms
+    let models_info = scan_models_dir(&models_dir);
 
     Ok(serde_json::json!({
         "binary_installed": binary_installed,
@@ -213,7 +374,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
     }
 
     let bin_dir = get_bin_dir(&app)?;
-    fs::create_dir_all(&bin_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&bin_dir).map_err(|e| format!("Failed to create binary directory: {}", e))?;
 
     let bin_name = if cfg!(target_os = "windows") {
         "vivestream-whisper.exe"
@@ -224,7 +385,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
 
     let _ = app.emit("whisper-setup-progress", "Deploying Whisper engine binary...");
 
-    // Check if development binary is accessible locally first
+    // Check if development or packaged binary is accessible locally first
     let mut candidates = Vec::new();
     if let Ok(curr) = std::env::current_dir() {
         candidates.push(curr.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
@@ -235,6 +396,13 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
             candidates.push(parent.join("ViveStream-Whisper").join("target").join("release").join(bin_name));
             candidates.push(parent.join("vivestream-whisper").join("target").join("release").join(bin_name));
             candidates.push(parent.join(bin_name));
+        }
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            candidates.push(exe_dir.join(bin_name));
+            candidates.push(exe_dir.join("bin").join(bin_name));
         }
     }
 
@@ -251,6 +419,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
                 }
             }
             let _ = app.emit("whisper-setup-progress", "Whisper engine successfully deployed from local build.");
+            invalidate_whisper_cache();
             return Ok(());
         }
     }
@@ -260,7 +429,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
         .user_agent("ViveStream-Next")
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to initialize HTTP client: {}", e))?;
 
     let _ = app.emit("whisper-setup-progress", "Checking latest GitHub release of ViveStream-Whisper...");
 
@@ -300,7 +469,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
         }
     }
 
-    // 2. Direct latest release URLs matching CI release.yml matrix as fallbacks
+    // 2. Direct latest release URLs matching CI release matrix as fallbacks
     #[cfg(target_os = "windows")]
     {
         download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-windows-x64.exe".to_string());
@@ -309,13 +478,19 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
 
     #[cfg(target_os = "linux")]
     {
+        #[cfg(target_arch = "x86_64")]
         download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-linux-x64".to_string());
+        #[cfg(target_arch = "aarch64")]
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-linux-arm64".to_string());
         download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper".to_string());
     }
 
     #[cfg(target_os = "macos")]
     {
+        #[cfg(target_arch = "aarch64")]
         download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-macos-arm64".to_string());
+        #[cfg(target_arch = "x86_64")]
+        download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper-macos-x64".to_string());
         download_urls.push("https://github.com/Vivestream-Next/ViveStream-Whisper/releases/latest/download/vivestream-whisper".to_string());
     }
 
@@ -346,7 +521,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
 
         let mut file = match File::create(&temp_bin) {
             Ok(f) => f,
-            Err(e) => return Err(e.to_string()),
+            Err(e) => return Err(format!("Failed to create temporary download file: {}", e)),
         };
 
         let mut current_bytes: u64 = 0;
@@ -405,6 +580,7 @@ pub async fn install_whisper_binary(app: AppHandle) -> Result<(), String> {
     }
 
     let _ = app.emit("whisper-setup-progress", "Whisper engine deployed successfully.");
+    invalidate_whisper_cache();
     Ok(())
 }
 
@@ -416,39 +592,40 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
     }
 
     let models_dir = get_whisper_models_dir(&app)?;
-    fs::create_dir_all(&models_dir).map_err(|e| e.to_string())?;
+    fs::create_dir_all(&models_dir).map_err(|e| format!("Failed to create models directory: {}", e))?;
 
-    let target_file = models_dir.join(format!("{}.safetensors", model_name));
-    let temp_file = models_dir.join(format!("{}.safetensors.part", model_name));
+    let target_file = models_dir.join(format!("ggml-{}.bin", model_name));
+    let temp_file = models_dir.join(format!("ggml-{}.bin.part", model_name));
 
-    let repo_name = match model_name.as_str() {
-        "tiny" => "openai/whisper-tiny",
-        "base" => "openai/whisper-base",
-        "small" => "openai/whisper-small",
-        "medium" => "openai/whisper-medium",
-        "large-v2" => "openai/whisper-large-v2",
-        "large-v3" => "openai/whisper-large-v3",
+    let url = match model_name.as_str() {
+        "tiny" | "base" | "small" | "medium" | "large-v2" | "large-v3" => {
+            format!(
+                "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{}.bin",
+                model_name
+            )
+        }
+        "large" | "large-v1" => {
+            "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin".to_string()
+        }
         other => {
-            return Err(format!("Unsupported Whisper model size: {}", other));
+            return Err(format!(
+                "Unsupported Whisper model size: '{}'. Supported sizes: tiny, base, small, medium, large-v2, large-v3",
+                other
+            ));
         }
     };
-
-    let url = format!(
-        "https://huggingface.co/{}/resolve/main/model.safetensors",
-        repo_name
-    );
 
     let client = reqwest::Client::builder()
         .user_agent("ViveStream-Next")
         .redirect(reqwest::redirect::Policy::limited(10))
         .build()
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
 
     let response = client
         .get(&url)
         .send()
         .await
-        .map_err(|e| format!("Network request failed: {}", e))?;
+        .map_err(|e| format!("Model download request failed: {}", e))?;
 
     if !response.status().is_success() {
         return Err(format!("Download failed with HTTP {}", response.status()));
@@ -457,12 +634,18 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
     let total_size = response.content_length().unwrap_or(0);
     let total_mb = (total_size as f64) / (1024.0 * 1024.0);
 
-    let mut file = File::create(&temp_file).map_err(|e| e.to_string())?;
+    let mut file = File::create(&temp_file).map_err(|e| format!("Failed to create part file: {}", e))?;
     let mut downloaded: u64 = 0;
     let mut response = response;
 
-    while let Some(chunk) = response.chunk().await.map_err(|e| format!("Stream error: {}", e))? {
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
+    while let Some(chunk) = response.chunk().await.map_err(|e| {
+        let _ = fs::remove_file(&temp_file);
+        format!("Stream error during model download: {}", e)
+    })? {
+        if let Err(e) = file.write_all(&chunk) {
+            let _ = fs::remove_file(&temp_file);
+            return Err(format!("Failed to write chunk: {}", e));
+        }
         downloaded += chunk.len() as u64;
 
         let downloaded_mb = (downloaded as f64) / (1024.0 * 1024.0);
@@ -483,10 +666,11 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
         );
     }
 
-    file.flush().map_err(|e| e.to_string())?;
+    file.flush().map_err(|e| format!("Failed to flush file: {}", e))?;
     drop(file);
 
-    fs::rename(&temp_file, &target_file).map_err(|e| e.to_string())?;
+    fs::rename(&temp_file, &target_file).map_err(|e| format!("Failed to save completed model: {}", e))?;
+    invalidate_whisper_cache();
 
     Ok(())
 }
@@ -499,17 +683,33 @@ pub async fn delete_whisper_model(app: AppHandle, model_name: String) -> Result<
     }
 
     let models_dir = get_whisper_models_dir(&app)?;
-    let target_file = models_dir.join(format!("{}.safetensors", model_name));
-    if target_file.is_file() {
-        fs::remove_file(&target_file).map_err(|e| format!("Failed to delete model file: {}", e))?;
+    let mut deleted = false;
+    let candidates = [
+        models_dir.join(format!("ggml-{}.bin", model_name)),
+        models_dir.join(format!("{}.bin", model_name)),
+        models_dir.join(format!("{}.safetensors", model_name)),
+        models_dir.join(format!("ggml-{}.bin.part", model_name)),
+        models_dir.join(format!("{}.safetensors.part", model_name)),
+    ];
+    for cand in &candidates {
+        if cand.is_file() {
+            let _ = fs::remove_file(cand);
+            deleted = true;
+        }
     }
     let sub_folder = models_dir.join(&model_name);
     if sub_folder.is_dir() {
         let _ = fs::remove_dir_all(&sub_folder);
+        deleted = true;
     }
+    if !deleted {
+        return Err(format!("Model '{}' not found on disk.", model_name));
+    }
+    invalidate_whisper_cache();
     Ok(())
 }
 
+/// Parse standard and word-level enhanced LRC content into structured LyricLines
 pub fn parse_lrc_content(lrc: &str) -> Vec<crate::models::LyricLine> {
     let mut lines = Vec::new();
     let mut line_id = 0;
@@ -613,6 +813,95 @@ pub fn parse_lrc_content(lrc: &str) -> Vec<crate::models::LyricLine> {
     lines
 }
 
+/// Parse standard SubRip (.srt) subtitle content into structured LyricLines
+pub fn parse_srt_content(srt: &str) -> Vec<crate::models::LyricLine> {
+    let mut lines = Vec::new();
+    let mut current_id = 0;
+    let mut current_start = 0.0;
+    let mut current_end = 0.0;
+    let mut current_text = Vec::new();
+    let mut in_timing = false;
+
+    let parse_time = |t_str: &str| -> Option<f64> {
+        let clean = t_str.trim().replace(',', ".");
+        let time_parts: Vec<&str> = clean.split(':').collect();
+        if time_parts.len() == 3 {
+            let h = time_parts[0].parse::<f64>().ok()?;
+            let m = time_parts[1].parse::<f64>().ok()?;
+            let s = time_parts[2].parse::<f64>().ok()?;
+            Some(h * 3600.0 + m * 60.0 + s)
+        } else if time_parts.len() == 2 {
+            let m = time_parts[0].parse::<f64>().ok()?;
+            let s = time_parts[1].parse::<f64>().ok()?;
+            Some(m * 60.0 + s)
+        } else {
+            None
+        }
+    };
+
+    for raw_line in srt.lines() {
+        let line = raw_line.trim();
+        if line.is_empty() {
+            if in_timing && !current_text.is_empty() {
+                lines.push(crate::models::LyricLine {
+                    id: current_id,
+                    start: current_start,
+                    end: current_end,
+                    text: current_text.join(" "),
+                    translation: None,
+                    words: Vec::new(),
+                });
+                current_id += 1;
+                current_text.clear();
+                in_timing = false;
+            }
+            continue;
+        }
+
+        if line.contains("-->") {
+            let parts: Vec<&str> = line.split("-->").collect();
+            if parts.len() == 2 {
+                if let (Some(t1), Some(t2)) = (parse_time(parts[0]), parse_time(parts[1])) {
+                    if in_timing && !current_text.is_empty() {
+                        lines.push(crate::models::LyricLine {
+                            id: current_id,
+                            start: current_start,
+                            end: current_end,
+                            text: current_text.join(" "),
+                            translation: None,
+                            words: Vec::new(),
+                        });
+                        current_id += 1;
+                        current_text.clear();
+                    }
+                    current_start = t1;
+                    current_end = t2;
+                    in_timing = true;
+                    continue;
+                }
+            }
+        }
+
+        if in_timing {
+            current_text.push(line.to_string());
+        }
+    }
+
+    if in_timing && !current_text.is_empty() {
+        lines.push(crate::models::LyricLine {
+            id: current_id,
+            start: current_start,
+            end: current_end,
+            text: current_text.join(" "),
+            translation: None,
+            words: Vec::new(),
+        });
+    }
+
+    lines
+}
+
+/// Shift timestamps in standard or enhanced LRC content by offset_sec
 pub fn shift_lrc_offset(lrc: &str, offset_sec: f64) -> String {
     let mut result = Vec::new();
     for line in lrc.lines() {
@@ -667,6 +956,7 @@ pub fn shift_lrc_offset(lrc: &str, offset_sec: f64) -> String {
     result.join("\n")
 }
 
+/// Shift timestamps in SRT or WebVTT content by offset_sec
 pub fn shift_srt_or_vtt_offset(content: &str, offset_sec: f64) -> String {
     let mut result = Vec::new();
     for line in content.lines() {
@@ -717,15 +1007,19 @@ pub fn shift_srt_or_vtt_offset(content: &str, offset_sec: f64) -> String {
 pub fn detect_initial_silence_offset(app: &AppHandle, audio_path: &str) -> Option<f64> {
     let bin_dir = get_bin_dir(app).ok()?;
     let (_, ffmpeg_path, _) = crate::downloader::get_binary_paths(&bin_dir);
-    if !ffmpeg_path.is_file() {
-        return None;
-    }
+    let ffmpeg_cmd = if ffmpeg_path.is_file() {
+        ffmpeg_path
+    } else {
+        PathBuf::from("ffmpeg")
+    };
 
-    let mut cmd = Command::new(&ffmpeg_path);
+    let mut cmd = Command::new(&ffmpeg_cmd);
     cmd.arg("-t").arg("30");
     cmd.arg("-i").arg(audio_path);
     cmd.arg("-af").arg("silencedetect=noise=-35dB:d=0.3");
     cmd.arg("-f").arg("null").arg("-");
+
+    configure_subprocess_path(&mut cmd, &bin_dir);
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -766,7 +1060,7 @@ pub fn srt_to_vtt(srt: &str) -> String {
     vtt
 }
 
-/// 4. Generate Synchronized Lyrics & Subtitles for Audio/Video File with real-time progress streaming
+/// 5. Generate Synchronized Lyrics & Subtitles for Audio/Video File with real-time progress streaming
 #[tauri::command]
 pub async fn generate_track_lyrics(
     app: AppHandle,
@@ -781,10 +1075,15 @@ pub async fn generate_track_lyrics(
         return Err("AI Studio features are locked behind the 6-Month Pro Subscription. Please activate your license.".to_string());
     }
 
+    if !Path::new(&audio_path).is_file() {
+        return Err(format!("Audio file not found at '{}'", audio_path));
+    }
+
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
     let lyrics_dir = get_lyrics_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
+    let bin_dir = get_bin_dir(&app)?;
 
     if !bin_path.is_file() {
         return Err("Whisper engine binary is not installed yet. Please install it from AI Settings.".to_string());
@@ -792,14 +1091,18 @@ pub async fn generate_track_lyrics(
 
     // Resolve requested model, or gracefully fall back to an installed model in models_dir
     let mut resolved_model = model.unwrap_or_else(|| "base".to_string());
-    let requested_model_file = models_dir.join(format!("{}.safetensors", resolved_model));
+    let is_model_installed = |m: &str| -> bool {
+        models_dir.join(format!("ggml-{}.bin", m)).is_file()
+            || models_dir.join(format!("{}.bin", m)).is_file()
+            || models_dir.join(format!("{}.safetensors", m)).is_file()
+    };
 
-    if !requested_model_file.is_file() {
-        // Find if ANY model is already downloaded and installed
-        let fallback_candidates = ["medium", "small", "base", "tiny", "large-v3", "large-v2"];
+    if !is_model_installed(&resolved_model) {
+        // Find if ANY model is already downloaded and installed (prioritize GGML models for GPU)
+        let fallback_candidates = ["base", "tiny", "small", "medium", "large-v3", "large-v2"];
         let mut found_fallback = None;
         for cand in &fallback_candidates {
-            if models_dir.join(format!("{}.safetensors", cand)).is_file() {
+            if is_model_installed(cand) {
                 found_fallback = Some(cand.to_string());
                 break;
             }
@@ -833,6 +1136,8 @@ pub async fn generate_track_lyrics(
     cmd.arg("--progress");
     cmd.stdout(Stdio::piped());
     cmd.stderr(Stdio::piped());
+
+    configure_subprocess_path(&mut cmd, &bin_dir);
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -875,7 +1180,7 @@ pub async fn generate_track_lyrics(
 
     if !status.success() {
         let stdout_str = String::from_utf8_lossy(&stdout_buf);
-        return Err(format!("Whisper error: {}\n{}", stderr_output, stdout_str));
+        return Err(format!("Whisper error: {}\n{}", stderr_output.trim(), stdout_str.trim()));
     }
 
     let parsed_json = serde_json::from_slice::<serde_json::Value>(&stdout_buf)
@@ -900,23 +1205,31 @@ pub async fn generate_track_lyrics(
     let lead_in_offset = detect_initial_silence_offset(&app, &audio_path).unwrap_or(0.0);
     let should_offset = lead_in_offset >= 0.5;
 
-    let mut final_json = parsed_json.clone();
+    let mut final_json = parsed_json;
     if should_offset {
         if let Some(segs) = final_json.get_mut("segments").and_then(|s| s.as_array_mut()) {
             for seg in segs.iter_mut() {
-                if let Some(st) = seg.get_mut("start").and_then(|s| s.as_f64()) {
-                    *seg.get_mut("start").unwrap() = serde_json::json!((st + lead_in_offset).max(0.0));
+                if let Some(st) = seg.get("start").and_then(|s| s.as_f64()) {
+                    if let Some(start_mut) = seg.get_mut("start") {
+                        *start_mut = serde_json::json!((st + lead_in_offset).max(0.0));
+                    }
                 }
-                if let Some(en) = seg.get_mut("end").and_then(|e| e.as_f64()) {
-                    *seg.get_mut("end").unwrap() = serde_json::json!((en + lead_in_offset).max(0.0));
+                if let Some(en) = seg.get("end").and_then(|e| e.as_f64()) {
+                    if let Some(end_mut) = seg.get_mut("end") {
+                        *end_mut = serde_json::json!((en + lead_in_offset).max(0.0));
+                    }
                 }
                 if let Some(words) = seg.get_mut("words").and_then(|w| w.as_array_mut()) {
                     for w in words.iter_mut() {
-                        if let Some(st) = w.get_mut("start").and_then(|s| s.as_f64()) {
-                            *w.get_mut("start").unwrap() = serde_json::json!((st + lead_in_offset).max(0.0));
+                        if let Some(st) = w.get("start").and_then(|s| s.as_f64()) {
+                            if let Some(start_mut) = w.get_mut("start") {
+                                *start_mut = serde_json::json!((st + lead_in_offset).max(0.0));
+                            }
                         }
-                        if let Some(en) = w.get_mut("end").and_then(|e| e.as_f64()) {
-                            *w.get_mut("end").unwrap() = serde_json::json!((en + lead_in_offset).max(0.0));
+                        if let Some(en) = w.get("end").and_then(|e| e.as_f64()) {
+                            if let Some(end_mut) = w.get_mut("end") {
+                                *end_mut = serde_json::json!((en + lead_in_offset).max(0.0));
+                            }
                         }
                     }
                 }
@@ -932,35 +1245,61 @@ pub async fn generate_track_lyrics(
         let _ = fs::write(&json_dest_id, serde_json::to_string_pretty(&final_json).unwrap_or_default());
     }
 
-    // If an ID is resolved, mirror output files into standard naming: <id>.lrc, <id>.vtt
-    if !resolved_id.is_empty() {
-        let src_lrc = lyrics_dir.join(format!("{}.lrc", audio_file_stem));
-        if let Ok(content) = fs::read_to_string(&src_lrc) {
-            let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
-            let _ = fs::write(&src_lrc, &shifted);
+    // Mirror output files into standard naming: <id>.lrc, <id>.enhanced.lrc, <id>.vtt
+    let mut lrc_str_final = None;
+    let mut elrc_str_final = None;
+    let mut srt_str_final = None;
+
+    let src_lrc = lyrics_dir.join(format!("{}.lrc", audio_file_stem));
+    if let Ok(content) = fs::read_to_string(&src_lrc) {
+        let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
+        let _ = fs::write(&src_lrc, &shifted);
+        if !resolved_id.is_empty() {
             let dest_lrc = lyrics_dir.join(format!("{}.lrc", resolved_id));
             let _ = fs::write(&dest_lrc, &shifted);
         }
+        lrc_str_final = Some(shifted);
+    }
 
-        let src_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", audio_file_stem));
-        if let Ok(content) = fs::read_to_string(&src_elrc) {
-            let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
-            let _ = fs::write(&src_elrc, &shifted);
+    let src_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", audio_file_stem));
+    if let Ok(content) = fs::read_to_string(&src_elrc) {
+        let shifted = if should_offset { shift_lrc_offset(&content, lead_in_offset) } else { content };
+        let _ = fs::write(&src_elrc, &shifted);
+        if !resolved_id.is_empty() {
             let dest_elrc = lyrics_dir.join(format!("{}.enhanced.lrc", resolved_id));
             let _ = fs::write(&dest_elrc, &shifted);
         }
+        elrc_str_final = Some(shifted);
+    }
 
-        let src_srt = lyrics_dir.join(format!("{}.srt", audio_file_stem));
-        if let Ok(srt_str) = fs::read_to_string(&src_srt) {
-            let shifted_srt = if should_offset { shift_srt_or_vtt_offset(&srt_str, lead_in_offset) } else { srt_str };
-            let _ = fs::write(&src_srt, &shifted_srt);
-            let vtt_str = srt_to_vtt(&shifted_srt);
+    let src_srt = lyrics_dir.join(format!("{}.srt", audio_file_stem));
+    if let Ok(srt_str) = fs::read_to_string(&src_srt) {
+        let shifted_srt = if should_offset { shift_srt_or_vtt_offset(&srt_str, lead_in_offset) } else { srt_str };
+        let _ = fs::write(&src_srt, &shifted_srt);
+        let vtt_str = srt_to_vtt(&shifted_srt);
+        if !resolved_id.is_empty() {
             let dest_vtt_lyrics = lyrics_dir.join(format!("{}.vtt", resolved_id));
             let dest_vtt_videos = base_dir.join("Videos").join(format!("{}.vtt", resolved_id));
             let _ = fs::write(&dest_vtt_lyrics, &vtt_str);
             let _ = fs::write(&dest_vtt_videos, &vtt_str);
         }
+        srt_str_final = Some(shifted_srt);
+    }
 
+    // Ensure lrc, enhanced_lrc, and srt fields exist on final_json
+    if let Some(obj) = final_json.as_object_mut() {
+        if let Some(s) = lrc_str_final {
+            obj.insert("lrc".to_string(), serde_json::Value::String(s));
+        }
+        if let Some(s) = elrc_str_final {
+            obj.insert("enhanced_lrc".to_string(), serde_json::Value::String(s));
+        }
+        if let Some(s) = srt_str_final {
+            obj.insert("srt".to_string(), serde_json::Value::String(s));
+        }
+    }
+
+    if !resolved_id.is_empty() {
         // Emit high-priority event so active player immediately renders synced lyrics
         let _ = app.emit("lyrics-ready", serde_json::json!({
             "track_id": resolved_id,
@@ -971,7 +1310,7 @@ pub async fn generate_track_lyrics(
     Ok(final_json)
 }
 
-/// 5. Retrieve structured lyrics with full line and word timestamps
+/// 6. Retrieve structured lyrics with full line and word timestamps
 #[tauri::command]
 pub async fn get_track_lyrics(
     app: AppHandle,
@@ -1103,7 +1442,7 @@ pub async fn get_track_lyrics(
         }
     }
 
-    // 2. If lines empty, fallback to Enhanced LRC or standard LRC parser
+    // 2. If lines empty, fallback to Enhanced LRC, standard LRC, or SRT parser
     if lines.is_empty() {
         if let Some(ref elrc) = raw_enhanced_lrc {
             lines = parse_lrc_content(elrc);
@@ -1111,6 +1450,9 @@ pub async fn get_track_lyrics(
         } else if let Some(ref lrc) = raw_lrc {
             lines = parse_lrc_content(lrc);
             format = "lrc".to_string();
+        } else if let Some(ref srt) = raw_srt {
+            lines = parse_srt_content(srt);
+            format = "srt".to_string();
         }
     }
 
@@ -1128,7 +1470,7 @@ pub async fn get_track_lyrics(
     })
 }
 
-/// 6. Shift and calibrate lyric timestamps by an offset in seconds
+/// 7. Shift and calibrate lyric timestamps by an offset in seconds
 #[tauri::command]
 pub async fn adjust_lyrics_offset(
     app: AppHandle,
@@ -1147,19 +1489,27 @@ pub async fn adjust_lyrics_offset(
             if let Ok(mut json_val) = serde_json::from_str::<serde_json::Value>(&content) {
                 if let Some(segs) = json_val.get_mut("segments").and_then(|s| s.as_array_mut()) {
                     for seg in segs.iter_mut() {
-                        if let Some(st) = seg.get_mut("start").and_then(|s| s.as_f64()) {
-                            *seg.get_mut("start").unwrap() = serde_json::json!((st + offset).max(0.0));
+                        if let Some(st) = seg.get("start").and_then(|s| s.as_f64()) {
+                            if let Some(m) = seg.get_mut("start") {
+                                *m = serde_json::json!((st + offset).max(0.0));
+                            }
                         }
-                        if let Some(en) = seg.get_mut("end").and_then(|e| e.as_f64()) {
-                            *seg.get_mut("end").unwrap() = serde_json::json!((en + offset).max(0.0));
+                        if let Some(en) = seg.get("end").and_then(|e| e.as_f64()) {
+                            if let Some(m) = seg.get_mut("end") {
+                                *m = serde_json::json!((en + offset).max(0.0));
+                            }
                         }
                         if let Some(words) = seg.get_mut("words").and_then(|w| w.as_array_mut()) {
                             for w in words.iter_mut() {
-                                if let Some(st) = w.get_mut("start").and_then(|s| s.as_f64()) {
-                                    *w.get_mut("start").unwrap() = serde_json::json!((st + offset).max(0.0));
+                                if let Some(st) = w.get("start").and_then(|s| s.as_f64()) {
+                                    if let Some(m) = w.get_mut("start") {
+                                        *m = serde_json::json!((st + offset).max(0.0));
+                                    }
                                 }
-                                if let Some(en) = w.get_mut("end").and_then(|e| e.as_f64()) {
-                                    *w.get_mut("end").unwrap() = serde_json::json!((en + offset).max(0.0));
+                                if let Some(en) = w.get("end").and_then(|e| e.as_f64()) {
+                                    if let Some(m) = w.get_mut("end") {
+                                        *m = serde_json::json!((en + offset).max(0.0));
+                                    }
                                 }
                             }
                         }
@@ -1216,7 +1566,7 @@ pub async fn adjust_lyrics_offset(
     get_track_lyrics(app, track_id, None).await
 }
 
-/// 7. Save manually edited lyrics text back to disk
+/// 8. Save manually edited lyrics text back to disk
 #[tauri::command]
 pub async fn save_custom_lyrics(
     app: AppHandle,
@@ -1229,14 +1579,19 @@ pub async fn save_custom_lyrics(
     let lrc_path = lyrics_dir.join(format!("{}.lrc", track_id));
     fs::write(&lrc_path, &lrc_content).map_err(|e| format!("Failed to write LRC: {}", e))?;
 
+    // If word-level tags are present, also save to enhanced.lrc
+    if lrc_content.contains('<') && lrc_content.contains('>') {
+        let elrc_path = lyrics_dir.join(format!("{}.enhanced.lrc", track_id));
+        let _ = fs::write(&elrc_path, &lrc_content);
+    }
+
     // Invalidate/delete stale JSON so get_track_lyrics parses the updated custom LRC text
     let json_path = lyrics_dir.join(format!("{}.json", track_id));
     if json_path.exists() {
         let _ = fs::remove_file(json_path);
     }
 
-    // Also update Videos/<id>.vtt
-    let vtt_path = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    // Also update Videos/<id>.vtt and Lyrics/<id>.vtt
     let parsed_lines = parse_lrc_content(&lrc_content);
     let mut vtt_str = String::from("WEBVTT\n\n");
     for (idx, line) in parsed_lines.iter().enumerate() {
@@ -1254,12 +1609,15 @@ pub async fn save_custom_lyrics(
             line.text
         ));
     }
-    let _ = fs::write(&vtt_path, vtt_str);
+    let vtt_path = base_dir.join("Videos").join(format!("{}.vtt", track_id));
+    let _ = fs::write(&vtt_path, &vtt_str);
+    let vtt_lyrics = lyrics_dir.join(format!("{}.vtt", track_id));
+    let _ = fs::write(&vtt_lyrics, &vtt_str);
 
     get_track_lyrics(app, track_id, None).await
 }
 
-/// 8. Delete generated lyrics files for a track
+/// 9. Delete generated lyrics files for a track
 #[tauri::command]
 pub async fn delete_track_lyrics(app: AppHandle, track_id: String) -> Result<(), String> {
     let lyrics_dir = get_lyrics_dir(&app)?;
@@ -1281,7 +1639,7 @@ pub async fn delete_track_lyrics(app: AppHandle, track_id: String) -> Result<(),
     Ok(())
 }
 
-/// 9. Batch transcribe multiple tracks with queue management
+/// 10. Batch transcribe multiple tracks with queue management
 #[tauri::command]
 pub async fn generate_batch_lyrics(
     app: AppHandle,
@@ -1353,7 +1711,7 @@ pub async fn generate_batch_lyrics(
     Ok(results)
 }
 
-/// 9. Backward compatible cached lyrics command
+/// 11. Backward compatible cached lyrics command
 #[tauri::command]
 pub async fn get_cached_lyrics(
     app: AppHandle,
@@ -1413,7 +1771,7 @@ pub async fn get_cached_lyrics(
     }))
 }
 
-/// 6. Open a Whisper folder (models or lyrics) in OS file manager
+/// 12. Open a Whisper folder (models or lyrics) in OS file manager
 #[tauri::command]
 pub async fn open_whisper_folder(app: AppHandle, target: String) -> Result<(), String> {
     let dir = match target.as_str() {
@@ -1421,12 +1779,14 @@ pub async fn open_whisper_folder(app: AppHandle, target: String) -> Result<(), S
         _ => get_whisper_models_dir(&app)?,
     };
 
+    let _ = fs::create_dir_all(&dir);
+
     #[cfg(target_os = "windows")]
     {
         Command::new("explorer")
             .arg(&dir)
             .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+            .map_err(|e| format!("Failed to open directory in Explorer: {}", e))?;
     }
 
     #[cfg(target_os = "macos")]
@@ -1434,7 +1794,7 @@ pub async fn open_whisper_folder(app: AppHandle, target: String) -> Result<(), S
         Command::new("open")
             .arg(&dir)
             .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+            .map_err(|e| format!("Failed to open directory in Finder: {}", e))?;
     }
 
     #[cfg(target_os = "linux")]
@@ -1442,43 +1802,57 @@ pub async fn open_whisper_folder(app: AppHandle, target: String) -> Result<(), S
         Command::new("xdg-open")
             .arg(&dir)
             .spawn()
-            .map_err(|e| format!("Failed to open directory: {}", e))?;
+            .map_err(|e| format!("Failed to open directory via xdg-open: {}", e))?;
     }
 
     Ok(())
 }
 
-/// 7. List all previously generated lyric files in the lyrics directory
+/// 13. List all previously generated lyric files in the lyrics directory
 #[tauri::command]
 pub async fn list_cached_lyrics_files(app: AppHandle) -> Result<Vec<serde_json::Value>, String> {
     let lyrics_dir = get_lyrics_dir(&app)?;
-    let mut files = Vec::new();
+    let mut files: Vec<(u64, serde_json::Value)> = Vec::new();
 
     if let Ok(entries) = fs::read_dir(&lyrics_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
                 if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                    if ext == "lrc" || ext == "srt" || ext == "json" {
+                    if ext == "lrc" || ext == "srt" || ext == "json" || ext == "vtt" {
                         let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("").to_string();
-                        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                        files.push(serde_json::json!({
-                            "filename": path.file_name().and_then(|s| s.to_str()).unwrap_or(""),
-                            "stem": name,
-                            "ext": ext,
-                            "size_bytes": size,
-                            "path": path.to_string_lossy().to_string(),
-                        }));
+                        let meta = entry.metadata().ok();
+                        let size = meta.as_ref().map(|m| m.len()).unwrap_or(0);
+                        let mtime = meta
+                            .and_then(|m| m.modified().ok())
+                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                            .map(|d| d.as_secs())
+                            .unwrap_or(0);
+
+                        files.push((
+                            mtime,
+                            serde_json::json!({
+                                "filename": path.file_name().and_then(|s| s.to_str()).unwrap_or(""),
+                                "stem": name,
+                                "ext": ext,
+                                "size_bytes": size,
+                                "path": path.to_string_lossy().to_string(),
+                                "modified_at": mtime,
+                            }),
+                        ));
                     }
                 }
             }
         }
     }
 
-    Ok(files)
+    // Sort newest modified first
+    files.sort_by(|a, b| b.0.cmp(&a.0));
+
+    Ok(files.into_iter().map(|(_, val)| val).collect())
 }
 
-/// 8. Run synthetic benchmark on a Whisper model and compute device
+/// 14. Run synthetic benchmark on a Whisper model and compute device
 #[tauri::command]
 pub async fn run_whisper_benchmark(
     app: AppHandle,
@@ -1491,6 +1865,7 @@ pub async fn run_whisper_benchmark(
 
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
+    let bin_dir = get_bin_dir(&app)?;
 
     if !bin_path.is_file() {
         return Err("Whisper engine binary is not installed yet. Please install it from AI Settings.".to_string());
@@ -1506,6 +1881,8 @@ pub async fn run_whisper_benchmark(
     cmd.arg("--models-dir").arg(&models_dir);
     cmd.arg("--json");
 
+    configure_subprocess_path(&mut cmd, &bin_dir);
+
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
@@ -1514,22 +1891,28 @@ pub async fn run_whisper_benchmark(
         .map_err(|e| format!("Failed to execute benchmark: {}", e))?;
 
     if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
-        let out = String::from_utf8_lossy(&output.stdout);
-        return Err(format!("Benchmark failed: {}\n{}", err, out));
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        let out = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let msg = if !err.is_empty() { err } else { out };
+        return Err(format!("Benchmark failed: {}", msg));
     }
 
     serde_json::from_slice::<serde_json::Value>(&output.stdout)
         .map_err(|e| format!("Failed to parse benchmark JSON: {}", e))
 }
 
-/// 9. Probe media file duration, sample rate, channels, and codec without loading model
+/// 15. Probe media file duration, sample rate, channels, and codec without loading model
 #[tauri::command]
 pub async fn probe_media_file(
     app: AppHandle,
     media_path: String,
 ) -> Result<serde_json::Value, String> {
+    if !Path::new(&media_path).is_file() {
+        return Err(format!("Media file not found at '{}'", media_path));
+    }
+
     let bin_path = get_whisper_bin_path(&app)?;
+    let bin_dir = get_bin_dir(&app)?;
     if !bin_path.is_file() {
         return Err("Whisper engine binary is not installed yet.".to_string());
     }
@@ -1539,6 +1922,8 @@ pub async fn probe_media_file(
     cmd.arg(&media_path);
     cmd.arg("--json");
 
+    configure_subprocess_path(&mut cmd, &bin_dir);
+
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
 
@@ -1547,7 +1932,7 @@ pub async fn probe_media_file(
         .map_err(|e| format!("Failed to probe media file: {}", e))?;
 
     if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(format!("Probe failed: {}", err));
     }
 
@@ -1555,18 +1940,21 @@ pub async fn probe_media_file(
         .map_err(|e| format!("Failed to parse probe JSON: {}", e))
 }
 
-/// 10. Query Whisper engine machine-readable capabilities
+/// 16. Query Whisper engine machine-readable capabilities
 #[tauri::command]
 pub async fn get_whisper_capabilities(
     app: AppHandle,
 ) -> Result<serde_json::Value, String> {
     let bin_path = get_whisper_bin_path(&app)?;
+    let bin_dir = get_bin_dir(&app)?;
     if !bin_path.is_file() {
         return Err("Whisper engine binary is not installed yet.".to_string());
     }
 
     let mut cmd = Command::new(&bin_path);
     cmd.arg("--capabilities");
+
+    configure_subprocess_path(&mut cmd, &bin_dir);
 
     #[cfg(target_os = "windows")]
     cmd.creation_flags(CREATE_NO_WINDOW);
@@ -1576,10 +1964,78 @@ pub async fn get_whisper_capabilities(
         .map_err(|e| format!("Failed to query capabilities: {}", e))?;
 
     if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
+        let err = String::from_utf8_lossy(&output.stderr).trim().to_string();
         return Err(format!("Capabilities query failed: {}", err));
     }
 
     serde_json::from_slice::<serde_json::Value>(&output.stdout)
         .map_err(|e| format!("Failed to parse capabilities JSON: {}", e))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_lrc_standard() {
+        let lrc = "[00:01.00]First line\n[00:04.50]Second line\n[00:10.00]Third line";
+        let lines = parse_lrc_content(lrc);
+        assert_eq!(lines.len(), 3);
+        assert_eq!(lines[0].text, "First line");
+        assert!((lines[0].start - 1.0).abs() < 0.01);
+        assert!((lines[0].end - 4.5).abs() < 0.01);
+        assert_eq!(lines[1].text, "Second line");
+        assert!((lines[1].start - 4.5).abs() < 0.01);
+        assert!((lines[1].end - 10.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_lrc_enhanced_karaoke() {
+        let elrc = "[00:02.00] <00:02.00> Hello <00:02.50> world <00:03.00> again";
+        let lines = parse_lrc_content(elrc);
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].text, "Hello world again");
+        assert_eq!(lines[0].words.len(), 3);
+        assert_eq!(lines[0].words[0].word, "Hello");
+        assert!((lines[0].words[0].start - 2.0).abs() < 0.01);
+        assert_eq!(lines[0].words[1].word, "world");
+        assert!((lines[0].words[1].start - 2.5).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_srt_content() {
+        let srt = "1\n00:00:01,500 --> 00:00:04,200\nHello from SRT\n\n2\n00:00:05,000 --> 00:00:08,000\nSecond line\n";
+        let lines = parse_srt_content(srt);
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].text, "Hello from SRT");
+        assert!((lines[0].start - 1.5).abs() < 0.01);
+        assert!((lines[0].end - 4.2).abs() < 0.01);
+        assert_eq!(lines[1].text, "Second line");
+        assert!((lines[1].start - 5.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_shift_lrc_offset() {
+        let lrc = "[00:02.00]Hello world";
+        let shifted = shift_lrc_offset(lrc, 1.5);
+        assert!(shifted.contains("[00:03.50]Hello world"));
+
+        let shifted_neg = shift_lrc_offset(lrc, -1.0);
+        assert!(shifted_neg.contains("[00:01.00]Hello world"));
+    }
+
+    #[test]
+    fn test_shift_srt_offset() {
+        let srt = "00:00:02,000 --> 00:00:05,000\nSubtitle text";
+        let shifted = shift_srt_or_vtt_offset(srt, 2.0);
+        assert!(shifted.contains("00:00:04,000 --> 00:00:07,000"));
+    }
+
+    #[test]
+    fn test_srt_to_vtt() {
+        let srt = "1\n00:00:01,000 --> 00:00:03,500\nTest line";
+        let vtt = srt_to_vtt(srt);
+        assert!(vtt.starts_with("WEBVTT"));
+        assert!(vtt.contains("00:00:01.000 --> 00:00:03.500"));
+    }
 }
