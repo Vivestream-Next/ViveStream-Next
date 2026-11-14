@@ -113,7 +113,7 @@
 
 .card-action-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -145,7 +145,7 @@
 }
 
 .card-action-btn.playlist-btn:hover {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   background: var(--primary-accent);
 }
 
