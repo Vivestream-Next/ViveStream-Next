@@ -2,7 +2,6 @@ import { render, screen, fireEvent, waitFor } from "@solidjs/testing-library";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import FloatingSortBar from "../components/FloatingSortBar";
 import Home from "../pages/Home";
-import Favourites from "../pages/Favourites";
 import { invoke } from "@tauri-apps/api/core";
 import {
   VideoEntry,
