@@ -85,6 +85,13 @@ export const PRESET_PALETTES: PalettePreset[] = [
     description: "Deep Space & Modern Tech Indigo precision",
     icon: "ph-planet",
   },
+  {
+    id: "monochrome",
+    name: "Monochrome",
+    seed: "#ffffff",
+    description: "High-contrast Black & White minimalist neo-noir",
+    icon: "ph-circle-half",
+  },
 ];
 
 /**
@@ -276,6 +283,12 @@ export function applyMaterialTheme(seedHex: string, paletteId?: string): Materia
 export function resolveSeedColor(paletteId: string, customHex?: string): string {
   if (paletteId === "custom" && customHex) {
     return normalizeHex(customHex);
+  }
+  if (paletteId === "monochrome") {
+    const isLight =
+      typeof document !== "undefined" &&
+      document.documentElement?.getAttribute("data-theme") === "light";
+    return isLight ? "#000000" : "#ffffff";
   }
   const match = PRESET_PALETTES.find((p) => p.id === paletteId);
   return match ? match.seed : "#f25c54";
