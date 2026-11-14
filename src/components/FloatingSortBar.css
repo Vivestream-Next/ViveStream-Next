@@ -123,7 +123,7 @@
 
 .floating-sort-dir-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -158,7 +158,7 @@
 
 .floating-sort-shuffle-btn:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
   transform: translate3d(-1px, -1px, 0);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -170,7 +170,7 @@
 
 .floating-sort-shuffle-btn.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 /* Esc tag */
@@ -263,23 +263,23 @@
 
 .floating-sort-menu-item:hover {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .floating-sort-menu-item:hover .item-left i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .floating-sort-menu-item.active {
   background: var(--primary-accent);
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .floating-sort-menu-item.active .item-left i {
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
 
 .check-icon {
   font-size: 0.85rem;
-  color: #ffffff;
+  color: var(--on-primary, #ffffff);
 }
