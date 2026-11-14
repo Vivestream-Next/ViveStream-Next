@@ -35,12 +35,12 @@
   --bg-input: rgba(14, 16, 23, 0.85);
   --bg-hover: rgba(255, 255, 255, 0.06);
 
-  --accent-coral: #f25c54;
-  --accent-coral-gradient: linear-gradient(135deg, #f25c54 0%, #ff736a 100%);
-  --accent-glow: rgba(242, 92, 84, 0.28);
+  --accent-coral: #ffffff;
+  --accent-coral-gradient: linear-gradient(135deg, #ffffff 0%, #d4d4d4 100%);
+  --accent-glow: rgba(255, 255, 255, 0.28);
 
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-focus: rgba(242, 92, 84, 0.5);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-focus: rgba(255, 255, 255, 0.65);
 
   --text-white: #ffffff;
   --text-body: #e2e4e9;
@@ -108,7 +108,7 @@ body, html {
   transform: translate(-50%, -50%);
   width: 480px;
   height: 260px;
-  background: radial-gradient(ellipse at center, rgba(242, 92, 84, 0.12) 0%, transparent 70%);
+  background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.08) 0%, transparent 70%);
   filter: blur(60px);
   pointer-events: none;
   z-index: 0;
@@ -266,9 +266,9 @@ body, html {
 .version-badge {
   font-size: 11px;
   font-weight: 600;
-  color: var(--accent-coral);
-  background: rgba(242, 92, 84, 0.1);
-  border: 1px solid rgba(242, 92, 84, 0.25);
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   letter-spacing: 0.4px;
@@ -385,31 +385,31 @@ body, html {
 
 .btn-primary {
   background: var(--accent-coral-gradient);
-  color: #ffffff;
+  color: #000000;
   border: none;
   outline: none;
   border-radius: var(--radius-btn);
   padding: 12px 32px;
   font-family: var(--font-main);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(242, 92, 84, 0.35);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.25);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-primary:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 26px rgba(242, 92, 84, 0.5);
-  filter: brightness(1.04);
+  box-shadow: 0 8px 26px rgba(255, 255, 255, 0.4);
+  filter: brightness(1.05);
 }
 
 .btn-primary:active {
   transform: translateY(1px);
-  box-shadow: 0 4px 12px rgba(242, 92, 84, 0.3);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
 }
 
 .btn-secondary {
@@ -508,12 +508,12 @@ body, html {
   width: 58px;
   height: 58px;
   border-radius: 50%;
-  background: rgba(242, 92, 84, 0.12);
-  border: 1.5px solid var(--accent-coral);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1.5px solid #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--accent-coral);
+  color: #ffffff;
   font-size: 26px;
   box-shadow: 0 0 24px var(--accent-glow);
 }
