@@ -24,10 +24,10 @@ import {
   activeVideo,
   playerContextParams,
   miniplayerDismissed,
-  lastNonPlayerPath,
   setLastNonPlayerPath,
   setMiniplayerDismissed,
   checkLicenseStatus,
+  initWhisperStatus,
   autoCheckEngineUpdates,
   setEngineUpdateReady,
   setEngineUpdateDownloading,
@@ -308,6 +308,7 @@ const AppLayout: Component<{ children?: any }> = (props) => {
 
   onMount(() => {
     checkLicenseStatus().catch(() => {});
+    initWhisperStatus().catch(() => {});
 
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
