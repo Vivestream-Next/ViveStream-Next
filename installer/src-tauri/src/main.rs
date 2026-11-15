@@ -91,6 +91,16 @@ async fn start_installation(
 ) -> Result<(), String> {
     let target_dir = PathBuf::from(path);
 
+    // 0. Terminate any running application instances to unlock binaries
+    let _ = app.emit(
+        "install-progress",
+        install::ProgressPayload {
+            percent: 5.0,
+            status: "Terminating running application processes...".to_string(),
+        },
+    );
+    install::kill_running_processes();
+
     // 1. Extract payload
     install::extract_payload(&app, &target_dir).map_err(|e| e.to_string())?;
 
