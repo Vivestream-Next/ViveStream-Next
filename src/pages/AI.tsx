@@ -61,7 +61,7 @@ const WHISPER_CATALOG: Record<string, ModelMeta> = {
   tiny: {
     name: "tiny",
     label: "Whisper Tiny",
-    expected_size_mb: 75,
+    expected_size_mb: 151,
     params: "39M params",
     precision: "FP16 SafeTensors",
     speedRating: "Ultra-Fast (>50x RTF)",
@@ -71,7 +71,7 @@ const WHISPER_CATALOG: Record<string, ModelMeta> = {
   base: {
     name: "base",
     label: "Whisper Base",
-    expected_size_mb: 140,
+    expected_size_mb: 290,
     params: "74M params",
     precision: "FP16 SafeTensors",
     speedRating: "Fast (>35x RTF)",
@@ -81,7 +81,7 @@ const WHISPER_CATALOG: Record<string, ModelMeta> = {
   small: {
     name: "small",
     label: "Whisper Small",
-    expected_size_mb: 460,
+    expected_size_mb: 966,
     params: "244M params",
     precision: "FP16 SafeTensors",
     speedRating: "Studio (>20x RTF)",
