@@ -296,7 +296,17 @@ pub fn extract_payload(
                     fs::create_dir_all(p)?;
                 }
             }
-            let mut outfile = File::create(&outpath)?;
+            if outpath.exists() {
+                safe_remove_file(&outpath);
+            }
+            let mut outfile = match File::create(&outpath) {
+                Ok(f) => f,
+                Err(_) => {
+                    std::thread::sleep(std::time::Duration::from_millis(150));
+                    safe_remove_file(&outpath);
+                    File::create(&outpath)?
+                }
+            };
             io::copy(&mut file, &mut outfile)?;
         }
 
@@ -317,6 +327,9 @@ pub fn extract_payload(
 pub fn copy_uninstaller(target_dir: &Path) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if let Ok(current_exe) = std::env::current_exe() {
         let uninstaller_dest = target_dir.join("uninstall.exe");
+        if uninstaller_dest.exists() {
+            safe_remove_file(&uninstaller_dest);
+        }
         let _ = fs::copy(&current_exe, &uninstaller_dest);
     }
     Ok(())
