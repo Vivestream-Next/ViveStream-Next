@@ -286,29 +286,30 @@ fn run_system_scan(
 
 fn scan_models_dir(models_dir: &Path) -> serde_json::Value {
     let models = vec![
-        ("tiny", 151),
-        ("base", 290),
-        ("small", 966),
-        ("medium", 1500),
-        ("large-v2", 3100),
+        ("tiny", 78),
+        ("base", 148),
+        ("small", 488),
+        ("medium", 1530),
+        ("large-v2", 3090),
         ("large-v3", 3100),
+        ("large-v3-turbo", 1624),
     ];
 
     let list: Vec<serde_json::Value> = models
         .into_iter()
         .map(|(name, size)| {
-            let p_safe = models_dir.join(format!("{}.safetensors", name));
             let p_ggml = models_dir.join(format!("ggml-{}.bin", name));
             let p_bin = models_dir.join(format!("{}.bin", name));
+            let p_safe = models_dir.join(format!("{}.safetensors", name));
 
-            let active_path = if p_safe.is_file() {
-                Some(p_safe)
-            } else if p_ggml.is_file() {
-                Some(p_ggml)
+            let (active_path, is_gpu) = if p_ggml.is_file() {
+                (Some(p_ggml), true)
             } else if p_bin.is_file() {
-                Some(p_bin)
+                (Some(p_bin), true)
+            } else if p_safe.is_file() {
+                (Some(p_safe), false)
             } else {
-                None
+                (None, false)
             };
 
             let installed = active_path.is_some();
@@ -323,6 +324,7 @@ fn scan_models_dir(models_dir: &Path) -> serde_json::Value {
                 "expected_size_mb": size,
                 "actual_size_mb": actual_size_mb,
                 "installed": installed,
+                "gpu_accelerated": is_gpu,
                 "path": active_path.map(|p| p.to_string_lossy().to_string()),
                 "download_url": format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-{}.bin", name)
             })
@@ -594,19 +596,20 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
     let models_dir = get_whisper_models_dir(&app)?;
     fs::create_dir_all(&models_dir).map_err(|e| format!("Failed to create models directory: {}", e))?;
 
-    let target_file = models_dir.join(format!("{}.safetensors", model_name));
-    let temp_file = models_dir.join(format!("{}.safetensors.part", model_name));
+    let target_file = models_dir.join(format!("ggml-{}.bin", model_name));
+    let temp_file = models_dir.join(format!("ggml-{}.bin.part", model_name));
 
     let url = match model_name.as_str() {
-        "tiny" => "https://huggingface.co/openai/whisper-tiny/resolve/main/model.safetensors".to_string(),
-        "base" => "https://huggingface.co/openai/whisper-base/resolve/main/model.safetensors".to_string(),
-        "small" => "https://huggingface.co/openai/whisper-small/resolve/main/model.safetensors".to_string(),
-        "medium" => "https://huggingface.co/openai/whisper-medium/resolve/main/model.safetensors".to_string(),
-        "large-v2" => "https://huggingface.co/openai/whisper-large-v2/resolve/main/model.safetensors".to_string(),
-        "large" | "large-v3" => "https://huggingface.co/openai/whisper-large-v3/resolve/main/model.safetensors".to_string(),
+        "tiny" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin".to_string(),
+        "base" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin".to_string(),
+        "small" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin".to_string(),
+        "medium" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin".to_string(),
+        "large-v2" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v2.bin".to_string(),
+        "large" | "large-v3" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin".to_string(),
+        "large-v3-turbo" => "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin".to_string(),
         other => {
             return Err(format!(
-                "Unsupported Whisper model size: '{}'. Supported sizes: tiny, base, small, medium, large-v2, large-v3",
+                "Unsupported Whisper model size: '{}'. Supported sizes: tiny, base, small, medium, large-v2, large-v3, large-v3-turbo",
                 other
             ));
         }
@@ -667,6 +670,8 @@ pub async fn download_whisper_model(app: AppHandle, model_name: String) -> Resul
     drop(file);
 
     fs::rename(&temp_file, &target_file).map_err(|e| format!("Failed to save completed model: {}", e))?;
+    let plain_target = models_dir.join(format!("{}.bin", model_name));
+    let _ = fs::copy(&target_file, &plain_target);
     invalidate_whisper_cache();
 
     Ok(())
@@ -1089,14 +1094,14 @@ pub async fn generate_track_lyrics(
     // Resolve requested model, or gracefully fall back to an installed model in models_dir
     let mut resolved_model = model.unwrap_or_else(|| "base".to_string());
     let is_model_installed = |m: &str| -> bool {
-        models_dir.join(format!("{}.safetensors", m)).is_file()
-            || models_dir.join(format!("ggml-{}.bin", m)).is_file()
+        models_dir.join(format!("ggml-{}.bin", m)).is_file()
             || models_dir.join(format!("{}.bin", m)).is_file()
+            || models_dir.join(format!("{}.safetensors", m)).is_file()
     };
 
     if !is_model_installed(&resolved_model) {
         // Find if ANY model is already downloaded and installed (prioritize GGML models for GPU)
-        let fallback_candidates = ["base", "tiny", "small", "medium", "large-v3", "large-v2"];
+        let fallback_candidates = ["base", "tiny", "small", "medium", "large-v3-turbo", "large-v3", "large-v2"];
         let mut found_fallback = None;
         for cand in &fallback_candidates {
             if is_model_installed(cand) {
