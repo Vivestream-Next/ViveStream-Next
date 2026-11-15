@@ -1568,15 +1568,20 @@ pub async fn download_binaries(app: AppHandle) -> Result<(), String> {
     // 3. FETCH FFMPEG
     emit_progress("Fetching repacked Lite FFmpeg build...");
     #[cfg(target_os = "windows")]
-    let ffmpeg_url = "https://github.com/rootlocalghost/ViveStream-Next-Engines/releases/latest/download/ffmpeg-win64-lite.zip";
+    let ffmpeg_url = "https://github.com/Vivestream-Next/ViveStream-Next-Engines/releases/latest/download/ffmpeg-win64-lite.zip";
     #[cfg(not(target_os = "windows"))]
-    let ffmpeg_url = "https://github.com/rootlocalghost/ViveStream-Next-Engines/releases/latest/download/ffmpeg-linux64-lite.tar.xz";
+    let ffmpeg_url = "https://github.com/Vivestream-Next/ViveStream-Next-Engines/releases/latest/download/ffmpeg-linux64-lite.tar.xz";
 
-    let mut res = client
-        .get(ffmpeg_url)
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
+    let mut res = match client.get(ffmpeg_url).send().await {
+        Ok(r) if r.status().is_success() => r,
+        _ => {
+            #[cfg(target_os = "windows")]
+            let fallback_url = "https://github.com/rootlocalghost/ViveStream-Next-Engines/releases/latest/download/ffmpeg-win64-lite.zip";
+            #[cfg(not(target_os = "windows"))]
+            let fallback_url = "https://github.com/rootlocalghost/ViveStream-Next-Engines/releases/latest/download/ffmpeg-linux64-lite.tar.xz";
+            client.get(fallback_url).send().await.map_err(|e| e.to_string())?
+        }
+    };
     let total_size = res.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
 
