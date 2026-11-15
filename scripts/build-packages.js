@@ -262,12 +262,35 @@ if (buildExe) {
       "src-tauri",
       "app_payload.zip",
     );
-    if (process.platform === "win32") {
-      runCmd(
-        `powershell -NoProfile -Command "Compress-Archive -Path '${mainExePath}' -DestinationPath '${payloadZip}' -Force"`,
-      );
-    } else {
-      runCmd(`zip -j -9 "${payloadZip}" "${mainExePath}"`);
+    if (fs.existsSync(payloadZip)) {
+      fs.unlinkSync(payloadZip);
+    }
+
+    let compressedWith7z = false;
+    const sevenZipCandidates = [
+      "7z",
+      "7z.exe",
+      "C:\\Program Files\\7-Zip\\7z.exe",
+      "C:\\Program Files (x86)\\7-Zip\\7z.exe",
+    ];
+    for (const bin of sevenZipCandidates) {
+      try {
+        execSync(`"${bin}" --help`, { stdio: "ignore" });
+        console.log(`⚡ Using 7-Zip (${bin}) with maximum Deflate compression...`);
+        runCmd(`"${bin}" a -tzip -mx=9 -mfb=258 -mpass=15 "${payloadZip}" "${mainExePath}"`);
+        compressedWith7z = true;
+        break;
+      } catch {}
+    }
+
+    if (!compressedWith7z) {
+      if (process.platform === "win32") {
+        runCmd(
+          `powershell -NoProfile -Command "Compress-Archive -Path '${mainExePath}' -DestinationPath '${payloadZip}' -Force"`,
+        );
+      } else {
+        runCmd(`zip -j -9 "${payloadZip}" "${mainExePath}"`);
+      }
     }
 
     // Build installer frontend and release binary with baked-in assets
