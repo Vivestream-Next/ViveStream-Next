@@ -933,14 +933,15 @@ pub async fn check_app_updates(_app: AppHandle) -> Result<AppUpdateInfo, String>
         .build()
         .map_err(|e| e.to_string())?;
 
-    let api_url = "https://api.github.com/repos/rootlocalghost/ViveStream-Next/releases/latest";
+    let api_url =
+        "https://api.github.com/repos/Vivestream-Next/ViveStream-Next/releases/latest";
     let resp = client.get(api_url).send().await;
 
     let release_json: serde_json::Value = match resp {
         Ok(r) if r.status().is_success() => r.json().await.map_err(|e| e.to_string())?,
         _ => {
             let fallback_url =
-                "https://api.github.com/repos/ViveStream-Next/ViveStream-Next/releases/latest";
+                "https://api.github.com/repos/rootlocalghost/ViveStream-Next/releases/latest";
             let fallback_resp = client
                 .get(fallback_url)
                 .send()
@@ -1046,44 +1047,75 @@ pub async fn install_app_update(app: AppHandle, download_url: String) -> Result<
     let total_mb = ((total_size as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0;
 
     let temp_dir = std::env::temp_dir();
-    let filename = download_url
+    let raw_filename = download_url
         .split('/')
         .last()
-        .unwrap_or("vivestream-next-update.exe");
-    let target_path = temp_dir.join(filename);
+        .unwrap_or("vivestream-next-setup.exe");
 
-    let mut file = File::create(&target_path)
-        .map_err(|e| format!("Failed to create destination file: {}", e))?;
-
-    let mut downloaded: u64 = 0;
-    let mut last_emit = Instant::now();
-
-    while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
-        file.write_all(&chunk).map_err(|e| e.to_string())?;
-        downloaded += chunk.len() as u64;
-
-        if last_emit.elapsed().as_millis() > 120 || downloaded == total_size {
-            let downloaded_mb = ((downloaded as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0;
-            let pct = if total_size > 0 {
-                ((downloaded as f64) / (total_size as f64)) * 100.0
-            } else {
-                0.0
-            };
-
-            let _ = app.emit(
-                "update-progress",
-                UpdateProgressEvent {
-                    target: "app".to_string(),
-                    percentage: (pct * 10.0).round() / 10.0,
-                    downloaded_mb,
-                    total_mb,
-                    message: format!("Downloading ViveStream-Next update: {:.1}%", pct),
-                    status: "downloading".to_string(),
-                },
-            );
-            last_emit = Instant::now();
-        }
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        let mut kill_cmd = std::process::Command::new("taskkill");
+        kill_cmd.creation_flags(0x08000000);
+        let _ = kill_cmd
+            .args(["/F", "/IM", "vivestream-next*setup*.exe", "/T"])
+            .output();
+        std::thread::sleep(std::time::Duration::from_millis(100));
     }
+
+    let candidate_path = temp_dir.join(raw_filename);
+    let target_path = if candidate_path.exists() {
+        if std::fs::remove_file(&candidate_path).is_ok() {
+            candidate_path
+        } else {
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            temp_dir.join(format!("vivestream-next-setup-{}.exe", timestamp))
+        }
+    } else {
+        candidate_path
+    };
+
+    // Download in dedicated block to guarantee the write handle is flushed & dropped before launch
+    {
+        let mut file = File::create(&target_path)
+            .map_err(|e| format!("Failed to create destination file: {}", e))?;
+
+        let mut downloaded: u64 = 0;
+        let mut last_emit = Instant::now();
+
+        while let Some(chunk) = res.chunk().await.map_err(|e| e.to_string())? {
+            file.write_all(&chunk).map_err(|e| e.to_string())?;
+            downloaded += chunk.len() as u64;
+
+            if last_emit.elapsed().as_millis() > 120 || downloaded == total_size {
+                let downloaded_mb = ((downloaded as f64) / (1024.0 * 1024.0) * 10.0).round() / 10.0;
+                let pct = if total_size > 0 {
+                    ((downloaded as f64) / (total_size as f64)) * 100.0
+                } else {
+                    0.0
+                };
+
+                let _ = app.emit(
+                    "update-progress",
+                    UpdateProgressEvent {
+                        target: "app".to_string(),
+                        percentage: (pct * 10.0).round() / 10.0,
+                        downloaded_mb,
+                        total_mb,
+                        message: format!("Downloading ViveStream-Next update: {:.1}%", pct),
+                        status: "downloading".to_string(),
+                    },
+                );
+                last_emit = Instant::now();
+            }
+        }
+
+        file.flush()
+            .map_err(|e| format!("Failed to flush installer file: {}", e))?;
+    } // File handle is completely closed and released!
 
     let _ = app.emit(
         "update-progress",
@@ -1099,12 +1131,28 @@ pub async fn install_app_update(app: AppHandle, download_url: String) -> Result<
 
     #[cfg(target_os = "windows")]
     {
+        // Brief pause to allow Windows filesystem/antivirus filter drivers to release locks
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        use std::os::windows::process::CommandExt;
         let mut cmd = Command::new(&target_path);
+        // DETACHED_PROCESS (0x00000008) + CREATE_NEW_PROCESS_GROUP (0x00000200)
+        cmd.creation_flags(0x00000208);
         cmd.spawn()
             .map_err(|e| format!("Failed to launch installer: {}", e))?;
 
         tokio::spawn(async {
-            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                let targets = ["vivestream-whisper.exe", "deno.exe", "ffmpeg.exe", "yt-dlp.exe"];
+                for t in targets {
+                    let mut kill_cmd = std::process::Command::new("taskkill");
+                    kill_cmd.creation_flags(0x08000000);
+                    let _ = kill_cmd.args(["/F", "/IM", t, "/T"]).output();
+                }
+            }
             std::process::exit(0);
         });
 
