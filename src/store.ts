@@ -46,8 +46,8 @@ const getNum = (key: string, def: number) => {
 const initialAnimState = getBool("useAnimatedIcons", true);
 const initialHoverState = getBool("sidebarHoverMode", true);
 const initialTheme = getStr("appTheme", "dark");
-const initialPalette = getStr("appPalette", "monochrome");
-const initialCustomColor = getStr("customAccentColor", "#ffffff");
+const initialPalette = getStr("appPalette", "coral-pink");
+const initialCustomColor = getStr("customAccentColor", "#ef6351");
 const initialStyle =
   (getStr("designStyle", "neo-brutalism") as
     "neo-brutalism" | "claymorphism") || "neo-brutalism";
@@ -110,6 +110,7 @@ export interface VideoEntry {
 }
 
 export type ThumbnailQuality = "low" | "medium" | "high";
+export type PixelMascotCharacter = "sakura" | "neko" | "byte";
 
 export interface DownloadTask {
   id: string;
@@ -303,6 +304,10 @@ export const {
   setAlwaysShowSortBar,
   showFpsCounter,
   setShowFpsCounter,
+  showPixelMascot,
+  setShowPixelMascot,
+  pixelMascotCharacter,
+  setPixelMascotCharacter,
   thumbnailQuality,
   setThumbnailQuality,
   isSearchOpen,
@@ -536,6 +541,13 @@ export const {
   const [showFpsCounter, setShowFpsCounter] = createSignal(
     getBool("showFpsCounter", false),
   );
+  const [showPixelMascot, setShowPixelMascot] = createSignal(
+    getBool("showPixelMascot", true),
+  );
+  const [pixelMascotCharacter, setPixelMascotCharacter] =
+    createSignal<PixelMascotCharacter>(
+      (getStr("pixelMascotCharacter", "sakura") as PixelMascotCharacter) || "sakura",
+    );
   const [thumbnailQuality, setThumbnailQuality] =
     createSignal<ThumbnailQuality>(
       (getStr("thumbnailQuality", "medium") as ThumbnailQuality) || "medium",
@@ -835,6 +847,10 @@ export const {
     setAlwaysShowSortBar,
     showFpsCounter,
     setShowFpsCounter,
+    showPixelMascot,
+    setShowPixelMascot,
+    pixelMascotCharacter,
+    setPixelMascotCharacter,
     thumbnailQuality,
     setThumbnailQuality,
     isSearchOpen,
@@ -1278,6 +1294,16 @@ export const toggleShowFpsCounter = (val: boolean) => {
   if (isBrowser) window.localStorage.setItem("showFpsCounter", val.toString());
 };
 
+export const togglePixelMascot = (val: boolean) => {
+  setShowPixelMascot(val);
+  if (isBrowser) window.localStorage.setItem("showPixelMascot", val.toString());
+};
+
+export const updatePixelMascotCharacter = (char: PixelMascotCharacter) => {
+  setPixelMascotCharacter(char);
+  if (isBrowser) window.localStorage.setItem("pixelMascotCharacter", char);
+};
+
 export const updateThumbnailQuality = (val: ThumbnailQuality) => {
   setThumbnailQuality(val);
   if (isBrowser) {
@@ -1293,11 +1319,10 @@ export const toggleAppTheme = (theme: "light" | "dark") => {
   if (isBrowser) {
     window.localStorage.setItem("appTheme", theme);
     document.documentElement.setAttribute("data-theme", theme);
-    if (appPalette() === "monochrome") {
-      const seed = resolveSeedColor("monochrome");
-      const computed = applyMaterialTheme(seed, "monochrome");
-      setActiveTonalPalette(computed);
-    }
+    const activePal = appPalette();
+    const seed = resolveSeedColor(activePal, customAccentColor());
+    const computed = applyMaterialTheme(seed, activePal);
+    setActiveTonalPalette(computed);
   }
 };
 
