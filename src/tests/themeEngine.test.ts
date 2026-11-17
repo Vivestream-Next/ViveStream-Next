@@ -88,5 +88,23 @@ describe("Material You Theme Engine", () => {
     expect(ids).toContain("indigo");
     expect(ids).toContain("monochrome");
   });
+
+  it("generates sleek luxury tech aesthetic palettes for dark and light monochrome", () => {
+    // Dark mode monochrome (#ffffff)
+    const darkPalette = generateMaterialPalette("#ffffff");
+    expect(darkPalette.primary).toBe("#ffffff");
+    expect(darkPalette.primaryDark).toBe("#e4e4e7");
+    expect(darkPalette.onPrimary).toBe("#090a0f");
+    expect(darkPalette.onPrimaryContainer).toBe("#f4f4f5");
+    expect(darkPalette.logoInner).toBe("#090a0f");
+
+    // Light mode monochrome (#000000)
+    const lightPalette = generateMaterialPalette("#000000");
+    expect(lightPalette.primary).toBe("#09090b");
+    expect(lightPalette.primaryDark).toBe("#27272a");
+    expect(lightPalette.onPrimary).toBe("#ffffff");
+    expect(lightPalette.onPrimaryContainer).toBe("#09090b");
+    expect(lightPalette.logoInner).toBe("#ffffff");
+  });
 });
 
