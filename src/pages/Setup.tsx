@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { setForceSetup } from "../store";
 import { APP_VERSION } from "../version";
 import SetupMinigame from "../components/SetupMinigame";
+import logoAnimatedSvg from "../assets/logo-animated.svg";
 import "./Setup.css";
 
 interface AppFeatureGuide {
@@ -60,69 +61,14 @@ const FEATURE_GUIDES: AppFeatureGuide[] = [
 ];
 
 const AnimatedLogo = () => (
-  <svg
+  <img
+    src={logoAnimatedSvg}
+    alt="ViveStream Logo"
+    class="setup-hero-logo"
     width="84"
     height="84"
-    viewBox="0 0 500 500"
-    xmlns="http://www.w3.org/2000/svg"
-    class="setup-hero-logo"
-  >
-    <defs>
-      <style>
-        {`
-          @keyframes drawWave {
-            0% { stroke-dashoffset: 2000; }
-            100% { stroke-dashoffset: 0; }
-          }
-          @keyframes pulseGlow {
-            0%, 100% { opacity: 0.7; filter: drop-shadow(0 0 4px var(--primary-accent)) drop-shadow(0 0 8px var(--primary-accent)); }
-            50% { opacity: 1; filter: drop-shadow(0 0 8px var(--primary-accent)) drop-shadow(0 0 16px var(--primary-accent)); }
-          }
-          .animated-wave {
-            stroke-dasharray: 2000;
-            stroke-dashoffset: 2000;
-            animation: drawWave 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards, pulseGlow 4s ease-in-out infinite;
-          }
-        `}
-      </style>
-      <filter id="clayGlow" x="-20%" y="-20%" width="140%" height="140%">
-        <feDropShadow
-          dx="0"
-          dy="8"
-          stdDeviation="12"
-          flood-color="rgba(0,0,0,0.2)"
-        />
-        <feDropShadow
-          dx="0"
-          dy="-4"
-          stdDeviation="8"
-          flood-color="rgba(255,255,255,0.1)"
-        />
-      </filter>
-    </defs>
-    <path
-      fill="var(--primary-accent)"
-      filter="url(#clayGlow)"
-      d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"
-    />
-    <path
-      d="M95 125 L250 385 L405 125"
-      stroke="var(--logo-inner, #f1f1f1)"
-      stroke-width="30"
-      fill="none"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-    <path
-      class="animated-wave"
-      d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-      stroke="var(--logo-wave, #ffffff)"
-      stroke-width="8"
-      fill="none"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </svg>
+    style="display: block; border-radius: var(--neo-radius); filter: drop-shadow(0 10px 20px var(--focus-ring, rgba(0,0,0,0.3)));"
+  />
 );
 
 export default function Setup(props: { onComplete?: () => void }) {
