@@ -105,6 +105,289 @@
   --surface-tint: rgba(255, 255, 255, 0.04);
 }
 
+/* Retro Anime 90s City Pop & Kawaii Arcade Palette */
+[data-palette="retro-anime"] {
+  --primary-accent: #ff5c93;
+  --primary-accent-dark: #d92468;
+  --primary-accent-light: #ff85b3;
+  --primary-accent-rgb: 255, 92, 147;
+  --primary-container: rgba(255, 92, 147, 0.16);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffd6e5;
+  --logo-inner: #ffffff;
+  --logo-wave: #ff5c93;
+  --logo-glow: rgba(255, 92, 147, 0.55);
+  --focus-ring: rgba(255, 92, 147, 0.45);
+  --surface-tint: rgba(255, 92, 147, 0.06);
+}
+
+/* Fresh Green Botanical Woodland & Frosted Mint Palette */
+[data-palette="fresh-green"] {
+  --frosted-mint: #d8f3dc;
+  --celadon: #b7e4c7;
+  --celadon-2: #95d5b2;
+  --mint-leaf: #74c69d;
+  --mint-leaf-2: #52b788;
+  --sea-green: #40916c;
+  --dark-emerald: #2d6a4f;
+  --pine-teal: #1b4332;
+  --evergreen: #081c15;
+
+  --primary-accent: #52b788;
+  --primary-accent-dark: #40916c;
+  --primary-accent-light: #74c69d;
+  --primary-accent-rgb: 82, 183, 136;
+  --primary-container: rgba(82, 183, 136, 0.16);
+  --on-primary: #081c15;
+  --on-primary-container: #d8f3dc;
+  --logo-inner: #081c15;
+  --logo-wave: #52b788;
+  --logo-glow: rgba(82, 183, 136, 0.5);
+  --focus-ring: rgba(82, 183, 136, 0.45);
+  --surface-tint: rgba(82, 183, 136, 0.06);
+}
+
+/* Muted Earthy Tones */
+[data-palette="muted-earthy"] {
+  --peach-fuzz: #ffcdb2;
+  --powder-blush: #ffb4a2;
+  --cotton-candy: #e5989b;
+  --dusty-rose: #b5838d;
+  --dim-grey: #6d6875;
+
+  --primary-accent: #b5838d;
+  --primary-accent-dark: #6d6875;
+  --primary-accent-light: #e5989b;
+  --primary-accent-rgb: 181, 131, 141;
+  --primary-container: rgba(181, 131, 141, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffcdb2;
+  --logo-inner: #ffffff;
+  --logo-wave: #b5838d;
+  --logo-glow: rgba(181, 131, 141, 0.5);
+  --focus-ring: rgba(181, 131, 141, 0.45);
+  --surface-tint: rgba(181, 131, 141, 0.06);
+}
+
+/* Peach Sorbet */
+[data-palette="peach-sorbet"] {
+  --light-coral: #f08080;
+  --sweet-salmon: #f4978e;
+  --powder-blush: #f8ad9d;
+  --peach-fuzz: #fbc4ab;
+  --soft-apricot: #ffdab9;
+
+  --primary-accent: #f08080;
+  --primary-accent-dark: #d96262;
+  --primary-accent-light: #f4978e;
+  --primary-accent-rgb: 240, 128, 128;
+  --primary-container: rgba(240, 128, 128, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffdab9;
+  --logo-inner: #ffffff;
+  --logo-wave: #f08080;
+  --logo-glow: rgba(240, 128, 128, 0.5);
+  --focus-ring: rgba(240, 128, 128, 0.45);
+  --surface-tint: rgba(240, 128, 128, 0.06);
+}
+
+/* Cherry Blossom Bloom */
+[data-palette="cherry-bloom"] {
+  --night-bordeaux: #590d22;
+  --dark-amaranth: #800f2f;
+  --cherry-rose: #a4133c;
+  --rosewood: #c9184a;
+  --bubblegum-pink: #ff4d6d;
+  --bubblegum-pink-2: #ff758f;
+  --cotton-candy: #ff8fa3;
+  --cherry-blossom: #ffb3c1;
+  --pastel-pink: #ffccd5;
+  --lavender-blush: #fff0f3;
+
+  --primary-accent: #ff4d6d;
+  --primary-accent-dark: #c9184a;
+  --primary-accent-light: #ff758f;
+  --primary-accent-rgb: 255, 77, 109;
+  --primary-container: rgba(255, 77, 109, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #fff0f3;
+  --logo-inner: #ffffff;
+  --logo-wave: #ff4d6d;
+  --logo-glow: rgba(255, 77, 109, 0.55);
+  --focus-ring: rgba(255, 77, 109, 0.45);
+  --surface-tint: rgba(255, 77, 109, 0.06);
+}
+
+/* Pink Ombre */
+[data-palette="pink-ombre"] {
+  --hot-fuchsia: #ff0a54;
+  --wild-strawberry: #ff477e;
+  --bubblegum-pink: #ff5c8a;
+  --petal-rouge: #ff7096;
+  --bubblegum-tint: #ff85a1;
+  --cotton-candy: #ff99ac;
+  --cherry-blossom: #fbb1bd;
+  --pastel-pink: #f9bec7;
+  --cotton-rose: #f7cad0;
+  --soft-blush: #fae0e4;
+
+  --primary-accent: #ff0a54;
+  --primary-accent-dark: #d60040;
+  --primary-accent-light: #ff477e;
+  --primary-accent-rgb: 255, 10, 84;
+  --primary-container: rgba(255, 10, 84, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #fae0e4;
+  --logo-inner: #ffffff;
+  --logo-wave: #ff0a54;
+  --logo-glow: rgba(255, 10, 84, 0.55);
+  --focus-ring: rgba(255, 10, 84, 0.45);
+  --surface-tint: rgba(255, 10, 84, 0.06);
+}
+
+/* Coral Pink Delight */
+[data-palette="coral-pink"] {
+  --tomato: #ef6351;
+  --salmon: #f38375;
+  --powder-blush: #f7a399;
+  --powder-blush-2: #fbc3bc;
+  --soft-blush: #ffe3e0;
+
+  --primary-accent: #ef6351;
+  --primary-accent-dark: #d64735;
+  --primary-accent-light: #f38375;
+  --primary-accent-rgb: 239, 99, 81;
+  --primary-container: rgba(239, 99, 81, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffe3e0;
+  --logo-inner: #ffffff;
+  --logo-wave: #ef6351;
+  --logo-glow: rgba(239, 99, 81, 0.5);
+  --focus-ring: rgba(239, 99, 81, 0.45);
+  --surface-tint: rgba(239, 99, 81, 0.06);
+}
+
+/* Cherry Blossom */
+[data-palette="cherry-blossom"] {
+  --blushed-brick: #cc444b;
+  --lobster-pink: #da5552;
+  --light-coral: #df7373;
+  --light-coral-2: #e39695;
+  --powder-blush: #e4b1ab;
+
+  --primary-accent: #da5552;
+  --primary-accent-dark: #cc444b;
+  --primary-accent-light: #df7373;
+  --primary-accent-rgb: 218, 85, 82;
+  --primary-container: rgba(218, 85, 82, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #e4b1ab;
+  --logo-inner: #ffffff;
+  --logo-wave: #da5552;
+  --logo-glow: rgba(218, 85, 82, 0.5);
+  --focus-ring: rgba(218, 85, 82, 0.45);
+  --surface-tint: rgba(218, 85, 82, 0.06);
+}
+
+/* Pastel Greenery */
+[data-palette="pastel-greenery"] {
+  --celadon: #99e2b4;
+  --celadon-2: #88d4ab;
+  --mint-leaf: #78c6a3;
+  --mint-leaf-2: #67b99a;
+  --seagrass: #56ab91;
+  --seagrass-2: #469d89;
+  --jungle-teal: #358f80;
+  --blue-spruce: #248277;
+  --deep-ocean: #14746f;
+  --stormy-teal: #036666;
+
+  --primary-accent: #56ab91;
+  --primary-accent-dark: #358f80;
+  --primary-accent-light: #78c6a3;
+  --primary-accent-rgb: 86, 171, 145;
+  --primary-container: rgba(86, 171, 145, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #99e2b4;
+  --logo-inner: #ffffff;
+  --logo-wave: #56ab91;
+  --logo-glow: rgba(86, 171, 145, 0.5);
+  --focus-ring: rgba(86, 171, 145, 0.45);
+  --surface-tint: rgba(86, 171, 145, 0.06);
+}
+
+/* Green Meadow */
+[data-palette="green-meadow"] {
+  --black-forest: #143601;
+  --black-forest-2: #1a4301;
+  --olive-leaf: #245501;
+  --forest-moss: #538d22;
+  --sage-green: #73a942;
+  --willow-green: #aad576;
+
+  --primary-accent: #73a942;
+  --primary-accent-dark: #538d22;
+  --primary-accent-light: #aad576;
+  --primary-accent-rgb: 115, 169, 66;
+  --primary-container: rgba(115, 169, 66, 0.18);
+  --on-primary: #143601;
+  --on-primary-container: #aad576;
+  --logo-inner: #143601;
+  --logo-wave: #73a942;
+  --logo-glow: rgba(115, 169, 66, 0.5);
+  --focus-ring: rgba(115, 169, 66, 0.45);
+  --surface-tint: rgba(115, 169, 66, 0.06);
+}
+
+/* Green Harmony */
+[data-palette="green-harmony"] {
+  --black-forest: #10451d;
+  --dark-emerald: #155d27;
+  --turf-green: #1a7431;
+  --forest-green: #208b3a;
+  --medium-jungle: #25a244;
+  --jade-green: #2dc653;
+  --malachite: #4ad66d;
+  --light-green: #6ede8a;
+  --celadon: #92e6a7;
+  --celadon-2: #b7efc5;
+
+  --primary-accent: #2dc653;
+  --primary-accent-dark: #208b3a;
+  --primary-accent-light: #4ad66d;
+  --primary-accent-rgb: 45, 198, 83;
+  --primary-container: rgba(45, 198, 83, 0.18);
+  --on-primary: #10451d;
+  --on-primary-container: #b7efc5;
+  --logo-inner: #10451d;
+  --logo-wave: #2dc653;
+  --logo-glow: rgba(45, 198, 83, 0.5);
+  --focus-ring: rgba(45, 198, 83, 0.45);
+  --surface-tint: rgba(45, 198, 83, 0.06);
+}
+
+/* Turquoise Waters */
+[data-palette="turquoise-waters"] {
+  --light-sea-green: #07beb8;
+  --strong-cyan: #3dccc7;
+  --pearl-aqua: #68d8d6;
+  --icy-aqua: #9ceaef;
+  --icy-aqua-2: #c4fff9;
+
+  --primary-accent: #07beb8;
+  --primary-accent-dark: #059c97;
+  --primary-accent-light: #3dccc7;
+  --primary-accent-rgb: 7, 190, 184;
+  --primary-container: rgba(7, 190, 184, 0.18);
+  --on-primary: #052625;
+  --on-primary-container: #c4fff9;
+  --logo-inner: #052625;
+  --logo-wave: #07beb8;
+  --logo-glow: rgba(7, 190, 184, 0.5);
+  --focus-ring: rgba(7, 190, 184, 0.45);
+  --surface-tint: rgba(7, 190, 184, 0.06);
+}
+
 [data-theme="dark"] {
   --primary-background: #1e1e24;
   --secondary-background: #25262c;
@@ -550,6 +833,1126 @@
 [data-theme="light"][data-palette="monochrome"] :focus-visible {
   outline: 2px solid rgba(9, 9, 11, 0.6) !important;
   outline-offset: 2px !important;
+}
+
+/* ==========================================================================
+   RETRO ANIME THEME: DARK MODE (90s City Pop / Neo-Tokyo Arcade Night)
+   ========================================================================== */
+[data-theme="dark"][data-palette="retro-anime"] {
+  --primary-background: #130a1c;
+  --secondary-background: #1c0e27;
+  --tertiary-background: #2a153a;
+  --primary-text: #ffe6f0;
+  --secondary-text: #c99ec3;
+  --border-color: rgba(255, 92, 147, 0.22);
+  --overlay-bg: rgba(19, 10, 28, 0.95);
+  --glass-bg: #1c0e27;
+  --glass-hover: rgba(255, 92, 147, 0.08);
+  --app-border: 1px solid rgba(255, 92, 147, 0.24);
+  --border-thick: 1.5px solid rgba(255, 92, 147, 0.35);
+  --clay-bg: #1c0e27;
+  --primary-accent: #ff5c93;
+  --primary-accent-dark: #d92468;
+  --primary-accent-light: #ff85b3;
+  --primary-accent-rgb: 255, 92, 147;
+  --primary-container: rgba(255, 92, 147, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffd6e5;
+  --logo-inner: #ffffff;
+  --logo-wave: #ff5c93;
+  --logo-glow: rgba(255, 92, 147, 0.55);
+  --focus-ring: rgba(255, 92, 147, 0.45);
+  --surface-tint: rgba(255, 92, 147, 0.06);
+  --clay-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 92, 147, 0.16);
+  --clay-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 92, 147, 0.2);
+  --clay-inset-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  --clay-btn-active: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+  --shadow-hard: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-hard-lg: 0 16px 36px rgba(0, 0, 0, 0.6);
+  --shadow-hard-sm: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .clay-btn {
+  background: #1c0e27;
+  color: #ffe6f0;
+  border: 1px solid rgba(255, 92, 147, 0.24);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 92, 147, 0.15);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .clay-btn:hover {
+  background: #2a153a;
+  border-color: rgba(255, 92, 147, 0.45);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(255, 92, 147, 0.3), inset 0 1px 0 rgba(255, 92, 147, 0.25);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .clay-btn.primary,
+[data-theme="dark"][data-palette="retro-anime"] .primary-btn,
+[data-theme="dark"][data-palette="retro-anime"] .command-btn {
+  background: linear-gradient(135deg, #ff5c93 0%, #e02266 100%);
+  color: #ffffff;
+  border: 1px solid #ff75a5;
+  box-shadow: 0 4px 16px rgba(255, 92, 147, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .clay-btn.primary:hover,
+[data-theme="dark"][data-palette="retro-anime"] .primary-btn:hover:not(:disabled),
+[data-theme="dark"][data-palette="retro-anime"] .command-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ff70a1 0%, #eb3175 100%);
+  border-color: #ffffff;
+  box-shadow: 0 6px 20px rgba(255, 92, 147, 0.55);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .sidebar a:hover,
+[data-theme="dark"][data-palette="retro-anime"] .sidebar button.sidebar-nav-btn:hover {
+  background: rgba(255, 92, 147, 0.12);
+  border-color: rgba(255, 92, 147, 0.3);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(255, 92, 147, 0.2);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .sidebar a.active {
+  background: linear-gradient(135deg, #ff5c93 0%, #d92468 100%);
+  color: #ffffff;
+  border-color: #ff85b3;
+  box-shadow: 0 4px 16px rgba(255, 92, 147, 0.4);
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="retro-anime"] .sidebar a.active i {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"][data-palette="retro-anime"] .settings-page .settings-nav-pill.active {
+  background: #ff5c93;
+  color: #ffffff;
+  border-color: #ff85b3;
+  box-shadow: 0 4px 14px rgba(255, 92, 147, 0.4);
+}
+
+/* ==========================================================================
+   RETRO ANIME THEME: LIGHT MODE (Strawberry Milk & Pastel Tokyo Arcade)
+   ========================================================================== */
+[data-theme="light"][data-palette="retro-anime"] {
+  --primary-background: #fff2f6;
+  --secondary-background: #ffffff;
+  --tertiary-background: #ffe3ed;
+  --primary-text: #2d0a1d;
+  --secondary-text: #8e4268;
+  --border-color: rgba(255, 92, 147, 0.28);
+  --overlay-bg: rgba(255, 242, 246, 0.96);
+  --glass-bg: #ffffff;
+  --glass-hover: rgba(255, 92, 147, 0.08);
+  --app-border: 1.5px solid rgba(255, 92, 147, 0.3);
+  --border-thick: 2px solid rgba(255, 92, 147, 0.4);
+  --clay-bg: #ffffff;
+  --primary-accent: #e62b6b;
+  --primary-accent-dark: #bf1752;
+  --primary-accent-light: #ff6097;
+  --primary-accent-rgb: 230, 43, 107;
+  --primary-container: rgba(230, 43, 107, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #2d0a1d;
+  --logo-inner: #ffffff;
+  --logo-wave: #e62b6b;
+  --logo-glow: rgba(230, 43, 107, 0.4);
+  --focus-ring: rgba(230, 43, 107, 0.35);
+  --surface-tint: rgba(230, 43, 107, 0.05);
+  --clay-card-shadow: 0 4px 16px rgba(230, 43, 107, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --clay-btn-shadow: 0 2px 6px rgba(230, 43, 107, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --clay-inset-shadow: inset 0 2px 4px rgba(230, 43, 107, 0.06);
+  --clay-btn-active: inset 0 1px 3px rgba(230, 43, 107, 0.15);
+  --shadow-hard: 0 4px 16px rgba(230, 43, 107, 0.08);
+  --shadow-hard-lg: 0 12px 28px rgba(230, 43, 107, 0.12);
+  --shadow-hard-sm: 0 2px 8px rgba(230, 43, 107, 0.06);
+  --shadow-color: rgba(230, 43, 107, 0.1);
+}
+
+[data-theme="light"][data-palette="retro-anime"] .clay-btn {
+  background: #ffffff;
+  color: #2d0a1d;
+  border: 1.5px solid rgba(255, 92, 147, 0.28);
+  box-shadow: 0 2px 6px rgba(230, 43, 107, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"][data-palette="retro-anime"] .clay-btn:hover {
+  background: #fff0f5;
+  border-color: #e62b6b;
+  color: #bf1752;
+  box-shadow: 0 4px 12px rgba(230, 43, 107, 0.15);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="light"][data-palette="retro-anime"] .clay-btn.primary,
+[data-theme="light"][data-palette="retro-anime"] .primary-btn,
+[data-theme="light"][data-palette="retro-anime"] .command-btn {
+  background: linear-gradient(135deg, #e62b6b 0%, #cc1856 100%);
+  color: #ffffff;
+  border: 1px solid #bf1752;
+  box-shadow: 0 2px 10px rgba(230, 43, 107, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="retro-anime"] .clay-btn.primary:hover,
+[data-theme="light"][data-palette="retro-anime"] .primary-btn:hover:not(:disabled),
+[data-theme="light"][data-palette="retro-anime"] .command-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f23d7a 0%, #d9205e 100%);
+  border-color: #a80f44;
+  box-shadow: 0 4px 16px rgba(230, 43, 107, 0.4);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="light"][data-palette="retro-anime"] .sidebar a.active {
+  background: linear-gradient(135deg, #e62b6b 0%, #d9205e 100%);
+  color: #ffffff;
+  border-color: #bf1752;
+  box-shadow: 0 4px 14px rgba(230, 43, 107, 0.28);
+}
+
+[data-theme="light"][data-palette="retro-anime"] .sidebar a.active .nav-text,
+[data-theme="light"][data-palette="retro-anime"] .sidebar a.active i {
+  color: #ffffff !important;
+}
+
+[data-theme="light"][data-palette="retro-anime"] .settings-page .settings-nav-pill.active {
+  background: #e62b6b;
+  color: #ffffff;
+  border-color: #bf1752;
+  box-shadow: 0 4px 12px rgba(230, 43, 107, 0.25);
+}
+
+/* ==========================================================================
+   FRESH GREEN THEME: DARK MODE (Deep Evergreen & Frosted Mint Luminescence)
+   ========================================================================== */
+[data-theme="dark"][data-palette="fresh-green"] {
+  --primary-background: #081c15;
+  --secondary-background: #0f2a20;
+  --tertiary-background: #1b4332;
+  --primary-text: #d8f3dc;
+  --secondary-text: #95d5b2;
+  --border-color: rgba(116, 198, 157, 0.2);
+  --overlay-bg: rgba(8, 28, 21, 0.95);
+  --glass-bg: #0f2a20;
+  --glass-hover: rgba(183, 228, 199, 0.08);
+  --app-border: 1px solid rgba(116, 198, 157, 0.22);
+  --border-thick: 1.5px solid rgba(116, 198, 157, 0.32);
+  --clay-bg: #0f2a20;
+  --primary-accent: #52b788;
+  --primary-accent-dark: #40916c;
+  --primary-accent-light: #74c69d;
+  --primary-accent-rgb: 82, 183, 136;
+  --primary-container: rgba(82, 183, 136, 0.16);
+  --on-primary: #081c15;
+  --on-primary-container: #d8f3dc;
+  --logo-inner: #081c15;
+  --logo-wave: #52b788;
+  --logo-glow: rgba(82, 183, 136, 0.5);
+  --focus-ring: rgba(82, 183, 136, 0.45);
+  --surface-tint: rgba(82, 183, 136, 0.05);
+  --clay-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(116, 198, 157, 0.12);
+  --clay-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(116, 198, 157, 0.16);
+  --clay-inset-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  --clay-btn-active: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+  --shadow-hard: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-hard-lg: 0 16px 36px rgba(0, 0, 0, 0.6);
+  --shadow-hard-sm: 0 4px 12px rgba(0, 0, 0, 0.35);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .clay-btn {
+  background: #0f2a20;
+  color: #d8f3dc;
+  border: 1px solid rgba(116, 198, 157, 0.22);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(116, 198, 157, 0.12);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .clay-btn:hover {
+  background: #1b4332;
+  border-color: rgba(116, 198, 157, 0.45);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(82, 183, 136, 0.25), inset 0 1px 0 rgba(116, 198, 157, 0.2);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .clay-btn.primary,
+[data-theme="dark"][data-palette="fresh-green"] .primary-btn,
+[data-theme="dark"][data-palette="fresh-green"] .command-btn {
+  background: linear-gradient(135deg, #52b788 0%, #40916c 100%);
+  color: #081c15;
+  border: 1px solid #74c69d;
+  box-shadow: 0 4px 14px rgba(82, 183, 136, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .clay-btn.primary:hover,
+[data-theme="dark"][data-palette="fresh-green"] .primary-btn:hover:not(:disabled),
+[data-theme="dark"][data-palette="fresh-green"] .command-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #60c595 0%, #4ca37b 100%);
+  border-color: #b7e4c7;
+  color: #040e0b;
+  box-shadow: 0 6px 18px rgba(82, 183, 136, 0.45);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .sidebar a:hover,
+[data-theme="dark"][data-palette="fresh-green"] .sidebar button.sidebar-nav-btn:hover {
+  background: rgba(82, 183, 136, 0.12);
+  border-color: rgba(116, 198, 157, 0.3);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(82, 183, 136, 0.2);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .sidebar a.active {
+  background: linear-gradient(135deg, #52b788 0%, #40916c 100%);
+  color: #081c15;
+  border-color: #74c69d;
+  box-shadow: 0 4px 14px rgba(82, 183, 136, 0.35);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="fresh-green"] .sidebar a.active i {
+  color: #081c15 !important;
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .settings-page .settings-nav-pill.active {
+  background: #52b788;
+  color: #081c15;
+  border-color: #74c69d;
+  box-shadow: 0 4px 12px rgba(82, 183, 136, 0.35);
+}
+
+[data-theme="dark"][data-palette="fresh-green"] .settings-page .settings-nav-pill.active i {
+  color: #081c15;
+}
+
+/* ==========================================================================
+   FRESH GREEN THEME: LIGHT MODE (Crisp Frosted Mint & Deep Emerald)
+   ========================================================================== */
+[data-theme="light"][data-palette="fresh-green"] {
+  --primary-background: #f2faf5;
+  --secondary-background: #ffffff;
+  --tertiary-background: #d8f3dc;
+  --primary-text: #081c15;
+  --secondary-text: #2d6a4f;
+  --border-color: rgba(45, 106, 79, 0.2);
+  --overlay-bg: rgba(242, 250, 245, 0.96);
+  --glass-bg: #ffffff;
+  --glass-hover: rgba(82, 183, 136, 0.08);
+  --app-border: 1px solid rgba(45, 106, 79, 0.2);
+  --border-thick: 1.5px solid rgba(45, 106, 79, 0.3);
+  --clay-bg: #ffffff;
+  --primary-accent: #2d6a4f;
+  --primary-accent-dark: #1b4332;
+  --primary-accent-light: #40916c;
+  --primary-accent-rgb: 45, 106, 79;
+  --primary-container: rgba(45, 106, 79, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #081c15;
+  --logo-inner: #ffffff;
+  --logo-wave: #2d6a4f;
+  --logo-glow: rgba(45, 106, 79, 0.3);
+  --focus-ring: rgba(45, 106, 79, 0.35);
+  --surface-tint: rgba(45, 106, 79, 0.04);
+  --clay-card-shadow: 0 4px 16px rgba(45, 106, 79, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --clay-btn-shadow: 0 2px 6px rgba(45, 106, 79, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --clay-inset-shadow: inset 0 2px 4px rgba(45, 106, 79, 0.06);
+  --clay-btn-active: inset 0 1px 3px rgba(45, 106, 79, 0.12);
+  --shadow-hard: 0 4px 16px rgba(45, 106, 79, 0.08);
+  --shadow-hard-lg: 0 12px 28px rgba(45, 106, 79, 0.1);
+  --shadow-hard-sm: 0 2px 8px rgba(45, 106, 79, 0.05);
+  --shadow-color: rgba(45, 106, 79, 0.08);
+}
+
+[data-theme="light"][data-palette="fresh-green"] .clay-btn {
+  background: #ffffff;
+  color: #081c15;
+  border: 1px solid rgba(45, 106, 79, 0.22);
+  box-shadow: 0 2px 6px rgba(45, 106, 79, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="light"][data-palette="fresh-green"] .clay-btn:hover {
+  background: #eaf7ee;
+  border-color: #2d6a4f;
+  color: #081c15;
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.12);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="light"][data-palette="fresh-green"] .clay-btn.primary,
+[data-theme="light"][data-palette="fresh-green"] .primary-btn,
+[data-theme="light"][data-palette="fresh-green"] .command-btn {
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  color: #ffffff;
+  border: 1px solid #1b4332;
+  box-shadow: 0 2px 8px rgba(45, 106, 79, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="fresh-green"] .clay-btn.primary:hover,
+[data-theme="light"][data-palette="fresh-green"] .primary-btn:hover:not(:disabled),
+[data-theme="light"][data-palette="fresh-green"] .command-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #378060 0%, #245540 100%);
+  border-color: #081c15;
+  box-shadow: 0 4px 14px rgba(45, 106, 79, 0.35);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-theme="light"][data-palette="fresh-green"] .sidebar a.active {
+  background: linear-gradient(135deg, #2d6a4f 0%, #1b4332 100%);
+  color: #ffffff;
+  border-color: #1b4332;
+  box-shadow: 0 4px 14px rgba(45, 106, 79, 0.25);
+}
+
+[data-theme="light"][data-palette="fresh-green"] .sidebar a.active .nav-text,
+[data-theme="light"][data-palette="fresh-green"] .sidebar a.active i {
+  color: #ffffff !important;
+}
+
+[data-theme="light"][data-palette="fresh-green"] .settings-page .settings-nav-pill.active {
+  background: #2d6a4f;
+  color: #ffffff;
+  border-color: #1b4332;
+  box-shadow: 0 4px 12px rgba(45, 106, 79, 0.25);
+}
+
+/* ==========================================================================
+   MUTED EARTHY TONES THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="muted-earthy"] {
+  --primary-background: #17141b;
+  --secondary-background: #221c27;
+  --tertiary-background: #312837;
+  --primary-text: #ffcdb2;
+  --secondary-text: #b5838d;
+  --border-color: rgba(181, 131, 141, 0.22);
+  --overlay-bg: rgba(23, 20, 27, 0.95);
+  --glass-bg: #221c27;
+  --glass-hover: rgba(181, 131, 141, 0.08);
+  --app-border: 1px solid rgba(181, 131, 141, 0.24);
+  --border-thick: 1.5px solid rgba(181, 131, 141, 0.35);
+  --clay-bg: #221c27;
+  --primary-accent: #e5989b;
+  --primary-accent-dark: #b5838d;
+  --primary-accent-light: #ffb4a2;
+  --primary-accent-rgb: 229, 152, 155;
+  --primary-container: rgba(229, 152, 155, 0.18);
+  --on-primary: #17141b;
+  --on-primary-container: #ffcdb2;
+  --clay-card-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(181, 131, 141, 0.15);
+  --clay-btn-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(181, 131, 141, 0.18);
+}
+
+[data-theme="dark"][data-palette="muted-earthy"] .clay-btn.primary,
+[data-theme="dark"][data-palette="muted-earthy"] .primary-btn,
+[data-theme="dark"][data-palette="muted-earthy"] .command-btn {
+  background: linear-gradient(135deg, #e5989b 0%, #b5838d 100%);
+  color: #17141b;
+  border: 1px solid #ffb4a2;
+  box-shadow: 0 4px 14px rgba(229, 152, 155, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="muted-earthy"] .sidebar a.active {
+  background: linear-gradient(135deg, #e5989b 0%, #b5838d 100%);
+  color: #17141b;
+  border-color: #ffb4a2;
+}
+
+[data-theme="dark"][data-palette="muted-earthy"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="muted-earthy"] .sidebar a.active i {
+  color: #17141b !important;
+}
+
+[data-theme="light"][data-palette="muted-earthy"] {
+  --primary-background: #fdf7f4;
+  --secondary-background: #ffffff;
+  --tertiary-background: #ffcdb2;
+  --primary-text: #2f252d;
+  --secondary-text: #6d6875;
+  --border-color: rgba(109, 104, 117, 0.2);
+  --overlay-bg: rgba(253, 247, 244, 0.96);
+  --glass-bg: #ffffff;
+  --app-border: 1px solid rgba(109, 104, 117, 0.22);
+  --clay-bg: #ffffff;
+  --primary-accent: #a06d77;
+  --primary-accent-dark: #6d6875;
+  --primary-accent-light: #b5838d;
+  --primary-accent-rgb: 160, 109, 119;
+  --primary-container: rgba(160, 109, 119, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #2f252d;
+}
+
+[data-theme="light"][data-palette="muted-earthy"] .clay-btn.primary,
+[data-theme="light"][data-palette="muted-earthy"] .primary-btn,
+[data-theme="light"][data-palette="muted-earthy"] .command-btn {
+  background: linear-gradient(135deg, #a06d77 0%, #6d6875 100%);
+  color: #ffffff;
+  border: 1px solid #6d6875;
+  box-shadow: 0 2px 8px rgba(109, 104, 117, 0.25);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="muted-earthy"] .sidebar a.active {
+  background: linear-gradient(135deg, #a06d77 0%, #6d6875 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   PEACH SORBET THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="peach-sorbet"] {
+  --primary-background: #1c1313;
+  --secondary-background: #281b1b;
+  --tertiary-background: #392626;
+  --primary-text: #ffdab9;
+  --secondary-text: #f4978e;
+  --border-color: rgba(240, 128, 128, 0.22);
+  --overlay-bg: rgba(28, 19, 19, 0.95);
+  --glass-bg: #281b1b;
+  --clay-bg: #281b1b;
+  --primary-accent: #f08080;
+  --primary-accent-dark: #d96262;
+  --primary-accent-light: #f4978e;
+  --primary-accent-rgb: 240, 128, 128;
+  --primary-container: rgba(240, 128, 128, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffdab9;
+}
+
+[data-theme="dark"][data-palette="peach-sorbet"] .clay-btn.primary,
+[data-theme="dark"][data-palette="peach-sorbet"] .primary-btn,
+[data-theme="dark"][data-palette="peach-sorbet"] .command-btn {
+  background: linear-gradient(135deg, #f08080 0%, #e06868 100%);
+  color: #ffffff;
+  border: 1px solid #f4978e;
+  box-shadow: 0 4px 14px rgba(240, 128, 128, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="peach-sorbet"] .sidebar a.active {
+  background: linear-gradient(135deg, #f08080 0%, #e06868 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"][data-palette="peach-sorbet"] {
+  --primary-background: #fff7f3;
+  --secondary-background: #ffffff;
+  --tertiary-background: #ffdab9;
+  --primary-text: #361717;
+  --secondary-text: #a84e4e;
+  --border-color: rgba(240, 128, 128, 0.24);
+  --overlay-bg: rgba(255, 247, 243, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #e06868;
+  --primary-accent-dark: #be4848;
+  --primary-accent-light: #f08080;
+  --primary-accent-rgb: 224, 104, 104;
+  --primary-container: rgba(224, 104, 104, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #361717;
+}
+
+[data-theme="light"][data-palette="peach-sorbet"] .clay-btn.primary,
+[data-theme="light"][data-palette="peach-sorbet"] .primary-btn,
+[data-theme="light"][data-palette="peach-sorbet"] .command-btn {
+  background: linear-gradient(135deg, #e06868 0%, #be4848 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(224, 104, 104, 0.28);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="peach-sorbet"] .sidebar a.active {
+  background: linear-gradient(135deg, #e06868 0%, #be4848 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   CHERRY BLOSSOM BLOOM THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="cherry-bloom"] {
+  --primary-background: #140308;
+  --secondary-background: #240610;
+  --tertiary-background: #390a19;
+  --primary-text: #fff0f3;
+  --secondary-text: #ff8fa3;
+  --border-color: rgba(255, 77, 109, 0.24);
+  --overlay-bg: rgba(20, 3, 8, 0.95);
+  --glass-bg: #240610;
+  --clay-bg: #240610;
+  --primary-accent: #ff4d6d;
+  --primary-accent-dark: #c9184a;
+  --primary-accent-light: #ff758f;
+  --primary-accent-rgb: 255, 77, 109;
+  --primary-container: rgba(255, 77, 109, 0.2);
+  --on-primary: #ffffff;
+  --on-primary-container: #fff0f3;
+}
+
+[data-theme="dark"][data-palette="cherry-bloom"] .clay-btn.primary,
+[data-theme="dark"][data-palette="cherry-bloom"] .primary-btn,
+[data-theme="dark"][data-palette="cherry-bloom"] .command-btn {
+  background: linear-gradient(135deg, #ff4d6d 0%, #c9184a 100%);
+  color: #ffffff;
+  border: 1px solid #ff758f;
+  box-shadow: 0 4px 16px rgba(255, 77, 109, 0.4);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="cherry-bloom"] .sidebar a.active {
+  background: linear-gradient(135deg, #ff4d6d 0%, #c9184a 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"][data-palette="cherry-bloom"] {
+  --primary-background: #fff5f7;
+  --secondary-background: #ffffff;
+  --tertiary-background: #ffccd5;
+  --primary-text: #400615;
+  --secondary-text: #a4133c;
+  --border-color: rgba(164, 19, 60, 0.22);
+  --overlay-bg: rgba(255, 245, 247, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #c9184a;
+  --primary-accent-dark: #800f2f;
+  --primary-accent-light: #ff4d6d;
+  --primary-accent-rgb: 201, 24, 74;
+  --primary-container: rgba(201, 24, 74, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #400615;
+}
+
+[data-theme="light"][data-palette="cherry-bloom"] .clay-btn.primary,
+[data-theme="light"][data-palette="cherry-bloom"] .primary-btn,
+[data-theme="light"][data-palette="cherry-bloom"] .command-btn {
+  background: linear-gradient(135deg, #c9184a 0%, #800f2f 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(201, 24, 74, 0.3);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="cherry-bloom"] .sidebar a.active {
+  background: linear-gradient(135deg, #c9184a 0%, #800f2f 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   PINK OMBRE THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="pink-ombre"] {
+  --primary-background: #17040d;
+  --secondary-background: #250616;
+  --tertiary-background: #390922;
+  --primary-text: #fae0e4;
+  --secondary-text: #ff7096;
+  --border-color: rgba(255, 10, 84, 0.24);
+  --overlay-bg: rgba(23, 4, 13, 0.95);
+  --glass-bg: #250616;
+  --clay-bg: #250616;
+  --primary-accent: #ff477e;
+  --primary-accent-dark: #ff0a54;
+  --primary-accent-light: #ff7096;
+  --primary-accent-rgb: 255, 71, 126;
+  --primary-container: rgba(255, 10, 84, 0.2);
+  --on-primary: #ffffff;
+  --on-primary-container: #fae0e4;
+}
+
+[data-theme="dark"][data-palette="pink-ombre"] .clay-btn.primary,
+[data-theme="dark"][data-palette="pink-ombre"] .primary-btn,
+[data-theme="dark"][data-palette="pink-ombre"] .command-btn {
+  background: linear-gradient(135deg, #ff477e 0%, #ff0a54 100%);
+  color: #ffffff;
+  border: 1px solid #ff7096;
+  box-shadow: 0 4px 16px rgba(255, 10, 84, 0.4);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="pink-ombre"] .sidebar a.active {
+  background: linear-gradient(135deg, #ff477e 0%, #ff0a54 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"][data-palette="pink-ombre"] {
+  --primary-background: #fff4f7;
+  --secondary-background: #ffffff;
+  --tertiary-background: #f7cad0;
+  --primary-text: #3c0316;
+  --secondary-text: #a81240;
+  --border-color: rgba(255, 10, 84, 0.22);
+  --overlay-bg: rgba(255, 244, 247, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #ff0a54;
+  --primary-accent-dark: #c9003c;
+  --primary-accent-light: #ff477e;
+  --primary-accent-rgb: 255, 10, 84;
+  --primary-container: rgba(255, 10, 84, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #3c0316;
+}
+
+[data-theme="light"][data-palette="pink-ombre"] .clay-btn.primary,
+[data-theme="light"][data-palette="pink-ombre"] .primary-btn,
+[data-theme="light"][data-palette="pink-ombre"] .command-btn {
+  background: linear-gradient(135deg, #ff0a54 0%, #c9003c 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 10px rgba(255, 10, 84, 0.3);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="pink-ombre"] .sidebar a.active {
+  background: linear-gradient(135deg, #ff0a54 0%, #c9003c 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   CORAL PINK DELIGHT THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="coral-pink"] {
+  --primary-background: #1b0e0b;
+  --secondary-background: #271410;
+  --tertiary-background: #3a1e18;
+  --primary-text: #ffe3e0;
+  --secondary-text: #f38375;
+  --border-color: rgba(239, 99, 81, 0.24);
+  --overlay-bg: rgba(27, 14, 11, 0.95);
+  --glass-bg: #271410;
+  --clay-bg: #271410;
+  --primary-accent: #ef6351;
+  --primary-accent-dark: #d64735;
+  --primary-accent-light: #f38375;
+  --primary-accent-rgb: 239, 99, 81;
+  --primary-container: rgba(239, 99, 81, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #ffe3e0;
+}
+
+[data-theme="dark"][data-palette="coral-pink"] .clay-btn.primary,
+[data-theme="dark"][data-palette="coral-pink"] .primary-btn,
+[data-theme="dark"][data-palette="coral-pink"] .command-btn {
+  background: linear-gradient(135deg, #ef6351 0%, #d64735 100%);
+  color: #ffffff;
+  border: 1px solid #f38375;
+  box-shadow: 0 4px 14px rgba(239, 99, 81, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="coral-pink"] .sidebar a.active {
+  background: linear-gradient(135deg, #ef6351 0%, #d64735 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"][data-palette="coral-pink"] {
+  --primary-background: #fff6f5;
+  --secondary-background: #ffffff;
+  --tertiary-background: #ffe3e0;
+  --primary-text: #38120e;
+  --secondary-text: #a83d31;
+  --border-color: rgba(239, 99, 81, 0.22);
+  --overlay-bg: rgba(255, 246, 245, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #d44a37;
+  --primary-accent-dark: #b33624;
+  --primary-accent-light: #ef6351;
+  --primary-accent-rgb: 212, 74, 55;
+  --primary-container: rgba(212, 74, 55, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #38120e;
+}
+
+[data-theme="light"][data-palette="coral-pink"] .clay-btn.primary,
+[data-theme="light"][data-palette="coral-pink"] .primary-btn,
+[data-theme="light"][data-palette="coral-pink"] .command-btn {
+  background: linear-gradient(135deg, #d44a37 0%, #b33624 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(212, 74, 55, 0.28);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="coral-pink"] .sidebar a.active {
+  background: linear-gradient(135deg, #d44a37 0%, #b33624 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   CHERRY BLOSSOM THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="cherry-blossom"] {
+  --primary-background: #1b0d0f;
+  --secondary-background: #271417;
+  --tertiary-background: #3b1e22;
+  --primary-text: #f7e8e6;
+  --secondary-text: #e4b1ab;
+  --border-color: rgba(218, 85, 82, 0.22);
+  --overlay-bg: rgba(27, 13, 15, 0.95);
+  --glass-bg: #271417;
+  --clay-bg: #271417;
+  --primary-accent: #da5552;
+  --primary-accent-dark: #cc444b;
+  --primary-accent-light: #df7373;
+  --primary-accent-rgb: 218, 85, 82;
+  --primary-container: rgba(218, 85, 82, 0.18);
+  --on-primary: #ffffff;
+  --on-primary-container: #f7e8e6;
+}
+
+[data-theme="dark"][data-palette="cherry-blossom"] .clay-btn.primary,
+[data-theme="dark"][data-palette="cherry-blossom"] .primary-btn,
+[data-theme="dark"][data-palette="cherry-blossom"] .command-btn {
+  background: linear-gradient(135deg, #da5552 0%, #cc444b 100%);
+  color: #ffffff;
+  border: 1px solid #df7373;
+  box-shadow: 0 4px 14px rgba(218, 85, 82, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="cherry-blossom"] .sidebar a.active {
+  background: linear-gradient(135deg, #da5552 0%, #cc444b 100%);
+  color: #ffffff;
+}
+
+[data-theme="light"][data-palette="cherry-blossom"] {
+  --primary-background: #fff6f6;
+  --secondary-background: #ffffff;
+  --tertiary-background: #e4b1ab;
+  --primary-text: #3b0f13;
+  --secondary-text: #963539;
+  --border-color: rgba(204, 68, 75, 0.22);
+  --overlay-bg: rgba(255, 246, 246, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #cc444b;
+  --primary-accent-dark: #aa3339;
+  --primary-accent-light: #da5552;
+  --primary-accent-rgb: 204, 68, 75;
+  --primary-container: rgba(204, 68, 75, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #3b0f13;
+}
+
+[data-theme="light"][data-palette="cherry-blossom"] .clay-btn.primary,
+[data-theme="light"][data-palette="cherry-blossom"] .primary-btn,
+[data-theme="light"][data-palette="cherry-blossom"] .command-btn {
+  background: linear-gradient(135deg, #cc444b 0%, #aa3339 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(204, 68, 75, 0.28);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="cherry-blossom"] .sidebar a.active {
+  background: linear-gradient(135deg, #cc444b 0%, #aa3339 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   PASTEL GREENERY THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="pastel-greenery"] {
+  --primary-background: #041515;
+  --secondary-background: #082322;
+  --tertiary-background: #113634;
+  --primary-text: #99e2b4;
+  --secondary-text: #67b99a;
+  --border-color: rgba(86, 171, 145, 0.22);
+  --overlay-bg: rgba(4, 21, 21, 0.95);
+  --glass-bg: #082322;
+  --clay-bg: #082322;
+  --primary-accent: #56ab91;
+  --primary-accent-dark: #358f80;
+  --primary-accent-light: #78c6a3;
+  --primary-accent-rgb: 86, 171, 145;
+  --primary-container: rgba(86, 171, 145, 0.18);
+  --on-primary: #041515;
+  --on-primary-container: #99e2b4;
+}
+
+[data-theme="dark"][data-palette="pastel-greenery"] .clay-btn.primary,
+[data-theme="dark"][data-palette="pastel-greenery"] .primary-btn,
+[data-theme="dark"][data-palette="pastel-greenery"] .command-btn {
+  background: linear-gradient(135deg, #56ab91 0%, #358f80 100%);
+  color: #041515;
+  border: 1px solid #78c6a3;
+  box-shadow: 0 4px 14px rgba(86, 171, 145, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="pastel-greenery"] .sidebar a.active {
+  background: linear-gradient(135deg, #56ab91 0%, #358f80 100%);
+  color: #041515;
+}
+
+[data-theme="dark"][data-palette="pastel-greenery"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="pastel-greenery"] .sidebar a.active i {
+  color: #041515 !important;
+}
+
+[data-theme="light"][data-palette="pastel-greenery"] {
+  --primary-background: #f1faf6;
+  --secondary-background: #ffffff;
+  --tertiary-background: #99e2b4;
+  --primary-text: #033b3b;
+  --secondary-text: #14746f;
+  --border-color: rgba(36, 130, 119, 0.22);
+  --overlay-bg: rgba(241, 250, 246, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #248277;
+  --primary-accent-dark: #14746f;
+  --primary-accent-light: #358f80;
+  --primary-accent-rgb: 36, 130, 119;
+  --primary-container: rgba(36, 130, 119, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #033b3b;
+}
+
+[data-theme="light"][data-palette="pastel-greenery"] .clay-btn.primary,
+[data-theme="light"][data-palette="pastel-greenery"] .primary-btn,
+[data-theme="light"][data-palette="pastel-greenery"] .command-btn {
+  background: linear-gradient(135deg, #248277 0%, #14746f 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(36, 130, 119, 0.25);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="pastel-greenery"] .sidebar a.active {
+  background: linear-gradient(135deg, #248277 0%, #14746f 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   GREEN MEADOW THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="green-meadow"] {
+  --primary-background: #0d1e03;
+  --secondary-background: #143005;
+  --tertiary-background: #1f4709;
+  --primary-text: #aad576;
+  --secondary-text: #73a942;
+  --border-color: rgba(115, 169, 66, 0.22);
+  --overlay-bg: rgba(13, 30, 3, 0.95);
+  --glass-bg: #143005;
+  --clay-bg: #143005;
+  --primary-accent: #73a942;
+  --primary-accent-dark: #538d22;
+  --primary-accent-light: #aad576;
+  --primary-accent-rgb: 115, 169, 66;
+  --primary-container: rgba(115, 169, 66, 0.18);
+  --on-primary: #0d1e03;
+  --on-primary-container: #aad576;
+}
+
+[data-theme="dark"][data-palette="green-meadow"] .clay-btn.primary,
+[data-theme="dark"][data-palette="green-meadow"] .primary-btn,
+[data-theme="dark"][data-palette="green-meadow"] .command-btn {
+  background: linear-gradient(135deg, #73a942 0%, #538d22 100%);
+  color: #0d1e03;
+  border: 1px solid #aad576;
+  box-shadow: 0 4px 14px rgba(115, 169, 66, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="green-meadow"] .sidebar a.active {
+  background: linear-gradient(135deg, #73a942 0%, #538d22 100%);
+  color: #0d1e03;
+}
+
+[data-theme="dark"][data-palette="green-meadow"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="green-meadow"] .sidebar a.active i {
+  color: #0d1e03 !important;
+}
+
+[data-theme="light"][data-palette="green-meadow"] {
+  --primary-background: #f6faf0;
+  --secondary-background: #ffffff;
+  --tertiary-background: #aad576;
+  --primary-text: #143601;
+  --secondary-text: #245501;
+  --border-color: rgba(36, 85, 1, 0.22);
+  --overlay-bg: rgba(246, 250, 240, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #538d22;
+  --primary-accent-dark: #245501;
+  --primary-accent-light: #73a942;
+  --primary-accent-rgb: 83, 141, 34;
+  --primary-container: rgba(83, 141, 34, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #143601;
+}
+
+[data-theme="light"][data-palette="green-meadow"] .clay-btn.primary,
+[data-theme="light"][data-palette="green-meadow"] .primary-btn,
+[data-theme="light"][data-palette="green-meadow"] .command-btn {
+  background: linear-gradient(135deg, #538d22 0%, #245501 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(83, 141, 34, 0.25);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="green-meadow"] .sidebar a.active {
+  background: linear-gradient(135deg, #538d22 0%, #245501 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   GREEN HARMONY THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="green-harmony"] {
+  --primary-background: #071d0e;
+  --secondary-background: #0d2c17;
+  --tertiary-background: #144324;
+  --primary-text: #b7efc5;
+  --secondary-text: #4ad66d;
+  --border-color: rgba(45, 198, 83, 0.22);
+  --overlay-bg: rgba(7, 29, 14, 0.95);
+  --glass-bg: #0d2c17;
+  --clay-bg: #0d2c17;
+  --primary-accent: #2dc653;
+  --primary-accent-dark: #208b3a;
+  --primary-accent-light: #4ad66d;
+  --primary-accent-rgb: 45, 198, 83;
+  --primary-container: rgba(45, 198, 83, 0.18);
+  --on-primary: #071d0e;
+  --on-primary-container: #b7efc5;
+}
+
+[data-theme="dark"][data-palette="green-harmony"] .clay-btn.primary,
+[data-theme="dark"][data-palette="green-harmony"] .primary-btn,
+[data-theme="dark"][data-palette="green-harmony"] .command-btn {
+  background: linear-gradient(135deg, #2dc653 0%, #208b3a 100%);
+  color: #071d0e;
+  border: 1px solid #4ad66d;
+  box-shadow: 0 4px 14px rgba(45, 198, 83, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="green-harmony"] .sidebar a.active {
+  background: linear-gradient(135deg, #2dc653 0%, #208b3a 100%);
+  color: #071d0e;
+}
+
+[data-theme="dark"][data-palette="green-harmony"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="green-harmony"] .sidebar a.active i {
+  color: #071d0e !important;
+}
+
+[data-theme="light"][data-palette="green-harmony"] {
+  --primary-background: #f2faf4;
+  --secondary-background: #ffffff;
+  --tertiary-background: #b7efc5;
+  --primary-text: #092e12;
+  --secondary-text: #1a7431;
+  --border-color: rgba(26, 116, 49, 0.22);
+  --overlay-bg: rgba(242, 250, 244, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #1a7431;
+  --primary-accent-dark: #10451d;
+  --primary-accent-light: #208b3a;
+  --primary-accent-rgb: 26, 116, 49;
+  --primary-container: rgba(26, 116, 49, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #092e12;
+}
+
+[data-theme="light"][data-palette="green-harmony"] .clay-btn.primary,
+[data-theme="light"][data-palette="green-harmony"] .primary-btn,
+[data-theme="light"][data-palette="green-harmony"] .command-btn {
+  background: linear-gradient(135deg, #1a7431 0%, #10451d 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(26, 116, 49, 0.25);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="green-harmony"] .sidebar a.active {
+  background: linear-gradient(135deg, #1a7431 0%, #10451d 100%);
+  color: #ffffff;
+}
+
+/* ==========================================================================
+   TURQUOISE WATERS THEME
+   ========================================================================== */
+[data-theme="dark"][data-palette="turquoise-waters"] {
+  --primary-background: #041618;
+  --secondary-background: #072528;
+  --tertiary-background: #0d393d;
+  --primary-text: #c4fff9;
+  --secondary-text: #68d8d6;
+  --border-color: rgba(7, 190, 184, 0.24);
+  --overlay-bg: rgba(4, 22, 24, 0.95);
+  --glass-bg: #072528;
+  --clay-bg: #072528;
+  --primary-accent: #07beb8;
+  --primary-accent-dark: #059c97;
+  --primary-accent-light: #3dccc7;
+  --primary-accent-rgb: 7, 190, 184;
+  --primary-container: rgba(7, 190, 184, 0.18);
+  --on-primary: #041618;
+  --on-primary-container: #c4fff9;
+}
+
+[data-theme="dark"][data-palette="turquoise-waters"] .clay-btn.primary,
+[data-theme="dark"][data-palette="turquoise-waters"] .primary-btn,
+[data-theme="dark"][data-palette="turquoise-waters"] .command-btn {
+  background: linear-gradient(135deg, #07beb8 0%, #059c97 100%);
+  color: #041618;
+  border: 1px solid #3dccc7;
+  box-shadow: 0 4px 14px rgba(7, 190, 184, 0.35);
+  font-weight: 700;
+}
+
+[data-theme="dark"][data-palette="turquoise-waters"] .sidebar a.active {
+  background: linear-gradient(135deg, #07beb8 0%, #059c97 100%);
+  color: #041618;
+}
+
+[data-theme="dark"][data-palette="turquoise-waters"] .sidebar a.active .nav-text,
+[data-theme="dark"][data-palette="turquoise-waters"] .sidebar a.active i {
+  color: #041618 !important;
+}
+
+[data-theme="light"][data-palette="turquoise-waters"] {
+  --primary-background: #f0fcfb;
+  --secondary-background: #ffffff;
+  --tertiary-background: #c4fff9;
+  --primary-text: #043635;
+  --secondary-text: #058580;
+  --border-color: rgba(7, 190, 184, 0.22);
+  --overlay-bg: rgba(240, 252, 251, 0.96);
+  --glass-bg: #ffffff;
+  --clay-bg: #ffffff;
+  --primary-accent: #059c97;
+  --primary-accent-dark: #036f6b;
+  --primary-accent-light: #07beb8;
+  --primary-accent-rgb: 5, 156, 151;
+  --primary-container: rgba(5, 156, 151, 0.12);
+  --on-primary: #ffffff;
+  --on-primary-container: #043635;
+}
+
+[data-theme="light"][data-palette="turquoise-waters"] .clay-btn.primary,
+[data-theme="light"][data-palette="turquoise-waters"] .primary-btn,
+[data-theme="light"][data-palette="turquoise-waters"] .command-btn {
+  background: linear-gradient(135deg, #059c97 0%, #036f6b 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(5, 156, 151, 0.25);
+  font-weight: 700;
+}
+
+[data-theme="light"][data-palette="turquoise-waters"] .sidebar a.active {
+  background: linear-gradient(135deg, #059c97 0%, #036f6b 100%);
+  color: #ffffff;
 }
 
 /* ==========================================================================
