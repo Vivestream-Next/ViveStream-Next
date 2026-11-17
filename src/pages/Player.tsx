@@ -1250,67 +1250,32 @@ export default function Player() {
         <div class="player-lyrics-title-group">
           <i class="ph-fill ph-waveform lyrics-sparkle-icon" />
           <div class="player-lyrics-titles">
-            <span class="player-lyrics-heading">Synced Lyrics</span>
+            <div class="player-lyrics-header-line">
+              <span class="player-lyrics-heading">Synced Lyrics</span>
+              <Show when={currentTrackLyrics()?.has_lyrics}>
+                <span class="player-lyrics-badge">
+                  <i class="ph-bold ph-lightning" />
+                  {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
+                </span>
+              </Show>
+            </div>
             <span class="player-lyrics-track-name">{video()?.title}</span>
           </div>
         </div>
 
         <div class="player-lyrics-actions">
-          <Show when={currentTrackLyrics()?.has_lyrics}>
-            <span class="player-lyrics-badge">
-              <i class="ph-bold ph-lightning" />
-              {currentTrackLyrics()?.format === "enhanced_lrc" ? "Word-Synced" : "Line-Synced"}
-            </span>
-            <button
-              type="button"
-              class="align-intro-btn"
-              title="Snap lyrics intro to current playback time"
-              onClick={() => {
-                const v = video();
-                if (v) alignLyricsToCurrentTime(v.id, currentTime());
-              }}
-            >
-              <i class="ph-bold ph-target" />
-              <span>Align Intro</span>
-            </button>
-            <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
-              <button
-                type="button"
-                class="offset-btn"
-                title="Shift lyrics earlier by 1.0s"
-                onClick={() => applyLyricsOffset(video()!.id, -1.0)}
-              >
-                -1s
-              </button>
-              <button
-                type="button"
-                class="offset-btn"
-                title="Shift lyrics earlier by 0.2s"
-                onClick={() => applyLyricsOffset(video()!.id, -0.2)}
-              >
-                -0.2s
-              </button>
-              <span class="offset-val">
-                {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
-              </span>
-              <button
-                type="button"
-                class="offset-btn"
-                title="Shift lyrics later by 0.2s"
-                onClick={() => applyLyricsOffset(video()!.id, 0.2)}
-              >
-                +0.2s
-              </button>
-              <button
-                type="button"
-                class="offset-btn"
-                title="Shift lyrics later by 1.0s"
-                onClick={() => applyLyricsOffset(video()!.id, 1.0)}
-              >
-                +1s
-              </button>
-            </div>
-          </Show>
+          <button
+            type="button"
+            class="player-lyrics-studio-btn"
+            title="Open in Lyrics Studio"
+            onClick={() => {
+              const v = video();
+              if (v) navigate(`/lyrics-studio?id=${encodeURIComponent(v.id)}`);
+            }}
+          >
+            <i class="ph-bold ph-sliders-horizontal" />
+            <span>Studio</span>
+          </button>
 
           <Show when={isFullscreenDrawer}>
             <button
@@ -1324,6 +1289,61 @@ export default function Player() {
           </Show>
         </div>
       </div>
+
+      {/* Dedicated Calibration Toolbar Row (No button overflow) */}
+      <Show when={currentTrackLyrics()?.has_lyrics}>
+        <div class="player-lyrics-toolbar">
+          <button
+            type="button"
+            class="align-intro-btn"
+            title="Snap lyrics intro to current playback time"
+            onClick={() => {
+              const v = video();
+              if (v) alignLyricsToCurrentTime(v.id, currentTime());
+            }}
+          >
+            <i class="ph-bold ph-target" />
+            <span>Align Intro</span>
+          </button>
+          <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
+            <button
+              type="button"
+              class="offset-btn"
+              title="Shift lyrics earlier by 1.0s"
+              onClick={() => applyLyricsOffset(video()!.id, -1.0)}
+            >
+              -1s
+            </button>
+            <button
+              type="button"
+              class="offset-btn"
+              title="Shift lyrics earlier by 0.2s"
+              onClick={() => applyLyricsOffset(video()!.id, -0.2)}
+            >
+              -0.2s
+            </button>
+            <span class="offset-val">
+              {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
+            </span>
+            <button
+              type="button"
+              class="offset-btn"
+              title="Shift lyrics later by 0.2s"
+              onClick={() => applyLyricsOffset(video()!.id, 0.2)}
+            >
+              +0.2s
+            </button>
+            <button
+              type="button"
+              class="offset-btn"
+              title="Shift lyrics later by 1.0s"
+              onClick={() => applyLyricsOffset(video()!.id, 1.0)}
+            >
+              +1s
+            </button>
+          </div>
+        </div>
+      </Show>
 
       {/* Main Content: Lyrics Stream or AI Generator Empty State */}
       <Show
@@ -2095,42 +2115,6 @@ export default function Player() {
                   Show less
                 </div>
               </Show>
-            </div>
-            {/* Bottom Up Next Queue Section (Always accessible below video details) */}
-            <div class="player-bottom-up-next">
-              <h3 class="settings-title">Up next</h3>
-              <div class="player-bottom-queue-grid">
-                <For each={queue()}>
-                  {(qVideo) => (
-                    <div
-                      class="bottom-queue-card"
-                      onClick={() => {
-                        const qs = new URLSearchParams(
-                          searchParams as Record<string, string>,
-                        ).toString();
-                        navigate(`/player/${qVideo.id}${qs ? `?${qs}` : ""}`);
-                      }}
-                    >
-                      <div class="bottom-queue-thumb">
-                        <img
-                          src={getThumbnailUrl(qVideo)}
-                          alt={qVideo.title}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </div>
-                      <div class="bottom-queue-info">
-                        <span class="bottom-queue-title" title={qVideo.title}>
-                          {qVideo.title}
-                        </span>
-                        <span class="bottom-queue-channel" title={qVideo.channel}>
-                          {qVideo.channel}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </For>
-              </div>
             </div>
           </div>
         </Show>
