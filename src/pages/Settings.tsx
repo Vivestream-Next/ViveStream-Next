@@ -1,4 +1,4 @@
-import { PRESET_PALETTES } from "../utils/themeEngine";
+import { PRESET_PALETTES, resolveSeedColor } from "../utils/themeEngine";
 import { createSignal, onMount, onCleanup, For, Show } from "solid-js";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -41,6 +41,11 @@ import {
   toggleAlwaysShowSearchBar,
   showFpsCounter,
   toggleShowFpsCounter,
+  showPixelMascot,
+  togglePixelMascot,
+  pixelMascotCharacter,
+  updatePixelMascotCharacter,
+  PixelMascotCharacter,
   thumbnailQuality,
   updateThumbnailQuality,
   concurrentDownloads,
@@ -100,7 +105,10 @@ import {
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import BenchmarkModal from "../components/BenchmarkModal";
 import CustomSelect from "../components/CustomSelect";
+import { SakuraPixelSvg, NekoPixelSvg, BytePixelSvg } from "../components/PixelMascot";
 import { APP_VERSION } from "../version";
+import bannerPng from "../assets/Banner.png";
+import logoAnimatedSvg from "../assets/logo-animated.svg";
 import "./Settings.css";
 
 export interface EncoderTestResult {
@@ -961,16 +969,24 @@ export default function Settings() {
             </div>
           </div>
 
-          {/* Curated Presets Grid */}
-          <div class="m3-presets-grid">
-            <For each={PRESET_PALETTES}>
+          {/* Special Brand Candidate Palettes */}
+          <div class="palettes-section-header">
+            <div class="palettes-section-title-wrap">
+              <h3 class="palettes-section-title">Special Brand Candidate Palettes</h3>
+              <span class="nav-badge-pro">BRAND CANDIDATES</span>
+            </div>
+            <p class="palettes-section-desc">
+              Curated Coolors & signature tonal harmonies designed for both Dark and Light mode. Test and choose the new brand color identity for ViveStream.
+            </p>
+          </div>
+
+          <div class="m3-presets-grid special-presets-grid">
+            <For each={PRESET_PALETTES.filter((p) => p.isSpecial)}>
               {(preset) => {
-                const effectiveSeed = preset.id === "monochrome"
-                  ? (appTheme() === "light" ? "#000000" : "#ffffff")
-                  : preset.seed;
+                const effectiveSeed = resolveSeedColor(preset.id);
                 return (
                 <div
-                  class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
+                  class={`theme-preview-card m3-preset-card special-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
                   onClick={() => toggleAppPalette(preset.id)}
                 >
                   <div class="theme-preview-mockup m3-mockup-wrapper">
@@ -1010,6 +1026,22 @@ export default function Settings() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Swatches Ramp */}
+                  <Show when={preset.tokens && preset.tokens.length > 0}>
+                    <div class="palette-swatches-strip" title="Palette Color Swatches">
+                      <For each={preset.tokens}>
+                        {(color) => (
+                          <span
+                            class="palette-swatch-segment"
+                            style={{ background: color }}
+                            title={color}
+                          ></span>
+                        )}
+                      </For>
+                    </div>
+                  </Show>
+
                   <div class="theme-card-footer">
                     <div class="theme-card-info">
                       <div class="theme-card-title-row">
@@ -1019,6 +1051,82 @@ export default function Settings() {
                             background: effectiveSeed,
                             border: preset.id === "monochrome" ? "1px solid rgba(128,128,128,0.5)" : undefined,
                           }}
+                        ></span>
+                        <span class="theme-card-name">{preset.name}</span>
+                      </div>
+                      <span class="theme-card-desc">{preset.description}</span>
+                    </div>
+                    <div class="theme-radio-indicator">
+                      <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
+                    </div>
+                  </div>
+                </div>
+              );}}
+            </For>
+          </div>
+
+          {/* Classic Standard Harmonies */}
+          <div class="palettes-section-header" style={{ "margin-top": "24px" }}>
+            <div class="palettes-section-title-wrap">
+              <h3 class="palettes-section-title">Classic Harmonies</h3>
+            </div>
+            <p class="palettes-section-desc">
+              Standard Material You accent harmonies.
+            </p>
+          </div>
+
+          <div class="m3-presets-grid">
+            <For each={PRESET_PALETTES.filter((p) => !p.isSpecial)}>
+              {(preset) => {
+                const effectiveSeed = resolveSeedColor(preset.id);
+                return (
+                <div
+                  class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
+                  onClick={() => toggleAppPalette(preset.id)}
+                >
+                  <div class="theme-preview-mockup m3-mockup-wrapper">
+                    <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
+                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed }}></div>
+                      <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
+                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
+                    </div>
+                    <div class="mockup-main">
+                      <div class="mockup-topbar">
+                        <div class="mockup-search" style={{ opacity: "0.6" }}></div>
+                      </div>
+                      <div class="mockup-grid">
+                        <div
+                          class="mockup-card"
+                          style={{
+                            "border-color": effectiveSeed,
+                            "box-shadow": `1.5px 1.5px 0px ${effectiveSeed}`,
+                          }}
+                        >
+                          <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
+                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                          <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
+                        </div>
+                        <div
+                          class="mockup-card"
+                          style={{
+                            "border-color": appPalette() === preset.id ? effectiveSeed : "var(--border-color)",
+                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)",
+                          }}
+                        >
+                          <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
+                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                          <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="theme-card-footer">
+                    <div class="theme-card-info">
+                      <div class="theme-card-title-row">
+                        <span
+                          class="preset-color-dot"
+                          style={{ background: effectiveSeed }}
                         ></span>
                         <span class="theme-card-name">{preset.name}</span>
                       </div>
@@ -1767,6 +1875,91 @@ export default function Settings() {
             />
             <span class="slider"></span>
           </label>
+        </div>
+
+        <div class="full-divider"></div>
+
+        {/* Retro Pixel Anime Companion Settings */}
+        <div class="mascot-settings-card" id="setting-appearance-mascot">
+          <div class="flex-row-between">
+            <div>
+              <div class="mascot-title-row">
+                <h3 class="settings-title">Pixel Anime Companion</h3>
+                <span class="nav-badge-pro">RETRO</span>
+              </div>
+              <p class="settings-desc">
+                Interactive 90s City Pop & Kawaii Arcade pixel mascot companion. Grooves to your music and shares retro vibes.
+              </p>
+            </div>
+            <label class="switch">
+              <input
+                type="checkbox"
+                checked={showPixelMascot()}
+                onChange={(e) => {
+                  togglePixelMascot(e.target.checked);
+                  addToast(
+                    e.target.checked
+                      ? "Pixel Anime Companion summoned! Click them in the corner to chat."
+                      : "Pixel Anime Companion resting in sleep mode.",
+                    "info"
+                  );
+                }}
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <Show when={showPixelMascot()}>
+            <div class="mascot-picker-grid">
+              <div
+                class={`mascot-picker-card ${pixelMascotCharacter() === "sakura" ? "active" : ""}`}
+                onClick={() => {
+                  updatePixelMascotCharacter("sakura");
+                  addToast("Sakura-chan is now your active companion! ★", "success");
+                }}
+              >
+                <div class="mascot-picker-preview">
+                  <SakuraPixelSvg />
+                </div>
+                <div class="mascot-picker-info">
+                  <span class="mascot-picker-name">Sakura-chan</span>
+                  <span class="mascot-picker-sub">90s City Pop Idol</span>
+                </div>
+              </div>
+
+              <div
+                class={`mascot-picker-card ${pixelMascotCharacter() === "neko" ? "active" : ""}`}
+                onClick={() => {
+                  updatePixelMascotCharacter("neko");
+                  addToast("DJ Neko-kun is on the turntables! 🎧", "success");
+                }}
+              >
+                <div class="mascot-picker-preview">
+                  <NekoPixelSvg />
+                </div>
+                <div class="mascot-picker-info">
+                  <span class="mascot-picker-name">DJ Neko-kun</span>
+                  <span class="mascot-picker-sub">Cyberpunk Arcade Cat</span>
+                </div>
+              </div>
+
+              <div
+                class={`mascot-picker-card ${pixelMascotCharacter() === "byte" ? "active" : ""}`}
+                onClick={() => {
+                  updatePixelMascotCharacter("byte");
+                  addToast("Byte-kun initialized and synced! 👾", "success");
+                }}
+              >
+                <div class="mascot-picker-preview">
+                  <BytePixelSvg />
+                </div>
+                <div class="mascot-picker-info">
+                  <span class="mascot-picker-name">Byte-kun</span>
+                  <span class="mascot-picker-sub">Chibi 8-Bit Robot</span>
+                </div>
+              </div>
+            </div>
+          </Show>
         </div>
 
         <div class="full-divider"></div>
@@ -3150,35 +3343,12 @@ export default function Settings() {
       </h2>
 
       <div class="settings-card about-app-card">
+        <div class="about-banner-container">
+          <img src={bannerPng} alt="ViveStream Next" class="about-banner-img" />
+        </div>
         <div class="about-hero-row">
           <div class="about-logo-badge">
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 500 500"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fill="var(--primary-accent)"
-                d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"
-              />
-              <path
-                d="M95 125 L250 385 L405 125"
-                stroke="var(--logo-inner, #f1f1f1)"
-                stroke-width="30"
-                fill="none"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-              <path
-                d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-                stroke="var(--logo-wave, #ffffff)"
-                stroke-width="6"
-                fill="none"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            <img src={logoAnimatedSvg} alt="ViveStream Logo" class="about-logo-img" />
           </div>
           <div class="about-hero-text">
             <div class="about-title-row">
