@@ -33,7 +33,7 @@ export const PRESET_PALETTES: PalettePreset[] = [
     id: "monochrome",
     name: "Monochrome",
     seed: "#ffffff",
-    description: "Flagship High-contrast Black & White neo-brutalist aesthetic",
+    description: "Ultra-modern Obsidian & Gallery luxury tech aesthetic",
     icon: "ph-circle-half",
   },
   {
@@ -204,6 +204,44 @@ export function hslToRgb(h: number, s: number, l: number): { r: number; g: numbe
  */
 export function generateMaterialPalette(rawSeed: string): MaterialTonalPalette {
   const seed = normalizeHex(rawSeed);
+
+  // Specialized sleek luxury tech aesthetic for Monochrome (Dark: #ffffff, Light: #000000)
+  if (seed === "#ffffff") {
+    return {
+      seed: "#ffffff",
+      primary: "#ffffff",
+      primaryDark: "#e4e4e7",
+      primaryLight: "#ffffff",
+      primaryRgb: "255, 255, 255",
+      primaryContainer: "rgba(255, 255, 255, 0.12)",
+      onPrimary: "#090a0f",
+      onPrimaryContainer: "#f4f4f5",
+      logoInner: "#090a0f",
+      logoWave: "#090a0f",
+      logoGlow: "rgba(255, 255, 255, 0.35)",
+      surfaceTint: "rgba(255, 255, 255, 0.04)",
+      focusRing: "rgba(255, 255, 255, 0.4)",
+    };
+  }
+
+  if (seed === "#000000") {
+    return {
+      seed: "#000000",
+      primary: "#09090b",
+      primaryDark: "#27272a",
+      primaryLight: "#3f3f46",
+      primaryRgb: "9, 9, 11",
+      primaryContainer: "rgba(9, 9, 11, 0.08)",
+      onPrimary: "#ffffff",
+      onPrimaryContainer: "#09090b",
+      logoInner: "#ffffff",
+      logoWave: "#ffffff",
+      logoGlow: "rgba(0, 0, 0, 0.25)",
+      surfaceTint: "rgba(9, 9, 11, 0.04)",
+      focusRing: "rgba(9, 9, 11, 0.35)",
+    };
+  }
+
   const rgb = hexToRgbComponents(seed);
   const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
   const luminance = getRelativeLuminance(rgb.r, rgb.g, rgb.b);
