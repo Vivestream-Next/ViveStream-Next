@@ -31,6 +31,7 @@ import {
 } from "../store";
 import { sortVideos } from "../utils/sortUtils";
 import AiPaywall from "../components/AiPaywall";
+import CustomSelect from "../components/CustomSelect";
 import "./LyricsStudio.css";
 
 interface LyricsResult {
@@ -928,73 +929,97 @@ export default function LyricsStudio() {
             <div class="studio-config-toolbar">
               <div class="config-item">
                 <label>Whisper Model:</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedModel()}
-                  onChange={(e) => {
-                    setSelectedModel(e.currentTarget.value);
-                    setWhisperDefaultModel(e.currentTarget.value);
+                  onChange={(val) => {
+                    setSelectedModel(val);
+                    setWhisperDefaultModel(val);
                   }}
-                  class="studio-select"
-                >
-                  <For each={status()?.models || []}>
-                    {(m) => (
-                      <option value={m.name}>
-                        {m.name.toUpperCase()} {m.installed ? "• [Installed]" : "• [Remote]"}
-                      </option>
-                    )}
-                  </For>
-                </select>
+                  options={(status()?.models || []).map((m) => ({
+                    value: m.name,
+                    label: m.name.toUpperCase(),
+                    badge: m.installed ? "Installed" : "Remote",
+                    icon: "ph-bold ph-cube",
+                  }))}
+                />
               </div>
 
               <div class="config-item">
                 <label>Acceleration:</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedDevice()}
-                  onChange={(e) => {
-                    setSelectedDevice(e.currentTarget.value);
-                    updateWhisperComputeDevice(e.currentTarget.value);
+                  onChange={(val) => {
+                    setSelectedDevice(val);
+                    updateWhisperComputeDevice(val);
                   }}
-                  class="studio-select"
-                >
-                  <option value="auto">Auto (Intel Arc GPU Preferred)</option>
-                  <option value="gpu:0">
-                    GPU: {status()?.system?.primary_gpu?.name || "Discrete GPU"}
-                  </option>
-                  <option value="cpu">CPU (Multi-Threaded Rayon)</option>
-                </select>
+                  options={[
+                    {
+                      value: "auto",
+                      label: "Auto (DirectML / Arc)",
+                      badge: "Auto",
+                      icon: "ph-bold ph-sparkle",
+                    },
+                    {
+                      value: "gpu:0",
+                      label: `GPU: ${status()?.system?.primary_gpu?.name || "Discrete GPU"}`,
+                      badge: "GPU",
+                      icon: "ph-bold ph-lightning",
+                    },
+                    {
+                      value: "cpu",
+                      label: "CPU (Rayon SIMD)",
+                      badge: "CPU",
+                      icon: "ph-bold ph-cpu",
+                    },
+                  ]}
+                />
               </div>
 
               <div class="config-item">
                 <label>Task:</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedTask()}
-                  onChange={(e) => {
-                    setSelectedTask(e.currentTarget.value);
-                    setWhisperDefaultTask(e.currentTarget.value);
+                  onChange={(val) => {
+                    setSelectedTask(val);
+                    setWhisperDefaultTask(val);
                   }}
-                  class="studio-select"
-                >
-                  <option value="transcribe">Transcribe (Original)</option>
-                  <option value="translate">Translate to English</option>
-                </select>
+                  options={[
+                    {
+                      value: "transcribe",
+                      label: "Transcribe (Original)",
+                      badge: "Native",
+                      icon: "ph-bold ph-waveform",
+                    },
+                    {
+                      value: "translate",
+                      label: "Translate to English",
+                      badge: "EN",
+                      icon: "ph-bold ph-translate",
+                    },
+                  ]}
+                />
               </div>
 
               <div class="config-item">
                 <label>Language:</label>
-                <select
+                <CustomSelect
+                  size="sm"
                   value={selectedLanguage()}
-                  onChange={(e) => setSelectedLanguage(e.currentTarget.value)}
-                  class="studio-select"
-                >
-                  <option value="auto">Auto-Detect</option>
-                  <option value="en">English</option>
-                  <option value="ja">Japanese</option>
-                  <option value="ko">Korean</option>
-                  <option value="es">Spanish</option>
-                  <option value="fr">French</option>
-                  <option value="de">German</option>
-                  <option value="zh">Chinese</option>
-                </select>
+                  onChange={(val) => setSelectedLanguage(val)}
+                  options={[
+                    { value: "auto", label: "Auto-Detect", icon: "ph-bold ph-globe" },
+                    { value: "en", label: "English", badge: "EN" },
+                    { value: "ja", label: "Japanese", badge: "JA" },
+                    { value: "ko", label: "Korean", badge: "KO" },
+                    { value: "es", label: "Spanish", badge: "ES" },
+                    { value: "fr", label: "French", badge: "FR" },
+                    { value: "de", label: "German", badge: "DE" },
+                    { value: "zh", label: "Chinese", badge: "ZH" },
+                  ]}
+                />
               </div>
             </div>
 
@@ -1383,17 +1408,18 @@ export default function LyricsStudio() {
 
                 <div class="modal-sort-box">
                   <label>Sort:</label>
-                  <select
+                  <CustomSelect
+                    size="sm"
                     value={pickerSort()}
-                    onChange={(e: any) => setPickerSort(e.currentTarget.value)}
-                    class="studio-select"
-                  >
-                    <option value="date_desc">Recently Added</option>
-                    <option value="date_asc">Oldest First</option>
-                    <option value="title_asc">Title (A-Z)</option>
-                    <option value="channel">Channel / Artist</option>
-                    <option value="duration">Duration</option>
-                  </select>
+                    onChange={(val) => setPickerSort(val as any)}
+                    options={[
+                      { value: "date_desc", label: "Recently Added", icon: "ph-bold ph-clock-counter-clockwise" },
+                      { value: "date_asc", label: "Oldest First", icon: "ph-bold ph-clock" },
+                      { value: "title_asc", label: "Title (A-Z)", icon: "ph-bold ph-sort-ascending" },
+                      { value: "channel", label: "Channel / Artist", icon: "ph-bold ph-user" },
+                      { value: "duration", label: "Duration", icon: "ph-bold ph-hourglass-medium" },
+                    ]}
+                  />
                 </div>
               </div>
 
