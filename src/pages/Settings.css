@@ -1352,9 +1352,34 @@
 
 /* ABOUT VIVESTREAM CARD */
 .settings-page .about-app-card {
-  padding: 32px;
-  gap: 28px;
+  padding: 24px;
+  gap: 22px;
   background: var(--clay-bg);
+}
+
+.settings-page .about-banner-container {
+  width: 100%;
+  border-radius: var(--neo-radius);
+  overflow: hidden;
+  border: 2px solid var(--border-color);
+  box-shadow: 3px 3px 0px var(--border-color);
+  background: #000000;
+  max-height: 125px;
+}
+
+.settings-page .about-banner-img {
+  width: 100%;
+  height: 100%;
+  max-height: 125px;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+.settings-page .about-logo-img {
+  width: 48px;
+  height: 48px;
+  display: block;
 }
 
 .settings-page .about-hero-row {
@@ -2281,6 +2306,54 @@
   }
 }
 
+.palettes-section-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.palettes-section-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.palettes-section-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--primary-text);
+  margin: 0;
+}
+
+.palettes-section-desc {
+  font-size: 12px;
+  color: var(--secondary-text);
+  margin: 0 0 6px 0;
+}
+
+.palette-swatches-strip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 2px;
+  border: 1px solid var(--border-color);
+}
+
+.palette-swatch-segment {
+  flex: 1;
+  height: 100%;
+  transition: transform 0.15s ease;
+}
+
+.palette-swatch-segment:hover {
+  transform: scaleY(1.6);
+}
+
 .m3-preset-card {
   padding: 10px;
   gap: 10px;
@@ -2790,3 +2863,90 @@
   opacity: 0.8;
   letter-spacing: 0.5px;
 }
+
+/* ==========================================================================
+   Pixel Mascot Settings Card & Character Picker
+   ========================================================================== */
+.mascot-settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.mascot-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.mascot-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.mascot-picker-card {
+  background: var(--tertiary-background);
+  border: 2px solid var(--border-color);
+  border-radius: var(--neo-radius);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 2px 2px 0px var(--shadow-color);
+}
+
+.mascot-picker-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-accent);
+  box-shadow: 4px 4px 0px var(--primary-accent);
+}
+
+.mascot-picker-card.active {
+  background: var(--primary-container);
+  border-color: var(--primary-accent);
+  box-shadow: 3px 3px 0px var(--primary-accent);
+}
+
+.mascot-picker-preview {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mascot-picker-preview .pixel-character-canvas {
+  width: 48px;
+  height: 48px;
+}
+
+.mascot-picker-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+}
+
+.mascot-picker-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary-text);
+}
+
+.mascot-picker-card.active .mascot-picker-name {
+  color: var(--primary-accent);
+}
+
+.mascot-picker-sub {
+  font-size: 11px;
+  color: var(--secondary-text);
+}
+
