@@ -1,0 +1,83 @@
+<svg width="2048" height="2048" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Rich Multi-Stop Coral/Crimson Background -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7e6b" />
+      <stop offset="50%" stop-color="#ef6351" />
+      <stop offset="100%" stop-color="#c93b2b" />
+    </linearGradient>
+
+    <!-- Subtle Inner Rim Highlight -->
+    <linearGradient id="rim-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- Metallic/Glossy White Gradient for Primary V -->
+    <linearGradient id="v-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ffe6e2" />
+    </linearGradient>
+
+    <!-- Static Neon Audio Glow Filter -->
+    <filter id="neon-glow" x="-25%" y="-50%" width="150%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Drop Shadow for 3D Depth on Primary V -->
+    <filter id="v-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#7a1c11" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- 1. Base Squircle -->
+  <rect width="500" height="500" rx="112" fill="url(#bg-grad)" />
+
+  <!-- 2. Recessed Glass Border -->
+  <rect x="14" y="14" width="472" height="472" rx="100" fill="none" stroke="url(#rim-grad)" stroke-width="3" />
+
+  <!-- 3. Subtle Acoustic Grid Lines -->
+  <g stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5" stroke-dasharray="4 6">
+    <line x1="60" y1="115" x2="440" y2="115" />
+    <line x1="120" y1="220" x2="380" y2="220" />
+    <line x1="180" y1="320" x2="320" y2="320" />
+  </g>
+
+  <!-- 4. Static Staggered Radar/Sonar Rings from V Vertex -->
+  <g fill="none" stroke="#ffffff">
+    <circle cx="250" cy="405" r="38" stroke-width="2.5" opacity="0.42" />
+    <circle cx="250" cy="405" r="62" stroke-width="2" opacity="0.18" />
+  </g>
+
+  <!-- 5. Background Echo 'V' -->
+  <path d="M 85 155 L 250 428 L 415 155" stroke="#ffffff" stroke-opacity="0.18" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- 6. Internal Equalizer Frequency Bars inside the V -->
+  <g stroke="#ffffff" stroke-linecap="round" stroke-width="7" opacity="0.85">
+    <line x1="196" y1="220" x2="196" y2="250" />
+    <line x1="214" y1="205" x2="214" y2="275" />
+    <line x1="232" y1="190" x2="232" y2="300" />
+    <line x1="250" y1="180" x2="250" y2="325" />
+    <line x1="268" y1="190" x2="268" y2="300" />
+    <line x1="286" y1="205" x2="286" y2="275" />
+    <line x1="304" y1="220" x2="304" y2="250" />
+  </g>
+
+  <!-- 7. Primary 'V' Mark with 3D Drop Shadow -->
+  <path d="M 105 165 L 250 405 L 395 165" stroke="url(#v-grad)" stroke-width="32" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#v-shadow)" />
+
+  <!-- 8. Primary Audio Waveform -->
+  <g transform="translate(0 50)">
+    <path stroke="#ffffff" stroke-width="9.5" fill="none" stroke-linecap="round" filter="url(#neon-glow)" d="M 90 115 C 105 115, 118 115, 125 115 C 134 115, 141 91, 150 91 C 159 91, 166 151, 175 151 C 184 151, 191 66, 200 66 C 209 66, 216 175, 225 175 C 234 175, 241 48, 250 48 C 259 48, 266 175, 275 175 C 284 175, 291 66, 300 66 C 309 66, 316 151, 325 151 C 334 151, 341 91, 350 91 C 359 91, 366 115, 375 115 C 382 115, 395 115, 410 115" />
+
+    <!-- 9. Terminal Nodes at Waveform Endpoints -->
+    <circle cx="90" cy="115" r="7" fill="#ffffff" />
+    <circle cx="410" cy="115" r="7" fill="#ffffff" />
+  </g>
+</svg>
