@@ -12,6 +12,15 @@ import {
   activeTonalPalette,
   designStyle,
   toggleDesignStyle,
+  appFontWeight,
+  setAppFontWeight,
+  appFontSlant,
+  setAppFontSlant,
+  appFontWidth,
+  setAppFontWidth,
+  appFontRoundness,
+  setAppFontRoundness,
+  resetFontSettings,
   playerAmbientMode,
   togglePlayerAmbientMode,
   playerAmbientType,
@@ -90,6 +99,7 @@ import {
 } from "../store";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import BenchmarkModal from "../components/BenchmarkModal";
+import CustomSelect from "../components/CustomSelect";
 import { APP_VERSION } from "../version";
 import "./Settings.css";
 
@@ -131,8 +141,6 @@ export default function Settings() {
   const [poStatus, setPoStatus] = createSignal<PoTokenStatus | null>(null);
   const [manualPoToken, setManualPoToken] = createSignal("");
   const [loadingPoToken, setLoadingPoToken] = createSignal(false);
-  const [cookiesDropdownOpen, setCookiesDropdownOpen] = createSignal(false);
-  const [clientDropdownOpen, setClientDropdownOpen] = createSignal(false);
   const [whisperStatus, setWhisperStatus] = createSignal<any | null>(null);
   const [loadingWhisperStatus, setLoadingWhisperStatus] = createSignal(false);
   const [isDeployingWhisper, setIsDeployingWhisper] = createSignal(false);
@@ -214,9 +222,6 @@ export default function Settings() {
       addToast(`Failed to deactivate: ${err?.message || err}`, "error");
     }
   };
-
-  let cookiesRef: HTMLDivElement | undefined;
-  let clientRef: HTMLDivElement | undefined;
 
   const cookieOptions = [
     "None",
@@ -476,18 +481,8 @@ export default function Settings() {
         .catch(() => {});
     } catch (_) {}
 
-    const handleClickOutside = (e: MouseEvent) => {
-      if (cookiesRef && !cookiesRef.contains(e.target as Node)) {
-        setCookiesDropdownOpen(false);
-      }
-      if (clientRef && !clientRef.contains(e.target as Node)) {
-        setClientDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
     onCleanup(() => {
       if (unlistenPo) unlistenPo();
-      document.removeEventListener("mousedown", handleClickOutside);
     });
   });
 
@@ -993,8 +988,8 @@ export default function Settings() {
                         <div
                           class="mockup-card"
                           style={{
-                            "border-color": effectiveSeed,
-                            "box-shadow": `1.5px 1.5px 0px ${effectiveSeed}`,
+                            "border-color": preset.id === "monochrome" ? "var(--border-color)" : effectiveSeed,
+                            "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : `1.5px 1.5px 0px ${effectiveSeed}`,
                           }}
                         >
                           <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
@@ -1004,8 +999,8 @@ export default function Settings() {
                         <div
                           class="mockup-card"
                           style={{
-                            "border-color": appPalette() === preset.id ? effectiveSeed : "var(--border-color)",
-                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)",
+                            "border-color": preset.id === "monochrome" ? "var(--border-color)" : (appPalette() === preset.id ? effectiveSeed : "var(--border-color)"),
+                            "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : (appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)"),
                           }}
                         >
                           <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
@@ -1201,6 +1196,176 @@ export default function Settings() {
                     </span>
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Card: Typography & Variable Font Studio */}
+      <div class="settings-card" id="card-appearance-typography">
+        <div class="card-section-header">
+          <i class="ph-fill ph-text-aa"></i>
+          <div class="header-text">
+            <h3>Typography & Variable Font Studio</h3>
+            <p>Fine-tune variable axes of Google Sans Flex across the entire application interface.</p>
+          </div>
+          <button
+            type="button"
+            class="command-btn font-reset-btn"
+            onClick={() => resetFontSettings()}
+            title="Reset typography settings to defaults"
+          >
+            <i class="ph-bold ph-arrow-counter-clockwise"></i> Reset to Defaults
+          </button>
+        </div>
+
+        <div class="font-studio-container" id="setting-appearance-typography">
+          {/* Sliders Grid */}
+          <div class="font-sliders-grid">
+            {/* Weight Slider */}
+            <div class="font-slider-card">
+              <div class="flex-row-between">
+                <span class="font-slider-label">
+                  <i class="ph-bold ph-text-bolder"></i> Weight (wght)
+                </span>
+                <span class="font-slider-badge">{appFontWeight()}</span>
+              </div>
+              <input
+                type="range"
+                class="setting-slider font-full-slider"
+                min="300"
+                max="800"
+                step="10"
+                value={appFontWeight()}
+                onInput={(e) => setAppFontWeight(parseInt(e.currentTarget.value, 10))}
+                style={{
+                  "--progress": `${((appFontWeight() - 300) / (800 - 300)) * 100}%`,
+                } as any}
+                aria-label="Font Weight"
+              />
+              <div class="font-slider-scale">
+                <span>Light (300)</span>
+                <span>Regular (400)</span>
+                <span>Bold (700)</span>
+                <span>Heavy (800)</span>
+              </div>
+            </div>
+
+            {/* Slant Slider */}
+            <div class="font-slider-card">
+              <div class="flex-row-between">
+                <span class="font-slider-label">
+                  <i class="ph-bold ph-text-italic"></i> Slant / Italic (slnt)
+                </span>
+                <span class="font-slider-badge">{appFontSlant()}°</span>
+              </div>
+              <input
+                type="range"
+                class="setting-slider font-full-slider"
+                min="-10"
+                max="12"
+                step="1"
+                value={appFontSlant()}
+                onInput={(e) => setAppFontSlant(parseInt(e.currentTarget.value, 10))}
+                style={{
+                  "--progress": `${((appFontSlant() - (-10)) / (12 - (-10))) * 100}%`,
+                } as any}
+                aria-label="Font Slant"
+              />
+              <div class="font-slider-scale">
+                <span>Backslant (-10°)</span>
+                <span>Upright (0°)</span>
+                <span>Italic (+12°)</span>
+              </div>
+            </div>
+
+            {/* Width Slider */}
+            <div class="font-slider-card">
+              <div class="flex-row-between">
+                <span class="font-slider-label">
+                  <i class="ph-bold ph-arrows-out-line-horizontal"></i> Width (wdth)
+                </span>
+                <span class="font-slider-badge">{appFontWidth()}%</span>
+              </div>
+              <input
+                type="range"
+                class="setting-slider font-full-slider"
+                min="75"
+                max="125"
+                step="1"
+                value={appFontWidth()}
+                onInput={(e) => setAppFontWidth(parseInt(e.currentTarget.value, 10))}
+                style={{
+                  "--progress": `${((appFontWidth() - 75) / (125 - 75)) * 100}%`,
+                } as any}
+                aria-label="Font Width"
+              />
+              <div class="font-slider-scale">
+                <span>Condensed (75%)</span>
+                <span>Normal (100%)</span>
+                <span>Expanded (125%)</span>
+              </div>
+            </div>
+
+            {/* Roundness Slider */}
+            <div class="font-slider-card">
+              <div class="flex-row-between">
+                <span class="font-slider-label">
+                  <i class="ph-bold ph-circle-dashed"></i> Roundness (ROND)
+                </span>
+                <span class="font-slider-badge">{appFontRoundness()}</span>
+              </div>
+              <input
+                type="range"
+                class="setting-slider font-full-slider"
+                min="0"
+                max="100"
+                step="1"
+                value={appFontRoundness()}
+                onInput={(e) => setAppFontRoundness(parseInt(e.currentTarget.value, 10))}
+                style={{
+                  "--progress": `${((appFontRoundness() - 0) / (100 - 0)) * 100}%`,
+                } as any}
+                aria-label="Font Roundness"
+              />
+              <div class="font-slider-scale">
+                <span>Sharp (0)</span>
+                <span>Subtle (50)</span>
+                <span>Fully Rounded (100)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Live Sample Preview Stage */}
+          <div class="font-preview-stage">
+            <div class="font-preview-stage-header">
+              <div class="font-preview-label">
+                <i class="ph-bold ph-eye"></i> Live Variable Font Preview
+              </div>
+              <div class="font-preview-pills">
+                <span class="font-metric-chip">wght: <strong>{appFontWeight()}</strong></span>
+                <span class="font-metric-chip">slnt: <strong>{appFontSlant()}°</strong></span>
+                <span class="font-metric-chip">wdth: <strong>{appFontWidth()}%</strong></span>
+                <span class="font-metric-chip">ROND: <strong>{appFontRoundness()}</strong></span>
+              </div>
+            </div>
+
+            <div
+              class="font-preview-display-box"
+              style={{
+                "font-family": "var(--app-font-family)",
+                "font-variation-settings": `'wght' ${appFontWeight()}, 'slnt' ${appFontSlant()}, 'wdth' ${appFontWidth()}, 'ROND' ${appFontRoundness()}`,
+              }}
+            >
+              <div class="font-preview-headline">
+                The quick brown fox jumps over the lazy dog
+              </div>
+              <div class="font-preview-subline">
+                ViveStream Next • High Fidelity Typography & Variable Axis Synthesis
+              </div>
+              <div class="font-preview-digits">
+                0123456789 — AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz !@#$%^&*()
               </div>
             </div>
           </div>
@@ -2166,42 +2331,16 @@ export default function Settings() {
               cookies from your local browser.
             </p>
           </div>
-          <div
-            class={`custom-select-wrapper ${cookiesDropdownOpen() ? "open" : ""}`}
-            ref={cookiesRef}
-          >
-            <div
-              class="custom-select-trigger"
-              onClick={() => setCookiesDropdownOpen(!cookiesDropdownOpen())}
-            >
-              <span>
-                {browserCookies() === "none"
-                  ? "None"
-                  : browserCookies().charAt(0).toUpperCase() +
-                    browserCookies().slice(1)}
-              </span>
-              <i class="ph ph-caret-down"></i>
-            </div>
-            <div class="custom-select-menu">
-              <For each={cookieOptions}>
-                {(opt) => (
-                  <div
-                    class={`custom-select-item ${
-                      (browserCookies() === "none" && opt === "None") ||
-                      browserCookies().toLowerCase() === opt.toLowerCase()
-                        ? "selected"
-                        : ""
-                    }`}
-                    onClick={() => {
-                      updateBrowserCookies(opt.toLowerCase());
-                      setCookiesDropdownOpen(false);
-                    }}
-                  >
-                    {opt}
-                  </div>
-                )}
-              </For>
-            </div>
+          <div style="min-width: 200px;">
+            <CustomSelect
+              value={browserCookies().toLowerCase()}
+              onChange={(val) => updateBrowserCookies(val)}
+              options={cookieOptions.map((opt) => ({
+                value: opt.toLowerCase(),
+                label: opt,
+                icon: opt === "None" ? "ph-bold ph-prohibit" : "ph-bold ph-globe",
+              }))}
+            />
           </div>
         </div>
 
@@ -2215,32 +2354,16 @@ export default function Settings() {
               format lockouts.
             </p>
           </div>
-          <div
-            class={`custom-select-wrapper ${clientDropdownOpen() ? "open" : ""}`}
-            ref={clientRef}
-          >
-            <div
-              class="custom-select-trigger"
-              onClick={() => setClientDropdownOpen(!clientDropdownOpen())}
-            >
-              <span>{playerClient()}</span>
-              <i class="ph ph-caret-down"></i>
-            </div>
-            <div class="custom-select-menu">
-              <For each={clientOptions}>
-                {(opt) => (
-                  <div
-                    class={`custom-select-item ${playerClient() === opt ? "selected" : ""}`}
-                    onClick={() => {
-                      updatePlayerClient(opt);
-                      setClientDropdownOpen(false);
-                    }}
-                  >
-                    {opt}
-                  </div>
-                )}
-              </For>
-            </div>
+          <div style="min-width: 240px;">
+            <CustomSelect
+              value={playerClient()}
+              onChange={(val) => updatePlayerClient(val)}
+              options={clientOptions.map((opt) => ({
+                value: opt,
+                label: opt,
+                icon: "ph-bold ph-device-mobile",
+              }))}
+            />
           </div>
         </div>
 
@@ -2572,21 +2695,25 @@ export default function Settings() {
               Target execution hardware for local speech recognition. Dedicated GPUs (Intel Arc, NVIDIA RTX, AMD Radeon) deliver fastest transcription throughput.
             </p>
           </div>
-          <div style="min-width: 260px;">
-            <select
-              class="neo-select"
+          <div style="min-width: 280px;">
+            <CustomSelect
               value={whisperComputeDevice()}
-              onChange={(e) => updateWhisperComputeDevice(e.currentTarget.value)}
-              style="width: 100%; padding: 8px 12px; font-weight: 700; border-radius: 8px; border: 2px solid var(--border-color); background: rgba(0, 0, 0, 0.2); color: var(--text-color);"
-            >
-              <For each={whisperStatus()?.system?.compute_devices || []}>
-                {(dev: any) => (
-                  <option value={dev.id} style="background: #1e1e24; color: #fff;">
-                    {dev.label}
-                  </option>
-                )}
-              </For>
-            </select>
+              onChange={(val) => updateWhisperComputeDevice(val)}
+              options={
+                whisperStatus()?.system?.compute_devices && whisperStatus()!.system!.compute_devices.length > 0
+                  ? whisperStatus()!.system!.compute_devices.map((dev: any) => ({
+                      value: dev.id,
+                      label: dev.label,
+                      badge: dev.id.startsWith("gpu") ? "GPU" : dev.id === "auto" ? "Auto" : "CPU",
+                      icon: dev.id.startsWith("gpu") ? "ph-bold ph-lightning" : dev.id === "auto" ? "ph-bold ph-sparkle" : "ph-bold ph-cpu",
+                    }))
+                  : [
+                      { value: "auto", label: "Auto (DirectML Priority)", badge: "Auto", icon: "ph-bold ph-sparkle" },
+                      { value: "gpu:0", label: "Discrete GPU", badge: "GPU", icon: "ph-bold ph-lightning" },
+                      { value: "cpu", label: "CPU (Rayon Multi-Threading)", badge: "CPU", icon: "ph-bold ph-cpu" },
+                    ]
+              }
+            />
           </div>
         </div>
 
