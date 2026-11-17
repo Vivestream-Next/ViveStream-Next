@@ -42,6 +42,7 @@ import ShortcutsModal from "./components/ShortcutsModal";
 import ArcadeModal from "./components/ArcadeModal";
 import Miniplayer from "./components/Miniplayer";
 import FPSCounter from "./components/FPSCounter";
+import PixelMascot from "./components/PixelMascot";
 import { stashSharedVideo } from "./utils/persistentPlayer";
 import FloatingSortBar from "./components/FloatingSortBar";
 
@@ -240,6 +241,7 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
         onClose={() => setShowArcadeModal(false)}
       />
       <FPSCounter />
+      <PixelMascot />
       <ImmersiveTitleBar />
       <Show
         when={needsSetup() !== null}
