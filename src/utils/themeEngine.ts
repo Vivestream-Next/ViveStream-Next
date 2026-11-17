@@ -10,6 +10,8 @@ export interface PalettePreset {
   seed: string;
   description: string;
   icon: string;
+  isSpecial?: boolean;
+  tokens?: string[];
 }
 
 export interface MaterialTonalPalette {
@@ -29,13 +31,126 @@ export interface MaterialTonalPalette {
 }
 
 export const PRESET_PALETTES: PalettePreset[] = [
+  // ── SPECIAL BRAND CANDIDATE PALETTES ──────────────────────────────
   {
     id: "monochrome",
     name: "Monochrome",
     seed: "#ffffff",
     description: "Ultra-modern Obsidian & Gallery luxury tech aesthetic",
     icon: "ph-circle-half",
+    isSpecial: true,
+    tokens: ["#090a0f", "#12141a", "#1a1d26", "#a1a1aa", "#f4f4f5", "#ffffff"],
   },
+  {
+    id: "retro-anime",
+    name: "Retro Anime",
+    seed: "#ff5c93",
+    description: "90s City Pop & Kawaii Arcade aesthetic with pixel anime vibes",
+    icon: "ph-sparkle",
+    isSpecial: true,
+    tokens: ["#130a1c", "#1c0e27", "#ff5c93", "#e02266", "#ffd6e5", "#ffffff"],
+  },
+  {
+    id: "fresh-green",
+    name: "Fresh Green",
+    seed: "#52b788",
+    description: "Botanical Frosted Mint & Deep Evergreen woodland gradient",
+    icon: "ph-leaf",
+    isSpecial: true,
+    tokens: ["#081c15", "#1b4332", "#2d6a4f", "#52b788", "#95d5b2", "#d8f3dc"],
+  },
+  {
+    id: "muted-earthy",
+    name: "Muted Earthy Tones",
+    seed: "#b5838d",
+    description: "Warm Peach Fuzz, Powder Blush & Dusty Rose velvety elegance",
+    icon: "ph-feather",
+    isSpecial: true,
+    tokens: ["#6d6875", "#b5838d", "#e5989b", "#ffb4a2", "#ffcdb2"],
+  },
+  {
+    id: "peach-sorbet",
+    name: "Peach Sorbet",
+    seed: "#f08080",
+    description: "Sweet Coral, Candied Salmon & Soft Apricot refreshing nectar",
+    icon: "ph-cookie",
+    isSpecial: true,
+    tokens: ["#f08080", "#f4978e", "#f8ad9d", "#fbc4ab", "#ffdab9"],
+  },
+  {
+    id: "cherry-bloom",
+    name: "Cherry Blossom Bloom",
+    seed: "#ff4d6d",
+    description: "Night Bordeaux, Cherry Rose & Cotton Candy high-contrast bloom",
+    icon: "ph-flower-lotus",
+    isSpecial: true,
+    tokens: ["#590d22", "#800f2f", "#a4133c", "#c9184a", "#ff4d6d", "#ff758f", "#ff8fa3", "#ffb3c1", "#ffccd5", "#fff0f3"],
+  },
+  {
+    id: "pink-ombre",
+    name: "Pink Ombre",
+    seed: "#ff0a54",
+    description: "Electric Hot Fuchsia to Soft Petal Blush monochromatic neon ramp",
+    icon: "ph-paint-brush",
+    isSpecial: true,
+    tokens: ["#ff0a54", "#ff477e", "#ff5c8a", "#ff7096", "#ff85a1", "#ff99ac", "#fbb1bd", "#f9bec7", "#f7cad0", "#fae0e4"],
+  },
+  {
+    id: "coral-pink",
+    name: "Coral Pink Delight",
+    seed: "#ef6351",
+    description: "Vibrant Tomato, Sunny Salmon & Delicate Powder Blush warmth",
+    icon: "ph-heart",
+    isSpecial: true,
+    tokens: ["#ef6351", "#f38375", "#f7a399", "#fbc3bc", "#ffe3e0"],
+  },
+  {
+    id: "cherry-blossom",
+    name: "Cherry Blossom",
+    seed: "#da5552",
+    description: "Blushed Brick, Lobster Coral & Light Rosewood floral balance",
+    icon: "ph-flower",
+    isSpecial: true,
+    tokens: ["#cc444b", "#da5552", "#df7373", "#e39695", "#e4b1ab"],
+  },
+  {
+    id: "pastel-greenery",
+    name: "Pastel Greenery",
+    seed: "#56ab91",
+    description: "Celadon Mint, Seagrass & Deep Blue Spruce tranquil ocean forestry",
+    icon: "ph-plant",
+    isSpecial: true,
+    tokens: ["#036666", "#14746f", "#248277", "#358f80", "#469d89", "#56ab91", "#67b99a", "#78c6a3", "#88d4ab", "#99e2b4"],
+  },
+  {
+    id: "green-meadow",
+    name: "Green Meadow",
+    seed: "#73a942",
+    description: "Black Forest canopy, Forest Moss & Sunlit Willow Meadow",
+    icon: "ph-tree",
+    isSpecial: true,
+    tokens: ["#143601", "#1a4301", "#245501", "#538d22", "#73a942", "#aad576"],
+  },
+  {
+    id: "green-harmony",
+    name: "Green Harmony",
+    seed: "#2dc653",
+    description: "Rich Dark Emerald, Forest Turf & Radiant Jade Green vitality",
+    icon: "ph-yin-yang",
+    isSpecial: true,
+    tokens: ["#10451d", "#155d27", "#1a7431", "#208b3a", "#25a244", "#2dc653", "#4ad66d", "#6ede8a", "#92e6a7", "#b7efc5"],
+  },
+  {
+    id: "turquoise-waters",
+    name: "Turquoise Waters",
+    seed: "#07beb8",
+    description: "Light Sea Green, Strong Cyan & Icy Aqua crystalline waves",
+    icon: "ph-drop",
+    isSpecial: true,
+    tokens: ["#07beb8", "#3dccc7", "#68d8d6", "#9ceaef", "#c4fff9"],
+  },
+
+  // ── CLASSIC STANDARD HARMONIES ────────────────────────────────────
   {
     id: "sunset",
     name: "Sunset",
@@ -322,12 +437,40 @@ export function resolveSeedColor(paletteId: string, customHex?: string): string 
   if (paletteId === "custom" && customHex) {
     return normalizeHex(customHex);
   }
-  if (paletteId === "monochrome") {
-    const isLight =
-      typeof document !== "undefined" &&
-      document.documentElement?.getAttribute("data-theme") === "light";
-    return isLight ? "#000000" : "#ffffff";
+  const isLight =
+    typeof document !== "undefined" &&
+    document.documentElement?.getAttribute("data-theme") === "light";
+
+  switch (paletteId) {
+    case "monochrome":
+      return isLight ? "#000000" : "#ffffff";
+    case "retro-anime":
+      return isLight ? "#ff3377" : "#ff5c93";
+    case "fresh-green":
+      return isLight ? "#40916c" : "#52b788";
+    case "muted-earthy":
+      return isLight ? "#a06d77" : "#e5989b";
+    case "peach-sorbet":
+      return isLight ? "#e06868" : "#f08080";
+    case "cherry-bloom":
+      return isLight ? "#c9184a" : "#ff4d6d";
+    case "pink-ombre":
+      return isLight ? "#ff0a54" : "#ff477e";
+    case "coral-pink":
+      return isLight ? "#d44a37" : "#ef6351";
+    case "cherry-blossom":
+      return isLight ? "#cc444b" : "#da5552";
+    case "pastel-greenery":
+      return isLight ? "#248277" : "#56ab91";
+    case "green-meadow":
+      return isLight ? "#538d22" : "#73a942";
+    case "green-harmony":
+      return isLight ? "#1a7431" : "#2dc653";
+    case "turquoise-waters":
+      return isLight ? "#07beb8" : "#3dccc7";
+    default: {
+      const match = PRESET_PALETTES.find((p) => p.id === paletteId);
+      return match ? match.seed : "#ffffff";
+    }
   }
-  const match = PRESET_PALETTES.find((p) => p.id === paletteId);
-  return match ? match.seed : "#ffffff";
 }
