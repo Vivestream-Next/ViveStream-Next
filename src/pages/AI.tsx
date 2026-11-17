@@ -17,6 +17,7 @@ import {
   SystemScan,
 } from "../store";
 import AiPaywall from "../components/AiPaywall";
+import CustomSelect from "../components/CustomSelect";
 import "./AI.css";
 
 export interface ModelInfo {
@@ -700,53 +701,75 @@ export default function AI() {
           <div class="ai-config-bar">
             <div class="ai-config-field">
               <label><i class="ph-bold ph-cube" /> Active Default Model:</label>
-              <select
+              <CustomSelect
                 value={whisperDefaultModel()}
-                onChange={(e) => {
-                  setWhisperDefaultModel(e.currentTarget.value);
-                  addToast(`Default Whisper model set to ${e.currentTarget.value.toUpperCase()}`, "info");
+                onChange={(val) => {
+                  setWhisperDefaultModel(val);
+                  addToast(`Default Whisper model set to ${val.toUpperCase()}`, "info");
                 }}
-                class="ai-select"
-              >
-                <For each={mergedModels()}>
-                  {(m) => (
-                    <option value={m.name}>
-                      {m.name.toUpperCase()} ({WHISPER_CATALOG[m.name]?.expected_size_mb || m.expected_size_mb} MB) {m.installed ? "• [Mounted]" : "• [Not Downloaded]"}
-                    </option>
-                  )}
-                </For>
-              </select>
+                options={mergedModels().map((m) => ({
+                  value: m.name,
+                  label: `${m.name.toUpperCase()} (${WHISPER_CATALOG[m.name]?.expected_size_mb || m.expected_size_mb} MB)`,
+                  badge: m.installed ? "Mounted" : "Not Downloaded",
+                  icon: "ph-bold ph-cube",
+                }))}
+              />
             </div>
 
             <div class="ai-config-field">
               <label><i class="ph-bold ph-lightning" /> Acceleration Device:</label>
-              <select
+              <CustomSelect
                 value={whisperComputeDevice()}
-                onChange={(e) => {
-                  updateWhisperComputeDevice(e.currentTarget.value);
-                  addToast(`Compute device switched to ${e.currentTarget.value.toUpperCase()}`, "info");
+                onChange={(val) => {
+                  updateWhisperComputeDevice(val);
+                  addToast(`Compute device switched to ${val.toUpperCase()}`, "info");
                 }}
-                class="ai-select"
-              >
-                <option value="auto">Auto (Intel Arc GPU / DirectML Priority)</option>
-                <option value="gpu:0">Discrete GPU ({gpuName()})</option>
-                <option value="cpu">CPU Rayon Multi-Threading (AVX2 / SIMD)</option>
-              </select>
+                options={[
+                  {
+                    value: "auto",
+                    label: "Auto (Intel Arc GPU / DirectML Priority)",
+                    badge: "DirectML",
+                    icon: "ph-bold ph-sparkle",
+                  },
+                  {
+                    value: "gpu:0",
+                    label: `Discrete GPU (${gpuName()})`,
+                    badge: "Vulkan / GPU",
+                    icon: "ph-bold ph-lightning",
+                  },
+                  {
+                    value: "cpu",
+                    label: "CPU Rayon Multi-Threading (AVX2 / SIMD)",
+                    badge: "CPU",
+                    icon: "ph-bold ph-cpu",
+                  },
+                ]}
+              />
             </div>
 
             <div class="ai-config-field">
               <label><i class="ph-bold ph-translate" /> Generation Task:</label>
-              <select
+              <CustomSelect
                 value={whisperDefaultTask()}
-                onChange={(e) => {
-                  setWhisperDefaultTask(e.currentTarget.value);
-                  addToast(`Default task set to ${e.currentTarget.value}`, "info");
+                onChange={(val) => {
+                  setWhisperDefaultTask(val);
+                  addToast(`Default task set to ${val}`, "info");
                 }}
-                class="ai-select"
-              >
-                <option value="transcribe">Transcribe (Preserve Vocal Language)</option>
-                <option value="translate">Translate (Translate Vocals to English)</option>
-              </select>
+                options={[
+                  {
+                    value: "transcribe",
+                    label: "Transcribe (Preserve Vocal Language)",
+                    badge: "Native",
+                    icon: "ph-bold ph-waveform",
+                  },
+                  {
+                    value: "translate",
+                    label: "Translate (Translate Vocals to English)",
+                    badge: "English",
+                    icon: "ph-bold ph-translate",
+                  },
+                ]}
+              />
             </div>
           </div>
         </section>
@@ -960,32 +983,31 @@ export default function AI() {
               <div class="ai-bench-selectors">
                 <div class="bench-control">
                   <label>Model:</label>
-                  <select
+                  <CustomSelect
+                    size="sm"
                     value={benchmarkModel()}
-                    onChange={(e) => setBenchmarkModel(e.currentTarget.value)}
-                    class="ai-select-sm"
-                  >
-                    <For each={mergedModels()}>
-                      {(m) => (
-                        <option value={m.name}>
-                          {m.name.toUpperCase()} {m.installed ? "(Mounted)" : "(Unmounted)"}
-                        </option>
-                      )}
-                    </For>
-                  </select>
+                    onChange={(val) => setBenchmarkModel(val)}
+                    options={mergedModels().map((m) => ({
+                      value: m.name,
+                      label: m.name.toUpperCase(),
+                      badge: m.installed ? "Mounted" : "Unmounted",
+                      icon: "ph-bold ph-cube",
+                    }))}
+                  />
                 </div>
 
                 <div class="bench-control">
                   <label>Compute:</label>
-                  <select
+                  <CustomSelect
+                    size="sm"
                     value={benchmarkDevice()}
-                    onChange={(e) => setBenchmarkDevice(e.currentTarget.value)}
-                    class="ai-select-sm"
-                  >
-                    <option value="auto">Auto Detect</option>
-                    <option value="gpu:0">GPU: {gpuName()}</option>
-                    <option value="cpu">CPU: Rayon Multi-thread</option>
-                  </select>
+                    onChange={(val) => setBenchmarkDevice(val)}
+                    options={[
+                      { value: "auto", label: "Auto Detect", icon: "ph-bold ph-sparkle" },
+                      { value: "gpu:0", label: `GPU: ${gpuName()}`, icon: "ph-bold ph-lightning" },
+                      { value: "cpu", label: "CPU: Rayon Multi-thread", icon: "ph-bold ph-cpu" },
+                    ]}
+                  />
                 </div>
               </div>
 
