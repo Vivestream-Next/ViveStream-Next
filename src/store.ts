@@ -52,12 +52,31 @@ const initialStyle =
   (getStr("designStyle", "neo-brutalism") as
     "neo-brutalism" | "claymorphism") || "neo-brutalism";
 
+const initialFontWeight = getNum("appFontWeight", 400);
+const initialFontSlant = getNum("appFontSlant", 0);
+const initialFontWidth = getNum("appFontWidth", 100);
+const initialFontRoundness = getNum("appFontRoundness", 0);
+
+export const applyFontSettings = (
+  weight: number = initialFontWeight,
+  slant: number = initialFontSlant,
+  width: number = initialFontWidth,
+  roundness: number = initialFontRoundness,
+) => {
+  if (!isBrowser) return;
+  document.documentElement.style.setProperty("--font-weight", String(weight));
+  document.documentElement.style.setProperty("--font-slant", String(slant));
+  document.documentElement.style.setProperty("--font-width", String(width));
+  document.documentElement.style.setProperty("--font-roundness", String(roundness));
+};
+
 if (isBrowser) {
   document.documentElement.setAttribute("data-theme", initialTheme);
   document.documentElement.setAttribute("data-palette", initialPalette);
   document.documentElement.setAttribute("data-style", initialStyle);
   const seed = resolveSeedColor(initialPalette, initialCustomColor);
   applyMaterialTheme(seed, initialPalette);
+  applyFontSettings(initialFontWeight, initialFontSlant, initialFontWidth, initialFontRoundness);
 }
 
 export interface Toast {
@@ -302,6 +321,14 @@ export const {
   setActiveTonalPalette,
   designStyle,
   setDesignStyle,
+  appFontWeight,
+  setAppFontWeight,
+  appFontSlant,
+  setAppFontSlant,
+  appFontWidth,
+  setAppFontWidth,
+  appFontRoundness,
+  setAppFontRoundness,
   isAiUnlocked,
   setIsAiUnlocked,
   licenseData,
@@ -525,6 +552,55 @@ export const {
   const [designStyle, setDesignStyle] = createSignal<
     "neo-brutalism" | "claymorphism"
   >(initialStyle);
+
+  const [appFontWeightState, _setAppFontWeight] = createSignal<number>(initialFontWeight);
+  const [appFontSlantState, _setAppFontSlant] = createSignal<number>(initialFontSlant);
+  const [appFontWidthState, _setAppFontWidth] = createSignal<number>(initialFontWidth);
+  const [appFontRoundnessState, _setAppFontRoundness] = createSignal<number>(initialFontRoundness);
+
+  const setAppFontWeight = (val: number | ((prev: number) => number)) => {
+    const nextVal = typeof val === "function" ? val(appFontWeightState()) : val;
+    const clamped = Math.max(300, Math.min(800, Math.round(nextVal)));
+    _setAppFontWeight(clamped);
+    if (isBrowser) {
+      window.localStorage.setItem("appFontWeight", String(clamped));
+      document.documentElement.style.setProperty("--font-weight", String(clamped));
+    }
+    return clamped;
+  };
+
+  const setAppFontSlant = (val: number | ((prev: number) => number)) => {
+    const nextVal = typeof val === "function" ? val(appFontSlantState()) : val;
+    const clamped = Math.max(-10, Math.min(12, Math.round(nextVal)));
+    _setAppFontSlant(clamped);
+    if (isBrowser) {
+      window.localStorage.setItem("appFontSlant", String(clamped));
+      document.documentElement.style.setProperty("--font-slant", String(clamped));
+    }
+    return clamped;
+  };
+
+  const setAppFontWidth = (val: number | ((prev: number) => number)) => {
+    const nextVal = typeof val === "function" ? val(appFontWidthState()) : val;
+    const clamped = Math.max(75, Math.min(125, Math.round(nextVal)));
+    _setAppFontWidth(clamped);
+    if (isBrowser) {
+      window.localStorage.setItem("appFontWidth", String(clamped));
+      document.documentElement.style.setProperty("--font-width", String(clamped));
+    }
+    return clamped;
+  };
+
+  const setAppFontRoundness = (val: number | ((prev: number) => number)) => {
+    const nextVal = typeof val === "function" ? val(appFontRoundnessState()) : val;
+    const clamped = Math.max(0, Math.min(100, Math.round(nextVal)));
+    _setAppFontRoundness(clamped);
+    if (isBrowser) {
+      window.localStorage.setItem("appFontRoundness", String(clamped));
+      document.documentElement.style.setProperty("--font-roundness", String(clamped));
+    }
+    return clamped;
+  };
 
   const [concurrentDownloads, setConcurrentDownloads] = createSignal(
     getNum("concurrentDownloads", 3),
@@ -777,6 +853,14 @@ export const {
     setActiveTonalPalette,
     designStyle,
     setDesignStyle,
+    appFontWeight: appFontWeightState,
+    setAppFontWeight,
+    appFontSlant: appFontSlantState,
+    setAppFontSlant,
+    appFontWidth: appFontWidthState,
+    setAppFontWidth,
+    appFontRoundness: appFontRoundnessState,
+    setAppFontRoundness,
     isAiUnlocked,
     setIsAiUnlocked,
     licenseData,
@@ -1244,6 +1328,62 @@ export const toggleDesignStyle = (style: "neo-brutalism" | "claymorphism") => {
     window.localStorage.setItem("designStyle", style);
     document.documentElement.setAttribute("data-style", style);
   }
+};
+
+export const getAppFontWeight = () => {
+  if (isBrowser) {
+    const val = window.localStorage.getItem("appFontWeight");
+    if (val !== null && val !== undefined) {
+      const parsed = parseInt(val, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return appFontWeight();
+};
+
+export const getAppFontSlant = () => {
+  if (isBrowser) {
+    const val = window.localStorage.getItem("appFontSlant");
+    if (val !== null && val !== undefined) {
+      const parsed = parseInt(val, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return appFontSlant();
+};
+
+export const getAppFontWidth = () => {
+  if (isBrowser) {
+    const val = window.localStorage.getItem("appFontWidth");
+    if (val !== null && val !== undefined) {
+      const parsed = parseInt(val, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return appFontWidth();
+};
+
+export const getAppFontRoundness = () => {
+  if (isBrowser) {
+    const val = window.localStorage.getItem("appFontRoundness");
+    if (val !== null && val !== undefined) {
+      const parsed = parseInt(val, 10);
+      if (!isNaN(parsed)) return parsed;
+    }
+  }
+  return appFontRoundness();
+};
+
+export const updateAppFontWeight = (val: number) => setAppFontWeight(val);
+export const updateAppFontSlant = (val: number) => setAppFontSlant(val);
+export const updateAppFontWidth = (val: number) => setAppFontWidth(val);
+export const updateAppFontRoundness = (val: number) => setAppFontRoundness(val);
+
+export const resetFontSettings = () => {
+  setAppFontWeight(400);
+  setAppFontSlant(0);
+  setAppFontWidth(100);
+  setAppFontRoundness(0);
 };
 
 export const togglePlayerAmbientMode = (val?: boolean) => {
