@@ -1,6 +1,5 @@
 import {
   onMount,
-  onCleanup,
   For,
   Show,
   createSignal,
@@ -40,6 +39,7 @@ import {
   historySortDirection,
 } from "../store";
 import { sortDownloadHistory } from "../utils/sortUtils";
+import CustomSelect from "../components/CustomSelect";
 import "./Downloads.css";
 
 export default function Downloads() {
@@ -52,7 +52,6 @@ export default function Downloads() {
     };
   }
 
-  const [dropdownOpen, setDropdownOpen] = createSignal(false);
   const [activeTab, setActiveTab] = createSignal<"Active Queue" | "History">(
     "Active Queue",
   );
@@ -65,21 +64,10 @@ export default function Downloads() {
     );
   });
 
-  let dropdownRef: HTMLDivElement | undefined;
   const qualities = ["720p", "1080p", "1440p", "4K", "Best"];
 
   onMount(() => {
     fetchDownloadHistory();
-
-    const handleClickOutside = (e: MouseEvent) => {
-      if (dropdownRef && !dropdownRef.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    onCleanup(() =>
-      document.removeEventListener("mousedown", handleClickOutside),
-    );
   });
 
   // Summary Metrics for Active Queue
@@ -276,39 +264,19 @@ export default function Downloads() {
             </button>
           </div>
 
-          <div class="option-item">
+          <div class="option-item" style="min-width: 170px;">
             Quality:
-            <div
-              class={`custom-select-wrapper ${dropdownOpen() ? "open" : ""}`}
-              ref={dropdownRef}
-            >
-              <div
-                class="custom-select-trigger"
-                onClick={() => setDropdownOpen(!dropdownOpen())}
-              >
-                <span>
-                  {downloadQuality() === "Best"
-                    ? "Best Available"
-                    : `${downloadQuality()}`}
-                </span>
-                <i class="ph ph-caret-down"></i>
-              </div>
-              <div class="custom-select-menu">
-                <For each={qualities}>
-                  {(q) => (
-                    <div
-                      class={`custom-select-item ${downloadQuality() === q ? "selected" : ""}`}
-                      onClick={() => {
-                        updateDownloadQuality(q);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      {q === "Best" ? "Best Available" : `${q}`}
-                    </div>
-                  )}
-                </For>
-              </div>
-            </div>
+            <CustomSelect
+              size="sm"
+              value={downloadQuality()}
+              onChange={(val) => updateDownloadQuality(val)}
+              options={qualities.map((q) => ({
+                value: q,
+                label: q === "Best" ? "Best Available" : `${q}`,
+                badge: q === "Best" ? "Max" : undefined,
+                icon: "ph-bold ph-video",
+              }))}
+            />
           </div>
 
           <div class="option-item">
