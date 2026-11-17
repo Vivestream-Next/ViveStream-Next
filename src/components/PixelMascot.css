@@ -1,0 +1,262 @@
+/* ==========================================================================
+   RETRO PIXEL ANIME MASCOT COMPANION STYLES
+   ========================================================================== */
+
+.pixel-mascot-container {
+  position: fixed;
+  bottom: 24px;
+  right: 28px;
+  z-index: 9990;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--font-primary, "GoogleSansFlex", sans-serif);
+  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1), right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pixel-mascot-container.with-miniplayer {
+  bottom: 286px;
+  right: 28px;
+}
+
+.pixel-mascot-bubble {
+  pointer-events: auto;
+  position: relative;
+  margin-bottom: 12px;
+  max-width: 260px;
+  background: var(--secondary-background, #1c0e27);
+  color: var(--primary-text, #ffe6f0);
+  border: 2px solid var(--primary-accent, #ff5c93);
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 4px 4px 0px var(--shadow-color, rgba(0, 0, 0, 0.45));
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+  animation: mascot-bubble-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Retro tail pointing to mascot */
+.pixel-mascot-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -9px;
+  right: 26px;
+  width: 0;
+  height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 9px solid var(--primary-accent, #ff5c93);
+}
+
+.pixel-mascot-bubble::before {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  right: 27px;
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid var(--secondary-background, #1c0e27);
+  z-index: 1;
+}
+
+.pixel-bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="light"] .pixel-bubble-header {
+  border-bottom-color: rgba(0, 0, 0, 0.12);
+}
+
+.pixel-bubble-name {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary-accent, #ff5c93);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.pixel-bubble-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pixel-bubble-btn {
+  background: transparent;
+  border: none;
+  color: var(--secondary-text, #c99ec3);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pixel-bubble-btn:hover {
+  color: var(--primary-accent, #ff5c93);
+  background: rgba(255, 255, 255, 0.08);
+  transform: scale(1.1);
+}
+
+.pixel-bubble-text {
+  margin: 0;
+  word-break: break-word;
+}
+
+.pixel-bubble-song-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-top: 6px;
+  padding: 2px 8px;
+  background: var(--primary-container, rgba(255, 92, 147, 0.18));
+  color: var(--primary-accent, #ff5c93);
+  border-radius: 6px;
+}
+
+.pixel-mascot-body {
+  pointer-events: auto;
+  position: relative;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.pixel-mascot-body:hover {
+  transform: scale(1.12) translateY(-4px);
+}
+
+.pixel-mascot-body:active {
+  transform: scale(0.96);
+}
+
+/* Floating Retro Art Canvas */
+.pixel-character-canvas {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  filter: drop-shadow(0 4px 12px var(--shadow-color, rgba(0, 0, 0, 0.5)));
+}
+
+.pixel-mascot-body.is-grooving .pixel-character-canvas {
+  animation: mascot-groove 0.75s ease-in-out infinite alternate;
+}
+
+/* Floating Music Notes */
+.pixel-note-particle {
+  position: absolute;
+  pointer-events: none;
+  font-size: 16px;
+  font-weight: bold;
+  color: var(--primary-accent, #ff5c93);
+  text-shadow: 0 0 6px var(--logo-glow, rgba(255, 92, 147, 0.6));
+  animation: float-pixel-note 1.8s ease-out infinite;
+}
+
+.pixel-note-1 {
+  top: -8px;
+  left: 6px;
+  animation-delay: 0s;
+}
+
+.pixel-note-2 {
+  top: -14px;
+  right: 8px;
+  animation-delay: 0.6s;
+}
+
+.pixel-note-3 {
+  top: -2px;
+  right: -6px;
+  animation-delay: 1.2s;
+}
+
+/* Minimized Dock Icon */
+.pixel-mascot-dock-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--secondary-background, #1c0e27);
+  color: var(--primary-text, #ffe6f0);
+  border: 1.5px solid var(--primary-accent, #ff5c93);
+  border-radius: 20px;
+  box-shadow: 3px 3px 0px var(--shadow-color, rgba(0, 0, 0, 0.4));
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pixel-mascot-dock-pill:hover {
+  background: var(--primary-accent, #ff5c93);
+  color: var(--on-primary, #ffffff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px var(--focus-ring, rgba(255, 92, 147, 0.45));
+}
+
+.pixel-mascot-dock-pill:active {
+  transform: translateY(0);
+}
+
+/* Animations */
+@keyframes mascot-bubble-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes mascot-groove {
+  0% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-5px) rotate(0deg);
+  }
+  100% {
+    transform: translateY(0) rotate(2deg);
+  }
+}
+
+@keyframes float-pixel-note {
+  0% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-12px) scale(1.1) rotate(-8deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-32px) scale(0.8) rotate(12deg);
+  }
+}
