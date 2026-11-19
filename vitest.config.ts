@@ -8,9 +8,14 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     fsModuleCache: true,
+    server: {
+      deps: {
+        inline: [/solid-js/],
+      },
+    },
     deps: {
       optimizer: {
-        web: {
+        client: {
           include: ["solid-js"],
         },
       },
@@ -18,5 +23,10 @@ export default defineConfig({
   },
   resolve: {
     conditions: ["development", "browser"],
+  },
+  ssr: {
+    resolve: {
+      conditions: ["development", "browser"],
+    },
   },
 });
