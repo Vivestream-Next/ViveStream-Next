@@ -474,3 +474,170 @@ export function resolveSeedColor(paletteId: string, customHex?: string): string 
     }
   }
 }
+
+/**
+ * Generates an offscreen 256x256 PNG data URL for the current theme palette.
+ * Used for dynamic app icon updating across Windows Taskbar, Desktop shortcuts, and Window icon.
+ */
+export async function generateThemeIconPng(palette: MaterialTonalPalette): Promise<string> {
+  if (typeof document === "undefined") return "";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+
+    const primary = palette.primary || "#f38375";
+    const primaryLight = palette.primaryLight || "#f7a399";
+    const primaryDark = palette.primaryDark || "#ef6351";
+    const logoWave = palette.logoWave || "#ffe3e0";
+
+    const svgStr = `<svg width="256" height="256" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Deep Obsidian Stage Canvas with Warm Ambiance -->
+        <linearGradient id="t-stage-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#160f14" />
+          <stop offset="50%" stop-color="#0e0a0d" />
+          <stop offset="100%" stop-color="#070507" />
+        </linearGradient>
+
+        <!-- Laser String Traveling Energy Core -->
+        <linearGradient id="t-laser-string" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${logoWave}" />
+          <stop offset="25%" stop-color="${primaryLight}" />
+          <stop offset="65%" stop-color="${primary}" />
+          <stop offset="100%" stop-color="${primaryDark}" />
+        </linearGradient>
+
+        <!-- Harmonic Wave Echo Gradient -->
+        <linearGradient id="t-echo-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="${logoWave}" stop-opacity="0.8" />
+          <stop offset="50%" stop-color="${primaryLight}" stop-opacity="0.4" />
+          <stop offset="100%" stop-color="${primaryDark}" stop-opacity="0" />
+        </linearGradient>
+
+        <!-- Frosted Glass Rim Border -->
+        <linearGradient id="t-stage-rim" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${logoWave}" stop-opacity="0.45" />
+          <stop offset="40%" stop-color="${primaryLight}" stop-opacity="0.15" />
+          <stop offset="100%" stop-color="${primaryDark}" stop-opacity="0.05" />
+        </linearGradient>
+
+        <!-- Radiant Center Acoustic Bloom -->
+        <radialGradient id="t-center-bloom" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="${primaryDark}" stop-opacity="0.38" />
+          <stop offset="45%" stop-color="${primary}" stop-opacity="0.14" />
+          <stop offset="100%" stop-color="${primaryDark}" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+
+      <!-- 1. Master Squircle Canvas -->
+      <rect width="512" height="512" rx="116" fill="url(#t-stage-bg)" />
+
+      <!-- 2. Ambient Acoustic Bloom -->
+      <circle cx="256" cy="265" r="185" fill="url(#t-center-bloom)" />
+
+      <!-- 3. Frosted Glass Rim Border -->
+      <rect x="14" y="14" width="484" height="484" rx="104" fill="none" stroke="url(#t-stage-rim)" stroke-width="2.5" />
+
+      <!-- 4. Outward Acoustic Waveforms -->
+      <!-- Harmonic Wave Echo 1 -->
+      <path
+        d="M 85 125 C 100 170, 150 260, 256 430 C 362 260, 412 170, 427 125"
+        fill="none"
+        stroke="url(#t-echo-grad)"
+        stroke-width="5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.4"
+      />
+      <!-- Harmonic Wave Echo 2 -->
+      <path
+        d="M 95 135 C 110 180, 160 270, 256 420 C 352 270, 402 180, 417 135"
+        fill="none"
+        stroke="${primaryLight}"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-dasharray="8 6"
+        opacity="0.3"
+      />
+
+      <!-- Sonar Rings from Vertex -->
+      <g fill="none" stroke="${primaryDark}" stroke-linecap="round">
+        <circle cx="256" cy="395" r="28" stroke-width="2.5" opacity="0.6" />
+        <circle cx="256" cy="395" r="52" stroke-width="2" opacity="0.3" />
+      </g>
+
+      <!-- Central Acoustic Spectrum Waves -->
+      <g fill="none" stroke-linecap="round" opacity="0.9">
+        <path stroke="${logoWave}" stroke-width="4.5" d="M 256 160 L 256 340" />
+        <path stroke="${primaryLight}" stroke-width="4" d="M 234 195 L 234 325" />
+        <path stroke="${primaryLight}" stroke-width="4" d="M 278 200 L 278 320" />
+        <path stroke="${primary}" stroke-width="3.5" d="M 212 230 L 212 300" />
+        <path stroke="${primary}" stroke-width="3.5" d="M 300 235 L 300 295" />
+      </g>
+
+      <!-- 5. Vibrating String Creating & Writing the 'V' -->
+      <!-- Sub-string baseline -->
+      <path
+        d="M 112 148 L 256 392 L 400 148"
+        fill="none"
+        stroke="${primaryDark}"
+        stroke-width="12"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.35"
+      />
+      <!-- Active Vibrating String (Waveform Resonance) -->
+      <path
+        d="M 112 148 Q 128 205, 150 250 Q 182 315, 214 360 Q 236 388, 256 392 Q 276 388, 298 360 Q 330 315, 362 250 Q 384 205, 400 148"
+        fill="none"
+        stroke="url(#t-laser-string)"
+        stroke-width="12"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <!-- Continuous Laser Writing Pulse -->
+      <path
+        d="M 112 148 Q 128 205, 150 250 Q 182 315, 214 360 Q 236 388, 256 392 Q 276 388, 298 360 Q 330 315, 362 250 Q 384 205, 400 148"
+        fill="none"
+        stroke="#ffffff"
+        stroke-width="4"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        opacity="0.85"
+      />
+
+      <!-- String Terminal Anchor Nodes & Vertex Resonant Spark -->
+      <circle cx="112" cy="148" r="6" fill="${logoWave}" />
+      <circle cx="400" cy="148" r="6" fill="${logoWave}" />
+      <circle cx="256" cy="392" r="8" fill="#ffffff" />
+
+      <!-- Acoustic Dispersion Arcs -->
+      <g fill="none" stroke="${primaryLight}" stroke-linecap="round" opacity="0.5">
+        <path d="M 88 126 C 96 142, 110 156, 126 164" stroke-width="2.5" />
+        <path d="M 424 126 C 416 142, 402 156, 386 164" stroke-width="2.5" />
+      </g>
+    </svg>`;
+
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          ctx.clearRect(0, 0, 256, 256);
+          ctx.drawImage(img, 0, 0, 256, 256);
+          resolve(canvas.toDataURL("image/png"));
+        } catch {
+          resolve("");
+        }
+      };
+      img.onerror = () => resolve("");
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svgStr);
+    });
+  } catch {
+    return "";
+  }
+}

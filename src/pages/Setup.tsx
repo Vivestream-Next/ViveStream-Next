@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { setForceSetup } from "../store";
 import { APP_VERSION } from "../version";
 import SetupMinigame from "../components/SetupMinigame";
-import logoAnimatedSvg from "../assets/logo-animated.svg";
+import DynamicAppLogo from "../components/DynamicAppLogo";
 import "./Setup.css";
 
 interface AppFeatureGuide {
@@ -61,13 +61,9 @@ const FEATURE_GUIDES: AppFeatureGuide[] = [
 ];
 
 const AnimatedLogo = () => (
-  <img
-    src={logoAnimatedSvg}
-    alt="ViveStream Logo"
+  <DynamicAppLogo
+    size={84}
     class="setup-hero-logo"
-    width="84"
-    height="84"
-    style="display: block; border-radius: var(--neo-radius); filter: drop-shadow(0 10px 20px var(--focus-ring, rgba(0,0,0,0.3)));"
   />
 );
 

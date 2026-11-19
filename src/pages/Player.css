@@ -1444,6 +1444,68 @@ video::cue {
   flex-shrink: 0;
 }
 
+.player-lyrics-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.player-lyrics-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #ef4444;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.player-lyrics-delete-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.player-lyrics-gen-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 320px;
+}
+
+.player-lyrics-lang-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: var(--primary-background);
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 12px;
+  color: var(--secondary-text);
+  font-size: 12px;
+}
+
+.player-lyrics-lang-dropdown {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--primary-text);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .align-intro-btn {
   display: inline-flex;
   align-items: center;

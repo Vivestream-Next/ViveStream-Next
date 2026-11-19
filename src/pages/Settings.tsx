@@ -65,6 +65,7 @@ import {
   setForceSetup,
   showConfirmDialog,
   addToast,
+  syncThemeAppIcon,
   setShowShortcutsModal,
   setShowArcadeModal,
   defaultSortBy,
@@ -108,7 +109,7 @@ import CustomSelect from "../components/CustomSelect";
 import { SakuraPixelSvg, NekoPixelSvg, BytePixelSvg } from "../components/PixelMascot";
 import { APP_VERSION } from "../version";
 import devAvatarJpg from "../assets/rootlocalghsot-red.jpg";
-import logoAnimatedSvg from "../assets/logo-animated.svg";
+import DynamicAppLogo from "../components/DynamicAppLogo";
 import "./Settings.css";
 
 export interface EncoderTestResult {
@@ -229,6 +230,54 @@ export default function Settings() {
     } catch (err: any) {
       addToast(`Failed to deactivate: ${err?.message || err}`, "error");
     }
+  };
+
+  const handleManagePortal = async () => {
+    try {
+      const url = await invoke<string>("get_lemon_portal_url");
+      await openUrl(url);
+      addToast("Opened Lemon Squeezy order & subscription portal.", "info");
+    } catch {
+      await openUrl("https://app.lemonsqueezy.com/my-orders");
+    }
+  };
+
+  const [isSyncingIcon, setIsSyncingIcon] = createSignal(false);
+  const [iconSyncResult, setIconSyncResult] = createSignal<{
+    success: boolean;
+    message?: string;
+    error?: string;
+  } | null>(null);
+  const [copiedError, setCopiedError] = createSignal(false);
+
+  const handleManualIconSync = async () => {
+    setIsSyncingIcon(true);
+    setIconSyncResult(null);
+    try {
+      const pal = activeTonalPalette();
+      const pid = appPalette();
+      const result = await syncThemeAppIcon(pal, pid);
+      setIconSyncResult(result);
+      if (result.success) {
+        addToast("Desktop shortcut and taskbar icon updated!", "success");
+      } else {
+        addToast("Failed to update desktop shortcut icon.", "error");
+      }
+    } catch (err: any) {
+      const msg = typeof err === "string" ? err : err?.message || JSON.stringify(err);
+      setIconSyncResult({ success: false, error: msg });
+      addToast("Error updating desktop shortcut icon.", "error");
+    } finally {
+      setIsSyncingIcon(false);
+    }
+  };
+
+  const copyIconSyncError = () => {
+    const err = iconSyncResult()?.error;
+    if (!err) return;
+    navigator.clipboard.writeText(err);
+    setCopiedError(true);
+    setTimeout(() => setCopiedError(false), 2500);
   };
 
   const cookieOptions = [
@@ -1228,13 +1277,7 @@ export default function Settings() {
               {/* Live Adaptive Logo Preview */}
               <div class="live-logo-preview-badge">
                 <div class="live-logo-preview-box">
-                  <img
-                    src={logoAnimatedSvg}
-                    alt="ViveStream Logo"
-                    width="40"
-                    height="40"
-                    style={{ "border-radius": "10px", "object-fit": "contain" }}
-                  />
+                  <DynamicAppLogo size={40} />
                   <div class="live-logo-info">
                     <span class="live-logo-title">Adaptive Brand Logo</span>
                     <span class="live-logo-desc">Waveform: <strong>Neon Acoustic Glow</strong> ({activeTonalPalette().onPrimary})</span>
@@ -1289,6 +1332,135 @@ export default function Settings() {
                     </span>
                   </div>
                 </div>
+              </div>
+
+              {/* Desktop Shortcut & App Icon Synchronization Controls */}
+              <div
+                class="icon-sync-bar"
+                style={{
+                  "margin-top": "16px",
+                  padding: "14px 16px",
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "1.5px solid var(--border-color)",
+                  "border-radius": "12px",
+                  display: "flex",
+                  "flex-direction": "column",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    "align-items": "center",
+                    "justify-content": "space-between",
+                    "flex-wrap": "wrap",
+                    gap: "12px",
+                  }}
+                >
+                  <div style={{ display: "flex", "align-items": "center", gap: "12px" }}>
+                    <i
+                      class="ph-bold ph-desktop"
+                      style={{ "font-size": "24px", color: "var(--primary-accent)", "flex-shrink": "0" }}
+                    ></i>
+                    <div>
+                      <div style={{ "font-weight": "600", "font-size": "0.95rem" }}>
+                        Desktop Shortcut & Taskbar Icon Sync
+                      </div>
+                      <div style={{ "font-size": "0.8rem", color: "var(--secondary-text)" }}>
+                        Dynamically compiles and writes current theme ICO to your Windows Desktop shortcut (.lnk) and taskbar.
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="command-btn primary"
+                    disabled={isSyncingIcon()}
+                    onClick={handleManualIconSync}
+                    style={{
+                      display: "flex",
+                      "align-items": "center",
+                      gap: "8px",
+                      padding: "8px 16px",
+                      "font-weight": "600",
+                    }}
+                  >
+                    <i
+                      class={
+                        isSyncingIcon()
+                          ? "ph-bold ph-spinner ph-spin"
+                          : "ph-bold ph-arrows-clockwise"
+                      }
+                    ></i>
+                    {isSyncingIcon() ? "Syncing Icons..." : "Sync Desktop & Taskbar Icons"}
+                  </button>
+                </div>
+
+                <Show when={iconSyncResult()}>
+                  <div
+                    style={{
+                      padding: "10px 14px",
+                      "border-radius": "8px",
+                      "font-size": "0.85rem",
+                      display: "flex",
+                      "align-items": "center",
+                      "justify-content": "space-between",
+                      gap: "12px",
+                      background: iconSyncResult()!.success
+                        ? "rgba(46, 204, 113, 0.15)"
+                        : "rgba(239, 35, 60, 0.15)",
+                      border: iconSyncResult()!.success
+                        ? "1px solid rgba(46, 204, 113, 0.4)"
+                        : "1px solid rgba(239, 35, 60, 0.4)",
+                      color: iconSyncResult()!.success ? "#2ecc71" : "var(--primary-accent)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        "align-items": "center",
+                        gap: "8px",
+                        "overflow-wrap": "anywhere",
+                      }}
+                    >
+                      <i
+                        class={
+                          iconSyncResult()!.success
+                            ? "ph-bold ph-check-circle"
+                            : "ph-bold ph-warning-circle"
+                        }
+                        style={{ "font-size": "18px", "flex-shrink": "0" }}
+                      ></i>
+                      <span>
+                        {iconSyncResult()!.success
+                          ? iconSyncResult()!.message ||
+                            "Desktop shortcut & taskbar icon successfully synced!"
+                          : iconSyncResult()!.error}
+                      </span>
+                    </div>
+
+                    <Show when={!iconSyncResult()!.success && iconSyncResult()!.error}>
+                      <button
+                        type="button"
+                        class="command-btn secondary"
+                        onClick={copyIconSyncError}
+                        style={{
+                          "flex-shrink": "0",
+                          padding: "5px 12px",
+                          "font-size": "0.8rem",
+                          display: "flex",
+                          "align-items": "center",
+                          gap: "6px",
+                        }}
+                        title="Copy error details to clipboard"
+                      >
+                        <i
+                          class={copiedError() ? "ph-bold ph-check" : "ph-bold ph-copy"}
+                        ></i>
+                        {copiedError() ? "Copied!" : "Copy Error"}
+                      </button>
+                    </Show>
+                  </div>
+                </Show>
               </div>
             </div>
           </div>
@@ -1349,7 +1521,7 @@ export default function Settings() {
             <div class="font-slider-card">
               <div class="flex-row-between">
                 <span class="font-slider-label">
-                  <i class="ph-bold ph-text-italic"></i> Slant / Italic (slnt)
+                  <i class="ph-bold ph-text-italic"></i> Slant / Oblique (slnt)
                 </span>
                 <span class="font-slider-badge">{appFontSlant()}°</span>
               </div>
@@ -1377,7 +1549,7 @@ export default function Settings() {
             <div class="font-slider-card">
               <div class="flex-row-between">
                 <span class="font-slider-label">
-                  <i class="ph-bold ph-arrows-out-line-horizontal"></i> Width (wdth)
+                  <i class="ph-bold ph-arrows-out-line-horizontal"></i> Width / Tracking (wdth)
                 </span>
                 <span class="font-slider-badge">{appFontWidth()}%</span>
               </div>
@@ -1405,7 +1577,7 @@ export default function Settings() {
             <div class="font-slider-card">
               <div class="flex-row-between">
                 <span class="font-slider-label">
-                  <i class="ph-bold ph-circle-dashed"></i> Roundness (ROND)
+                  <i class="ph-bold ph-circle-dashed"></i> Roundness & Grade (GRAD)
                 </span>
                 <span class="font-slider-badge">{appFontRoundness()}</span>
               </div>
@@ -1423,9 +1595,9 @@ export default function Settings() {
                 aria-label="Font Roundness"
               />
               <div class="font-slider-scale">
-                <span>Sharp (0)</span>
-                <span>Subtle (50)</span>
-                <span>Fully Rounded (100)</span>
+                <span>Crisp / Sharp (0)</span>
+                <span>Standard (50)</span>
+                <span>Full Softness (100)</span>
               </div>
             </div>
           </div>
@@ -1440,24 +1612,49 @@ export default function Settings() {
                 <span class="font-metric-chip">wght: <strong>{appFontWeight()}</strong></span>
                 <span class="font-metric-chip">slnt: <strong>{appFontSlant()}°</strong></span>
                 <span class="font-metric-chip">wdth: <strong>{appFontWidth()}%</strong></span>
-                <span class="font-metric-chip">ROND: <strong>{appFontRoundness()}</strong></span>
+                <span class="font-metric-chip">GRAD: <strong>{Math.round((appFontRoundness() - 50) * 2)}</strong></span>
               </div>
             </div>
 
             <div
               class="font-preview-display-box"
               style={{
-                "font-family": "var(--app-font-family)",
-                "font-variation-settings": `'wght' ${appFontWeight()}, 'slnt' ${appFontSlant()}, 'wdth' ${appFontWidth()}, 'ROND' ${appFontRoundness()}`,
+                "font-family": "var(--app-font-family, var(--font-body))",
+                "font-style": `oblique ${appFontSlant()}deg`,
+                "letter-spacing": `${(appFontWidth() - 100) * 0.02}em`,
+                "font-variation-settings": `'wght' ${appFontWeight()}, 'GRAD' ${(appFontRoundness() - 50) * 2}`,
+                transition: "all 0.12s ease-out",
               }}
             >
-              <div class="font-preview-headline">
+              <div
+                class="font-preview-headline"
+                style={{
+                  "font-weight": appFontWeight(),
+                  "font-style": `oblique ${appFontSlant()}deg`,
+                  "letter-spacing": `${(appFontWidth() - 100) * 0.02}em`,
+                  "font-variation-settings": `'wght' ${appFontWeight()}, 'GRAD' ${(appFontRoundness() - 50) * 2}`,
+                }}
+              >
                 The quick brown fox jumps over the lazy dog
               </div>
-              <div class="font-preview-subline">
+              <div
+                class="font-preview-subline"
+                style={{
+                  "font-style": `oblique ${appFontSlant()}deg`,
+                  "letter-spacing": `${(appFontWidth() - 100) * 0.02}em`,
+                  "font-variation-settings": `'wght' ${appFontWeight()}, 'GRAD' ${(appFontRoundness() - 50) * 2}`,
+                }}
+              >
                 ViveStream Next • High Fidelity Typography & Variable Axis Synthesis
               </div>
-              <div class="font-preview-digits">
+              <div
+                class="font-preview-digits"
+                style={{
+                  "font-style": `oblique ${appFontSlant()}deg`,
+                  "letter-spacing": `${(appFontWidth() - 100) * 0.02}em`,
+                  "font-variation-settings": `'wght' ${appFontWeight()}, 'GRAD' ${(appFontRoundness() - 50) * 2}`,
+                }}
+              >
                 0123456789 — AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz !@#$%^&*()
               </div>
             </div>
@@ -3077,7 +3274,15 @@ export default function Settings() {
                 </div>
               }
             >
-              <div style="display: flex; gap: 8px;">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                <button
+                  type="button"
+                  class="command-btn secondary"
+                  onClick={handleManagePortal}
+                  title="Manage subscription and billing on Lemon Squeezy"
+                >
+                  <i class="ph-bold ph-receipt"></i> Manage Subscription
+                </button>
                 <button
                   type="button"
                   class="command-btn secondary"
@@ -3362,7 +3567,7 @@ export default function Settings() {
         </div>
         <div class="about-hero-row">
           <div class="about-logo-badge">
-            <img src={logoAnimatedSvg} alt="ViveStream Logo" class="about-logo-img" />
+            <DynamicAppLogo size={48} />
           </div>
           <div class="about-hero-text">
             <div class="about-title-row">

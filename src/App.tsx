@@ -38,7 +38,7 @@ import {
   addToast,
 } from "./store";
 import NotificationSystem from "./components/NotificationSystem";
-import appLogoSvg from "./assets/logo-animated.svg";
+import DynamicAppLogo from "./components/DynamicAppLogo";
 import ShortcutsModal from "./components/ShortcutsModal";
 import ArcadeModal from "./components/ArcadeModal";
 import Miniplayer from "./components/Miniplayer";
@@ -59,15 +59,7 @@ const ArtistPage = lazy(() => import("./pages/ArtistPage"));
 const LyricsStudio = lazy(() => import("./pages/LyricsStudio"));
 const AI = lazy(() => import("./pages/AI"));
 
-const AppLogo = () => (
-  <img
-    src={appLogoSvg}
-    alt="ViveStream"
-    class="app-logo"
-    width="32"
-    height="32"
-  />
-);
+const AppLogo = () => <DynamicAppLogo size={32} />;
 
 const ImmersiveTitleBar = () => {
   const win = getCurrentWindow();
@@ -592,6 +584,7 @@ const App: Component = () => {
         <Route path="/artist/:name" component={ArtistPage} />
         <Route path="/favourites" component={Favourites} />
         <Route path="/lyrics" component={LyricsStudio} />
+        <Route path="/lyrics-studio" component={LyricsStudio} />
         <Route path="/player/:id" component={Player} />
         <Route path="/ai" component={AI} />
       </Route>

@@ -4784,6 +4784,7 @@ dependencies = [
  "heck 0.5.0",
  "http 1.5.0",
  "http-range",
+ "image",
  "jni",
  "libc",
  "log",
@@ -5618,9 +5619,10 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vivestream-next"
-version = "5.4.0"
+version = "6.0.0"
 dependencies = [
  "arboard",
+ "base64 0.22.1",
  "chrono",
  "dirs-next",
  "reqwest 0.12.28",

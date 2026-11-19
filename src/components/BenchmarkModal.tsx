@@ -1,4 +1,5 @@
 import { createSignal, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import "./BenchmarkModal.css";
 
 export interface BenchmarkResults {
@@ -170,11 +171,12 @@ export default function BenchmarkModal(props: {
 
   return (
     <Show when={props.isOpen}>
-      <div class="benchmark-backdrop" onClick={props.onClose}>
-        <div
-          class="benchmark-modal-container"
-          onClick={(e) => e.stopPropagation()}
-        >
+      <Portal>
+        <div class="benchmark-backdrop" onClick={props.onClose}>
+          <div
+            class="benchmark-modal-container"
+            onClick={(e) => e.stopPropagation()}
+          >
           <div class="benchmark-header">
             <div class="benchmark-header-left">
               <i class="ph-fill ph-gauge benchmark-header-icon"></i>
@@ -306,6 +308,7 @@ export default function BenchmarkModal(props: {
           </div>
         </div>
       </div>
-    </Show>
-  );
+    </Portal>
+  </Show>
+);
 }

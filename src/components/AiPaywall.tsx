@@ -14,11 +14,14 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
   const [licenseKey, setLicenseKey] = createSignal("");
   const [keyError, setKeyError] = createSignal("");
   const [isActivating, setIsActivating] = createSignal(false);
+  const [selectedTier, setSelectedTier] = createSignal<"semiannual" | "lifetime">("semiannual");
 
   const handleSubscribeClick = async () => {
     setShowKeyInput(true);
     try {
-      const url = await invoke<string>("get_lemon_checkout_url");
+      const url = await invoke<string>("get_lemon_checkout_url", {
+        tier: selectedTier(),
+      });
       await openUrl(url);
       addToast(
         "Opened Lemon Squeezy checkout. Once completed, copy and paste your license key below.",
@@ -29,6 +32,28 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
         "Please visit lemonsqueezy.com to subscribe, then paste your license key below.",
         "info"
       );
+    }
+  };
+
+  const handlePasteKey = async () => {
+    try {
+      let text = "";
+      try {
+        text = await invoke<string>("get_clipboard_text");
+      } catch {
+        if (navigator.clipboard) {
+          text = await navigator.clipboard.readText();
+        }
+      }
+      if (text) {
+        setLicenseKey(text.trim());
+        setKeyError("");
+        addToast("Pasted license key from clipboard.", "info");
+      } else {
+        addToast("Clipboard is empty.", "info");
+      }
+    } catch {
+      addToast("Could not access clipboard.", "error");
     }
   };
 
@@ -82,7 +107,41 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
 
           <div class="ai-plan-header">
             <span class="ai-plan-label">Commercial Subscription</span>
-            <h2 class="ai-plan-title">Semi-Annual Pro Pass</h2>
+            <h2 class="ai-plan-title">
+              {selectedTier() === "semiannual" ? "Semi-Annual Pro Pass" : "Lifetime Pro Pass"}
+            </h2>
+          </div>
+
+          {/* Tier Switcher Pills */}
+          <div class="ai-tier-selector" style={{ display: "flex", gap: "8px", "margin-top": "4px" }}>
+            <button
+              type="button"
+              class={`ai-paywall-btn-secondary ${selectedTier() === "semiannual" ? "tier-active" : ""}`}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                "font-size": "12px",
+                background: selectedTier() === "semiannual" ? "var(--primary-accent)" : "transparent",
+                color: selectedTier() === "semiannual" ? "var(--on-primary, #ffffff)" : "inherit",
+              }}
+              onClick={() => setSelectedTier("semiannual")}
+            >
+              Semi-Annual ($9.99 / 6mo)
+            </button>
+            <button
+              type="button"
+              class={`ai-paywall-btn-secondary ${selectedTier() === "lifetime" ? "tier-active" : ""}`}
+              style={{
+                flex: 1,
+                padding: "8px 10px",
+                "font-size": "12px",
+                background: selectedTier() === "lifetime" ? "var(--primary-accent)" : "transparent",
+                color: selectedTier() === "lifetime" ? "var(--on-primary, #ffffff)" : "inherit",
+              }}
+              onClick={() => setSelectedTier("lifetime")}
+            >
+              Lifetime ($19.99 One-Time)
+            </button>
           </div>
 
           <div class="ai-plan-window-box">
@@ -90,8 +149,14 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
               <i class="ph-fill ph-calendar" />
             </div>
             <div class="ai-plan-window-text">
-              <span class="ai-plan-window-title">Every 6 Months</span>
-              <span class="ai-plan-window-sub">Recurring bi-annual payment schedule</span>
+              <span class="ai-plan-window-title">
+                {selectedTier() === "semiannual" ? "Every 6 Months" : "Lifetime Access"}
+              </span>
+              <span class="ai-plan-window-sub">
+                {selectedTier() === "semiannual"
+                  ? "Recurring bi-annual payment schedule ($9.99)"
+                  : "One-time purchase, free updates forever ($19.99)"}
+              </span>
             </div>
           </div>
 
@@ -132,9 +197,20 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
           {/* Expandable License Key Activation */}
           <Show when={showKeyInput()}>
             <div class="ai-key-box">
-              <span style={{ "font-size": "12px", "font-weight": "700" }}>
-                Enter your Lemon Squeezy License Key:
-              </span>
+              <div style={{ display: "flex", "justify-content": "space-between", "align-items": "center" }}>
+                <span style={{ "font-size": "12px", "font-weight": "700" }}>
+                  Enter your Lemon Squeezy License Key:
+                </span>
+                <button
+                  type="button"
+                  class="ai-paywall-btn-secondary"
+                  style={{ padding: "4px 8px", "font-size": "11px" }}
+                  onClick={handlePasteKey}
+                  title="Paste from Clipboard"
+                >
+                  <i class="ph ph-clipboard" /> Paste
+                </button>
+              </div>
               <div class="ai-key-input-row">
                 <input
                   type="text"
@@ -164,6 +240,9 @@ export const AiPaywall: Component<AiPaywallProps> = (props) => {
                   {keyError()}
                 </span>
               </Show>
+              <div style={{ "font-size": "11px", color: "var(--secondary-text)", "line-height": "1.4" }}>
+                💡 Tip: You can find your license key in your Lemon Squeezy order email or customer dashboard.
+              </div>
             </div>
           </Show>
         </div>

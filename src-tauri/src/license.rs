@@ -296,11 +296,92 @@ pub async fn deactivate_lemon_license(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+fn get_lemon_config_path(app: &AppHandle) -> Result<PathBuf, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {}", e))?;
+    fs::create_dir_all(&app_dir).map_err(|e| e.to_string())?;
+    Ok(app_dir.join("lemon_config.json"))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct LemonConfig {
+    pub checkout_url: Option<String>,
+    pub lifetime_checkout_url: Option<String>,
+}
+
 /// Returns the Lemon Squeezy checkout URL for ViveStream AI Studio Pro Pass.
 #[tauri::command]
-pub fn get_lemon_checkout_url() -> String {
-    std::env::var("VIVESTREAM_LEMON_CHECKOUT_URL")
-        .unwrap_or_else(|_| "https://vivestream.lemonsqueezy.com/buy/pro".to_string())
+pub fn get_lemon_checkout_url(app: AppHandle, tier: Option<String>) -> String {
+    // 1. Environment variable override
+    if let Ok(env_url) = std::env::var("VIVESTREAM_LEMON_CHECKOUT_URL") {
+        let trimmed = env_url.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    // 2. Saved custom checkout URL in lemon_config.json
+    if let Ok(cfg_path) = get_lemon_config_path(&app) {
+        if cfg_path.is_file() {
+            if let Ok(content) = fs::read_to_string(&cfg_path) {
+                if let Ok(cfg) = serde_json::from_str::<LemonConfig>(&content) {
+                    if tier.as_deref() == Some("lifetime") {
+                        if let Some(ref url) = cfg.lifetime_checkout_url {
+                            if !url.trim().is_empty() {
+                                return url.trim().to_string();
+                            }
+                        }
+                    } else if let Some(ref url) = cfg.checkout_url {
+                        if !url.trim().is_empty() {
+                            return url.trim().to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. Official default Lemon Squeezy Store checkout URLs
+    if tier.as_deref() == Some("lifetime") {
+        "https://vivestream.lemonsqueezy.com/buy/lifetime".to_string()
+    } else {
+        "https://vivestream.lemonsqueezy.com/buy/pro".to_string()
+    }
+}
+
+/// Allows dynamically configuring custom Lemon Squeezy checkout URLs.
+#[tauri::command]
+pub fn set_lemon_checkout_url(
+    app: AppHandle,
+    checkout_url: Option<String>,
+    lifetime_checkout_url: Option<String>,
+) -> Result<(), String> {
+    let cfg_path = get_lemon_config_path(&app)?;
+    let mut cfg = LemonConfig::default();
+    if cfg_path.is_file() {
+        if let Ok(content) = fs::read_to_string(&cfg_path) {
+            if let Ok(existing) = serde_json::from_str::<LemonConfig>(&content) {
+                cfg = existing;
+            }
+        }
+    }
+    if let Some(u) = checkout_url {
+        cfg.checkout_url = Some(u.trim().to_string());
+    }
+    if let Some(lu) = lifetime_checkout_url {
+        cfg.lifetime_checkout_url = Some(lu.trim().to_string());
+    }
+    let content = serde_json::to_string_pretty(&cfg).map_err(|e| e.to_string())?;
+    fs::write(cfg_path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Returns the Lemon Squeezy Customer Orders & Subscription Management Portal URL.
+#[tauri::command]
+pub fn get_lemon_portal_url() -> String {
+    "https://app.lemonsqueezy.com/my-orders".to_string()
 }
 
 fn save_license_file(app: &AppHandle, data: &LicenseData) -> Result<(), String> {

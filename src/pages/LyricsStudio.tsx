@@ -25,9 +25,38 @@ import {
   initWhisperStatus,
   WhisperStatus,
   setActiveVideo,
+  activeVideo,
   showConfirmDialog,
   deleteLyricsForTrack,
   getThumbnailUrl,
+  studioSelectedVideo,
+  setStudioSelectedVideo,
+  studioCustomMediaPath,
+  setStudioCustomMediaPath,
+  studioResult,
+  setStudioResult,
+  studioEditableLrc,
+  setStudioEditableLrc,
+  studioIsGenerating,
+  setStudioIsGenerating,
+  studioGenStatusMsg,
+  setStudioGenStatusMsg,
+  transcribeProgress,
+  setTranscribeProgress,
+  studioActiveTab,
+  setStudioActiveTab,
+  studioRawTab,
+  setStudioRawTab,
+  studioSelectedModel,
+  setStudioSelectedModel,
+  studioSelectedTask,
+  setStudioSelectedTask,
+  studioSelectedLanguage,
+  setStudioSelectedLanguage,
+  studioSelectedDevice,
+  setStudioSelectedDevice,
+  runStudioLyricsGeneration,
+  StudioLyricsResult,
 } from "../store";
 import { sortVideos } from "../utils/sortUtils";
 import AiPaywall from "../components/AiPaywall";
@@ -93,8 +122,10 @@ export default function LyricsStudio() {
   // Library & Currently Selected Video
   const [libraryVideos, setLibraryVideos] = createSignal<VideoEntry[]>([]);
   const [cachedLyricsList, setCachedLyricsList] = createSignal<CachedLyricItem[]>([]);
-  const [selectedVideo, setSelectedVideo] = createSignal<VideoEntry | null>(null);
-  const [customMediaFilePath, setCustomMediaFilePath] = createSignal<string>("");
+  const selectedVideo = studioSelectedVideo;
+  const setSelectedVideo = setStudioSelectedVideo;
+  const customMediaFilePath = studioCustomMediaPath;
+  const setCustomMediaFilePath = setStudioCustomMediaPath;
 
   // Video Picker Pop-up Modal State
   const [showVideoPicker, setShowVideoPicker] = createSignal(false);
@@ -112,22 +143,221 @@ export default function LyricsStudio() {
   const [isMuted, setIsMuted] = createSignal(false);
   const [playbackSpeed, setPlaybackSpeed] = createSignal(1.0);
 
-  // Lyrics & Generation State
-  const [result, setResult] = createSignal<LyricsResult | null>(null);
-  const [activeStudioTab, setActiveStudioTab] = createSignal<"karaoke" | "editor" | "formats">("karaoke");
-  const [rawTab, setRawTab] = createSignal<"elrc" | "lrc" | "vtt" | "srt" | "json">("elrc");
-  const [editableLrc, setEditableLrc] = createSignal("");
+  // Lyrics & Generation State (persisted globally across navigation)
+  const result = studioResult;
+  const setResult = setStudioResult;
+  const activeStudioTab = studioActiveTab;
+  const setActiveStudioTab = setStudioActiveTab;
+  const rawTab = studioRawTab;
+  const setRawTab = setStudioRawTab;
+  const editableLrc = studioEditableLrc;
+  const setEditableLrc = setStudioEditableLrc;
   const [isSavingLyrics, setIsSavingLyrics] = createSignal(false);
-  const [isGenerating, setIsGenerating] = createSignal(false);
-  const [genStatusMsg, setGenStatusMsg] = createSignal("");
-  const [transcribeProgress, setTranscribeProgress] = createSignal<TranscribeProgress | null>(null);
+  const isGenerating = studioIsGenerating;
+  const setIsGenerating = setStudioIsGenerating;
+  const genStatusMsg = studioGenStatusMsg;
+  const setGenStatusMsg = setStudioGenStatusMsg;
   const [copied, setCopied] = createSignal(false);
 
-  // Configuration Selectors
-  const [selectedModel, setSelectedModel] = createSignal<string>(whisperDefaultModel() || "base");
-  const [selectedTask, setSelectedTask] = createSignal<string>(whisperDefaultTask() || "transcribe");
-  const [selectedLanguage, setSelectedLanguage] = createSignal<string>("auto");
-  const [selectedDevice, setSelectedDevice] = createSignal<string>(whisperComputeDevice() || "auto");
+  // Configuration Selectors (persisted globally across navigation)
+  const selectedModel = studioSelectedModel;
+  const setSelectedModel = setStudioSelectedModel;
+  const selectedTask = studioSelectedTask;
+  const setSelectedTask = setStudioSelectedTask;
+  const selectedLanguage = studioSelectedLanguage;
+  const setSelectedLanguage = setStudioSelectedLanguage;
+  const selectedDevice = studioSelectedDevice;
+  const setSelectedDevice = setStudioSelectedDevice;
+
+  // Visual Lyrics Line Model & Editor State
+  interface VisualLyricLine {
+    id: string;
+    startSec: number;
+    text: string;
+  }
+
+  const [editorMode, setEditorMode] = createSignal<"visual" | "raw">("visual");
+  const [editorFont, setEditorFont] = createSignal<"google-sans" | "major-mono" | "system-mono">("google-sans");
+  const [editorFontSize, setEditorFontSize] = createSignal<"sm" | "md" | "lg">("md");
+  const [visualLines, setVisualLines] = createSignal<VisualLyricLine[]>([]);
+  const [showSearchReplace, setShowSearchReplace] = createSignal(false);
+  const [searchQuery, setSearchQuery] = createSignal("");
+  const [replaceQuery, setReplaceQuery] = createSignal("");
+  const [lastSyncedLrc, setLastSyncedLrc] = createSignal("");
+
+  const parseLrcToVisual = (raw: string): VisualLyricLine[] => {
+    if (!raw) return [];
+    const lines = raw.split("\n");
+    const parsed: VisualLyricLine[] = [];
+    const regex = /\[(\d+):(\d+(?:\.\d+)?)\](.*)/;
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (!trimmed) continue;
+      const match = trimmed.match(regex);
+      if (match) {
+        const min = parseInt(match[1], 10);
+        const sec = parseFloat(match[2]);
+        const startSec = Math.max(0, +(min * 60 + sec).toFixed(2));
+        const text = match[3].replace(/<[^>]+>/g, "").trim();
+        parsed.push({
+          id: `line-${i}-${Math.random().toString(36).substr(2, 5)}`,
+          startSec,
+          text,
+        });
+      }
+    }
+    return parsed;
+  };
+
+  const visualToLrc = (lines: VisualLyricLine[]): string => {
+    return lines
+      .map((l) => {
+        const min = Math.floor(Math.max(0, l.startSec) / 60);
+        const sec = (Math.max(0, l.startSec) % 60).toFixed(2);
+        return `[${min.toString().padStart(2, "0")}:${sec.padStart(5, "0")}] ${l.text}`;
+      })
+      .join("\n");
+  };
+
+  // Synchronize visual lines when editableLrc changes from external sources
+  createEffect(() => {
+    const raw = editableLrc();
+    if (raw !== lastSyncedLrc()) {
+      setLastSyncedLrc(raw);
+      setVisualLines(parseLrcToVisual(raw));
+    }
+  });
+
+  const commitVisualLines = (updated: VisualLyricLine[]) => {
+    setVisualLines(updated);
+    const serialized = visualToLrc(updated);
+    setLastSyncedLrc(serialized);
+    setEditableLrc(serialized);
+  };
+
+  const handleUpdateLineText = (id: string, text: string) => {
+    const updated = visualLines().map((l) => (l.id === id ? { ...l, text } : l));
+    commitVisualLines(updated);
+  };
+
+  const handleUpdateLineTime = (id: string, sec: number) => {
+    const updated = visualLines().map((l) =>
+      l.id === id ? { ...l, startSec: Math.max(0, +sec.toFixed(2)) } : l
+    );
+    commitVisualLines(updated);
+  };
+
+  const handleNudgeLine = (id: string, delta: number) => {
+    const updated = visualLines().map((l) =>
+      l.id === id ? { ...l, startSec: Math.max(0, +(l.startSec + delta).toFixed(2)) } : l
+    );
+    commitVisualLines(updated);
+  };
+
+  const handleStampLine = (id: string) => {
+    const updated = visualLines().map((l) =>
+      l.id === id ? { ...l, startSec: +currentTime().toFixed(2) } : l
+    );
+    commitVisualLines(updated);
+    addToast("Stamped current video playhead", "info");
+  };
+
+  const handlePlayLine = (sec: number) => {
+    if (videoEl) {
+      videoEl.currentTime = sec;
+      videoEl.play();
+      setIsPlaying(true);
+    }
+  };
+
+  const handleInsertLineBelow = (idx: number) => {
+    const current = visualLines();
+    const prevSec = current[idx]?.startSec ?? currentTime();
+    const nextSec = current[idx + 1]?.startSec ?? prevSec + 3.0;
+    const newSec = +((prevSec + nextSec) / 2).toFixed(2);
+    const newLine: VisualLyricLine = {
+      id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      startSec: newSec,
+      text: "",
+    };
+    const updated = [...current.slice(0, idx + 1), newLine, ...current.slice(idx + 1)];
+    commitVisualLines(updated);
+  };
+
+  const handleDeleteLine = (id: string) => {
+    const updated = visualLines().filter((l) => l.id !== id);
+    commitVisualLines(updated);
+  };
+
+  const handleAddLineAtPlayhead = () => {
+    const t = +currentTime().toFixed(2);
+    const newLine: VisualLyricLine = {
+      id: `line-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      startSec: t,
+      text: "",
+    };
+    const updated = [...visualLines(), newLine].sort((a, b) => a.startSec - b.startSec);
+    commitVisualLines(updated);
+    addToast(`Added lyric line at ${formatTime(t)}`, "info");
+  };
+
+  const handleShiftAllVisualLines = (delta: number) => {
+    const updated = visualLines().map((l) => ({
+      ...l,
+      startSec: Math.max(0, +(l.startSec + delta).toFixed(2)),
+    }));
+    commitVisualLines(updated);
+    addToast(`Shifted all timestamps by ${delta > 0 ? "+" : ""}${delta}s`, "info");
+  };
+
+  const handleSortVisualLines = () => {
+    const updated = [...visualLines()].sort((a, b) => a.startSec - b.startSec);
+    commitVisualLines(updated);
+    addToast("Sorted lines chronologically", "info");
+  };
+
+  const handleExecuteReplace = (replaceAll: boolean) => {
+    const q = searchQuery();
+    const r = replaceQuery();
+    if (!q) return;
+
+    let count = 0;
+    const updated = visualLines().map((l) => {
+      if (!l.text.includes(q)) return l;
+      if (replaceAll) {
+        const occurrences = l.text.split(q).length - 1;
+        count += occurrences;
+        return { ...l, text: l.text.replaceAll(q, r) };
+      } else if (count === 0) {
+        count = 1;
+        return { ...l, text: l.text.replace(q, r) };
+      }
+      return l;
+    });
+
+    if (count > 0) {
+      commitVisualLines(updated);
+      addToast(`Replaced ${count} occurrence${count > 1 ? "s" : ""}`, "success");
+    } else {
+      addToast(`No matches found for "${q}"`, "warning");
+    }
+  };
+
+  const activeVisualLineIndex = createMemo(() => {
+    const lines = visualLines();
+    if (lines.length === 0) return -1;
+    const t = currentTime();
+    let idx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].startSec <= t) {
+        idx = i;
+      } else {
+        break;
+      }
+    }
+    return idx;
+  });
 
   // Check lyrics sync status for any video
   const getTrackLyricsStatus = (vid: VideoEntry): { hasLyrics: boolean; format: "karaoke" | "lrc" | "subtitles" | "none" } => {
@@ -198,11 +428,10 @@ export default function LyricsStudio() {
     if (idx >= 0 && lyricsScrollEl && activeStudioTab() === "karaoke") {
       const activeEl = lyricsScrollEl.querySelector(`[data-segment-index="${idx}"]`) as HTMLElement | null;
       if (activeEl) {
-        const containerHeight = lyricsScrollEl.clientHeight;
-        const lineTop = activeEl.offsetTop;
-        const lineHeight = activeEl.clientHeight;
-        const targetScroll = lineTop - containerHeight / 2 + lineHeight / 2;
-        lyricsScrollEl.scrollTo({ top: Math.max(0, targetScroll), behavior: "smooth" });
+        const containerRect = lyricsScrollEl.getBoundingClientRect();
+        const lineRect = activeEl.getBoundingClientRect();
+        const offset = lineRect.top - containerRect.top - (containerRect.height / 2) + (lineRect.height / 2);
+        lyricsScrollEl.scrollBy({ top: offset, behavior: "smooth" });
       }
     }
   });
@@ -372,23 +601,15 @@ export default function LyricsStudio() {
     }
 
     try {
-      setIsGenerating(true);
       setErrorMsg("");
-      setTranscribeProgress(null);
-      setGenStatusMsg(`Transcribing audio with Whisper ${selectedModel().toUpperCase()}...`);
-
-      const res = await invoke<LyricsResult>("generate_track_lyrics", {
-        audioPath: mediaPath,
-        trackId: vid ? vid.id : null,
-        model: selectedModel(),
-        task: selectedTask(),
-        language: selectedLanguage() === "auto" ? null : selectedLanguage(),
-        device: selectedDevice(),
-      });
-
-      setResult(res);
-      setEditableLrc(res.enhanced_lrc || res.lrc || "");
-      addToast("Synced lyrics and subtitles generated successfully!", "success");
+      await runStudioLyricsGeneration(
+        mediaPath,
+        vid,
+        selectedModel(),
+        selectedTask(),
+        selectedLanguage(),
+        selectedDevice()
+      );
       await fetchHistory();
 
       if (videoEl) {
@@ -396,13 +617,7 @@ export default function LyricsStudio() {
         setCurrentTime(0);
       }
     } catch (e: any) {
-      console.error("Transcription failed:", e);
       setErrorMsg(`Generation failed: ${e}`);
-      addToast(`Generation failed: ${e}`, "error");
-    } finally {
-      setIsGenerating(false);
-      setGenStatusMsg("");
-      setTranscribeProgress(null);
     }
   };
 
@@ -582,15 +797,23 @@ export default function LyricsStudio() {
     });
   });
 
-  // Reactive URL parameter resolver: handles /lyrics?trackId=XYZ
+  // Reactive URL parameter resolver: handles /lyrics?trackId=XYZ or /lyrics?id=XYZ or /lyrics-studio?id=XYZ
   createEffect(() => {
-    const tid = searchParams.trackId;
+    const tid = searchParams.trackId || searchParams.id;
+    if (!tid) return;
+
     const vids = libraryVideos();
-    if (tid && vids.length > 0) {
+    if (vids.length > 0) {
       const match = vids.find((v) => v.id === tid);
       if (match && (!selectedVideo() || selectedVideo()?.id !== tid)) {
         handleSelectVideo(match);
+        return;
       }
+    }
+
+    const currentVid = activeVideo();
+    if (currentVid && currentVid.id === tid && (!selectedVideo() || selectedVideo()?.id !== tid)) {
+      handleSelectVideo(currentVid);
     }
   });
 
@@ -1011,6 +1234,8 @@ export default function LyricsStudio() {
                   onChange={(val) => setSelectedLanguage(val)}
                   options={[
                     { value: "auto", label: "Auto-Detect", icon: "ph-bold ph-globe" },
+                    { value: "bn", label: "Bengali (Bangla)", badge: "BN" },
+                    { value: "hi", label: "Hindi", badge: "HI" },
                     { value: "en", label: "English", badge: "EN" },
                     { value: "ja", label: "Japanese", badge: "JA" },
                     { value: "ko", label: "Korean", badge: "KO" },
@@ -1018,6 +1243,15 @@ export default function LyricsStudio() {
                     { value: "fr", label: "French", badge: "FR" },
                     { value: "de", label: "German", badge: "DE" },
                     { value: "zh", label: "Chinese", badge: "ZH" },
+                    { value: "ur", label: "Urdu", badge: "UR" },
+                    { value: "pa", label: "Punjabi", badge: "PA" },
+                    { value: "ta", label: "Tamil", badge: "TA" },
+                    { value: "te", label: "Telugu", badge: "TE" },
+                    { value: "ar", label: "Arabic", badge: "AR" },
+                    { value: "ru", label: "Russian", badge: "RU" },
+                    { value: "pt", label: "Portuguese", badge: "PT" },
+                    { value: "it", label: "Italian", badge: "IT" },
+                    { value: "tr", label: "Turkish", badge: "TR" },
                   ]}
                 />
               </div>
@@ -1029,27 +1263,41 @@ export default function LyricsStudio() {
                 when={result()}
                 fallback={
                   <div class="generate-prompt-box">
-                    <button
-                      type="button"
-                      class="studio-btn-generate"
-                      disabled={isGenerating() || (!selectedVideo() && !customMediaFilePath())}
-                      onClick={handleGenerateLyrics}
-                    >
-                      <Show
-                        when={isGenerating()}
-                        fallback={
-                          <>
-                            <i class="ph-bold ph-sparkle" />
-                            <span>Generate Synced Lyrics with Whisper</span>
-                          </>
-                        }
+                    <div class="generate-btn-row">
+                      <button
+                        type="button"
+                        class="studio-btn-generate"
+                        disabled={isGenerating() || (!selectedVideo() && !customMediaFilePath())}
+                        onClick={handleGenerateLyrics}
                       >
-                        <i class="ph ph-spinner ph-spin" />
-                        <span>Transcribing Audio...</span>
+                        <Show
+                          when={isGenerating()}
+                          fallback={
+                            <>
+                              <i class="ph-bold ph-sparkle" />
+                              <span>Generate Synced Lyrics with Whisper</span>
+                            </>
+                          }
+                        >
+                          <i class="ph ph-spinner ph-spin" />
+                          <span>Transcribing Audio...</span>
+                        </Show>
+                      </button>
+
+                      <Show when={selectedVideo() && getTrackLyricsStatus(selectedVideo()!).hasLyrics}>
+                        <button
+                          type="button"
+                          class="studio-btn-danger-sm"
+                          onClick={handleDeleteLyrics}
+                          title="Delete existing lyrics files from disk"
+                        >
+                          <i class="ph-bold ph-trash" />
+                          <span>Delete Existing Lyrics</span>
+                        </button>
                       </Show>
-                    </button>
+                    </div>
                     <span class="generate-subtext">
-                      Pure Rust Candle neural recognition with word-accurate syllable timestamps.
+                      High-precision Whisper AI neural speech recognition with word and line synchronization.
                     </span>
                   </div>
                 }
@@ -1241,36 +1489,350 @@ export default function LyricsStudio() {
               </div>
             </Show>
 
-            {/* TAB 2: Direct LRC & Timestamp Editor */}
+            {/* TAB 2: Direct LRC & Timestamp Visual Studio Editor */}
             <Show when={activeStudioTab() === "editor"}>
               <div class="studio-editor-container">
-                <div class="editor-subbar">
-                  <span class="editor-hint">
-                    Edit synced lyrics directly. Use the stamp button to insert the current video playhead timestamp.
-                  </span>
-                  <button
-                    type="button"
-                    class="stamp-time-btn"
-                    onClick={() => {
-                      const t = currentTime();
-                      const m = Math.floor(t / 60);
-                      const s = (t % 60).toFixed(2);
-                      const tag = `[${m.toString().padStart(2, "0")}:${s.padStart(5, "0")}] `;
-                      setEditableLrc((prev) => `${prev}\n${tag}`);
-                    }}
-                  >
-                    <i class="ph-bold ph-clock" />
-                    <span>Stamp Playhead ({formatTime(currentTime())})</span>
-                  </button>
+                {/* Editor Control Header */}
+                <div class="editor-header-bar">
+                  <div class="editor-header-left">
+                    <div class="editor-mode-pills">
+                      <button
+                        type="button"
+                        class={`editor-mode-pill ${editorMode() === "visual" ? "active" : ""}`}
+                        onClick={() => setEditorMode("visual")}
+                      >
+                        <i class="ph-bold ph-table" />
+                        <span>Visual Editor</span>
+                      </button>
+                      <button
+                        type="button"
+                        class={`editor-mode-pill ${editorMode() === "raw" ? "active" : ""}`}
+                        onClick={() => setEditorMode("raw")}
+                      >
+                        <i class="ph-bold ph-code" />
+                        <span>Raw LRC Code</span>
+                      </button>
+                    </div>
+
+                    <div class="editor-font-picker">
+                      <label>Font:</label>
+                      <select
+                        class="editor-font-select"
+                        value={editorFont()}
+                        onChange={(e) => setEditorFont(e.currentTarget.value as any)}
+                      >
+                        <option value="google-sans">Google Sans Flex</option>
+                        <option value="major-mono">Major Mono Display</option>
+                        <option value="system-mono">Monospace Studio</option>
+                      </select>
+                    </div>
+
+                    <div class="editor-size-pills">
+                      <button
+                        type="button"
+                        class={`editor-size-pill ${editorFontSize() === "sm" ? "active" : ""}`}
+                        onClick={() => setEditorFontSize("sm")}
+                        title="Small font size"
+                      >
+                        S
+                      </button>
+                      <button
+                        type="button"
+                        class={`editor-size-pill ${editorFontSize() === "md" ? "active" : ""}`}
+                        onClick={() => setEditorFontSize("md")}
+                        title="Medium font size"
+                      >
+                        M
+                      </button>
+                      <button
+                        type="button"
+                        class={`editor-size-pill ${editorFontSize() === "lg" ? "active" : ""}`}
+                        onClick={() => setEditorFontSize("lg")}
+                        title="Large font size"
+                      >
+                        L
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="editor-header-right">
+                    <button
+                      type="button"
+                      class={`editor-tool-btn ${showSearchReplace() ? "active" : ""}`}
+                      onClick={() => setShowSearchReplace((prev) => !prev)}
+                      title="Search & Replace"
+                    >
+                      <i class="ph-bold ph-magnifying-glass" />
+                      <span>Find & Replace</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="editor-tool-btn"
+                      onClick={handleAddLineAtPlayhead}
+                      title="Insert new synchronized lyric line at current video time"
+                    >
+                      <i class="ph-bold ph-plus-circle" />
+                      <span>+ Stamp Line ({formatTime(currentTime())})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      class="editor-tool-btn"
+                      onClick={handleSortVisualLines}
+                      title="Sort lines by start timestamp ascending"
+                    >
+                      <i class="ph-bold ph-sort-ascending" />
+                      <span>Sort Time</span>
+                    </button>
+
+                    <div class="editor-bulk-shift-group">
+                      <button
+                        type="button"
+                        class="editor-shift-btn"
+                        onClick={() => handleShiftAllVisualLines(-0.2)}
+                        title="Shift all lines 0.2s earlier"
+                      >
+                        -0.2s
+                      </button>
+                      <button
+                        type="button"
+                        class="editor-shift-btn"
+                        onClick={() => handleShiftAllVisualLines(0.2)}
+                        title="Shift all lines 0.2s later"
+                      >
+                        +0.2s
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
-                <textarea
-                  class="studio-lrc-textarea"
-                  value={editableLrc()}
-                  onInput={(e) => setEditableLrc(e.currentTarget.value)}
-                  placeholder="[00:00.00] Enter synchronized lyrics here..."
-                  spellcheck={false}
-                />
+                {/* Collapsible Search & Replace Bar */}
+                <Show when={showSearchReplace()}>
+                  <div class="editor-search-replace-drawer">
+                    <div class="search-replace-inputs">
+                      <div class="sr-input-wrap">
+                        <i class="ph-bold ph-magnifying-glass" />
+                        <input
+                          type="text"
+                          placeholder="Search lyric text..."
+                          value={searchQuery()}
+                          onInput={(e) => setSearchQuery(e.currentTarget.value)}
+                        />
+                      </div>
+                      <div class="sr-input-wrap">
+                        <i class="ph-bold ph-arrows-left-right" />
+                        <input
+                          type="text"
+                          placeholder="Replace with..."
+                          value={replaceQuery()}
+                          onInput={(e) => setReplaceQuery(e.currentTarget.value)}
+                        />
+                      </div>
+                    </div>
+                    <div class="sr-actions">
+                      <button
+                        type="button"
+                        class="sr-btn"
+                        onClick={() => handleExecuteReplace(false)}
+                      >
+                        Replace Next
+                      </button>
+                      <button
+                        type="button"
+                        class="sr-btn primary"
+                        onClick={() => handleExecuteReplace(true)}
+                      >
+                        Replace All
+                      </button>
+                      <button
+                        type="button"
+                        class="sr-btn-close"
+                        onClick={() => setShowSearchReplace(false)}
+                      >
+                        <i class="ph-bold ph-x" />
+                      </button>
+                    </div>
+                  </div>
+                </Show>
+
+                {/* VISUAL TABLE VIEW */}
+                <Show when={editorMode() === "visual"}>
+                  <div
+                    class={`editor-visual-table-wrap font-${editorFont()} size-${editorFontSize()}`}
+                  >
+                    <div class="editor-table-header">
+                      <span class="col-idx">#</span>
+                      <span class="col-time">Timestamp</span>
+                      <span class="col-nudge">Nudge</span>
+                      <span class="col-text">Lyric Text Content</span>
+                      <span class="col-actions">Actions</span>
+                    </div>
+
+                    <div class="editor-table-body">
+                      <Show
+                        when={visualLines().length > 0}
+                        fallback={
+                          <div class="editor-empty-table">
+                            <i class="ph-bold ph-text-aa" />
+                            <p>No lyrics lines found yet.</p>
+                            <button
+                              type="button"
+                              class="studio-btn-primary-sm"
+                              onClick={handleAddLineAtPlayhead}
+                            >
+                              + Add First Lyric Line at {formatTime(currentTime())}
+                            </button>
+                          </div>
+                        }
+                      >
+                        <For each={visualLines()}>
+                          {(line, idx) => {
+                            const isActive = () => activeVisualLineIndex() === idx();
+
+                            return (
+                              <div
+                                class={`editor-line-row ${isActive() ? "is-playing-active" : ""}`}
+                              >
+                                <div class="col-idx">
+                                  <span class="row-index-badge">{idx() + 1}</span>
+                                </div>
+
+                                <div class="col-time">
+                                  <input
+                                    type="text"
+                                    class="row-time-input"
+                                    value={formatTime(line.startSec)}
+                                    title="Click to edit timestamp mm:ss"
+                                    onChange={(e) => {
+                                      const parts = e.currentTarget.value.split(":");
+                                      if (parts.length === 2) {
+                                        const m = parseFloat(parts[0]) || 0;
+                                        const s = parseFloat(parts[1]) || 0;
+                                        handleUpdateLineTime(line.id, m * 60 + s);
+                                      }
+                                    }}
+                                  />
+                                </div>
+
+                                <div class="col-nudge">
+                                  <button
+                                    type="button"
+                                    class="row-nudge-btn"
+                                    onClick={() => handleNudgeLine(line.id, -0.2)}
+                                    title="Shift 0.2s earlier"
+                                  >
+                                    -0.2
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="row-nudge-btn"
+                                    onClick={() => handleNudgeLine(line.id, 0.2)}
+                                    title="Shift 0.2s later"
+                                  >
+                                    +0.2
+                                  </button>
+                                </div>
+
+                                <div class="col-text">
+                                  <input
+                                    type="text"
+                                    class="row-text-input"
+                                    value={line.text}
+                                    placeholder="Enter lyric text here..."
+                                    onInput={(e) => handleUpdateLineText(line.id, e.currentTarget.value)}
+                                  />
+                                </div>
+
+                                <div class="col-actions">
+                                  <button
+                                    type="button"
+                                    class="row-act-btn play"
+                                    title="Play and listen from this timestamp"
+                                    onClick={() => handlePlayLine(line.startSec)}
+                                  >
+                                    <i class="ph-bold ph-play" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="row-act-btn stamp"
+                                    title="Stamp with current video playhead"
+                                    onClick={() => handleStampLine(line.id)}
+                                  >
+                                    <i class="ph-bold ph-clock" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="row-act-btn insert"
+                                    title="Insert line below"
+                                    onClick={() => handleInsertLineBelow(idx())}
+                                  >
+                                    <i class="ph-bold ph-plus" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="row-act-btn delete"
+                                    title="Delete this line"
+                                    onClick={() => handleDeleteLine(line.id)}
+                                  >
+                                    <i class="ph-bold ph-trash" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }}
+                        </For>
+                      </Show>
+                    </div>
+
+                    <div class="editor-table-footer">
+                      <button
+                        type="button"
+                        class="footer-add-line-btn"
+                        onClick={handleAddLineAtPlayhead}
+                      >
+                        <i class="ph-bold ph-plus" />
+                        <span>Add Lyric Line at Playhead ({formatTime(currentTime())})</span>
+                      </button>
+                      <span class="footer-stats-text">
+                        {visualLines().length} lyric lines total
+                      </span>
+                    </div>
+                  </div>
+                </Show>
+
+                {/* RAW CODE VIEW */}
+                <Show when={editorMode() === "raw"}>
+                  <div class={`editor-raw-wrap font-${editorFont()} size-${editorFontSize()}`}>
+                    <div class="raw-editor-toolbar">
+                      <span class="raw-hint">
+                        Format: [mm:ss.xx] Lyric text. You can copy/paste standard LRC or edit directly.
+                      </span>
+                      <button
+                        type="button"
+                        class="stamp-time-btn"
+                        onClick={() => {
+                          const t = currentTime();
+                          const m = Math.floor(t / 60);
+                          const s = (t % 60).toFixed(2);
+                          const tag = `[${m.toString().padStart(2, "0")}:${s.padStart(5, "0")}] `;
+                          setEditableLrc((prev) => `${prev}\n${tag}`);
+                        }}
+                      >
+                        <i class="ph-bold ph-clock" />
+                        <span>Stamp Playhead ({formatTime(currentTime())})</span>
+                      </button>
+                    </div>
+
+                    <textarea
+                      class="studio-lrc-textarea"
+                      value={editableLrc()}
+                      onInput={(e) => setEditableLrc(e.currentTarget.value)}
+                      placeholder="[00:00.00] Enter synchronized lyrics here..."
+                      spellcheck={false}
+                    />
+                  </div>
+                </Show>
               </div>
             </Show>
 
@@ -1454,6 +2016,30 @@ export default function LyricsStudio() {
                                 <i class="ph-fill ph-check" />
                                 {status().format === "karaoke" ? "Karaoke" : "LRC"}
                               </span>
+                              <button
+                                type="button"
+                                class="picker-card-delete-btn"
+                                title="Delete lyrics for this track"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const confirmed = await showConfirmDialog(
+                                    `Are you sure you want to permanently delete lyrics for "${vid.title}"?`,
+                                    "Delete Lyrics",
+                                    "warning"
+                                  );
+                                  if (!confirmed) return;
+                                  const ok = await deleteLyricsForTrack(vid.id);
+                                  if (ok) {
+                                    if (selectedVideo()?.id === vid.id) {
+                                      setResult(null);
+                                      setEditableLrc("");
+                                    }
+                                    await fetchHistory();
+                                  }
+                                }}
+                              >
+                                <i class="ph-bold ph-trash" />
+                              </button>
                             </Show>
                           </div>
 

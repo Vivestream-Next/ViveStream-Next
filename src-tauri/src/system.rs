@@ -766,3 +766,149 @@ pub async fn test_hardware_transcoding(app: AppHandle) -> Result<HardwareAcceler
     .await
     .map_err(|e| e.to_string())?
 }
+
+#[cfg(target_os = "windows")]
+#[link(name = "shell32")]
+extern "system" {
+    fn SHChangeNotify(
+        wEventId: i32,
+        uFlags: u32,
+        dwItem1: *const std::ffi::c_void,
+        dwItem2: *const std::ffi::c_void,
+    );
+}
+
+#[tauri::command]
+pub async fn update_app_icon(
+    app: AppHandle,
+    png_base64: String,
+    palette_name: String,
+) -> Result<String, String> {
+    use base64::Engine;
+
+    // 1. Decode PNG data
+    let clean_b64 = if let Some(idx) = png_base64.find(',') {
+        &png_base64[idx + 1..]
+    } else {
+        &png_base64
+    };
+
+    let png_bytes = base64::engine::general_purpose::STANDARD
+        .decode(clean_b64.trim())
+        .map_err(|e| format!("Failed to decode icon base64: {}", e))?;
+
+    // 2. Update runtime window icon & taskbar
+    if let Ok(image) = tauri::image::Image::from_bytes(&png_bytes) {
+        if let Some(win) = app.get_webview_window("main") {
+            let _ = win.set_icon(image);
+        }
+    }
+
+    // 3. Save as Windows .ico and update shortcuts
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+        let base_dir = get_base_dir(&app)?;
+        let icons_dir = base_dir.join("icons");
+        let _ = std::fs::create_dir_all(&icons_dir);
+        let safe_name = palette_name.replace(|c: char| !c.is_alphanumeric() && c != '-', "_");
+        let ico_path = icons_dir.join(format!("vivestream-{}.ico", safe_name));
+
+        // Package 256x256 PNG bytes into Windows ICO format
+        let mut ico_data = Vec::with_capacity(22 + png_bytes.len());
+        ico_data.extend_from_slice(&[0, 0]); // Reserved = 0
+        ico_data.extend_from_slice(&[1, 0]); // Type = 1 (ICO)
+        ico_data.extend_from_slice(&[1, 0]); // Count = 1 image
+        ico_data.push(0);                    // Width (0 = 256px)
+        ico_data.push(0);                    // Height (0 = 256px)
+        ico_data.push(0);                    // Color count
+        ico_data.push(0);                    // Reserved
+        ico_data.extend_from_slice(&[1, 0]); // Color planes = 1
+        ico_data.extend_from_slice(&[32, 0]);// Bits per pixel = 32
+        let size = png_bytes.len() as u32;
+        ico_data.extend_from_slice(&size.to_le_bytes()); // Size of image data
+        let offset = 22u32;
+        ico_data.extend_from_slice(&offset.to_le_bytes()); // Offset to image data
+        ico_data.extend_from_slice(&png_bytes);
+
+        std::fs::write(&ico_path, &ico_data)
+            .map_err(|e| format!("Failed to write ico file: {}", e))?;
+
+        let ico_path_str = ico_path.to_string_lossy().to_string();
+        let escaped_ico = ico_path_str.replace('\'', "''");
+
+        // PowerShell script to locate and update all ViveStream shortcuts
+        let ps_script = format!(
+            r#"$ico = '{escaped_ico}'
+$sh = New-Object -ComObject WScript.Shell
+$dirs = @(
+    [Environment]::GetFolderPath('Desktop'),
+    [Environment]::GetFolderPath('CommonDesktop'),
+    [Environment]::GetFolderPath('Programs'),
+    [Environment]::GetFolderPath('CommonPrograms')
+) | Where-Object {{ $_ -and (Test-Path $_) }}
+
+$shortcuts = Get-ChildItem -Path $dirs -Filter '*ViveStream*.lnk' -Recurse -ErrorAction SilentlyContinue
+$count = 0
+$errors = @()
+
+foreach ($s in $shortcuts) {{
+    try {{
+        $sc = $sh.CreateShortcut($s.FullName)
+        $sc.IconLocation = $ico + ',0'
+        $sc.Save()
+        $s.LastWriteTime = Get-Date
+        $count++
+    }} catch {{
+        $errors += ('Failed on ' + $s.FullName + ': ' + $_.Exception.Message)
+    }}
+}}
+
+if ($count -eq 0 -and (Test-Path "$env:USERPROFILE\Desktop\ViveStream Next.lnk")) {{
+    try {{
+        $sc = $sh.CreateShortcut("$env:USERPROFILE\Desktop\ViveStream Next.lnk")
+        $sc.IconLocation = $ico + ',0'
+        $sc.Save()
+        $count++
+    }} catch {{
+        $errors += $_.Exception.Message
+    }}
+}}
+
+if ($errors.Count -gt 0) {{
+    Write-Error ($errors -join '; ')
+}}
+Write-Output ("Updated " + $count + " shortcuts to " + $ico)
+"#
+        );
+
+        // Encode as UTF-16LE Base64 for PowerShell -EncodedCommand (avoids shell escaping bugs)
+        let utf16_bytes: Vec<u8> = ps_script.encode_utf16().flat_map(|u| u.to_le_bytes()).collect();
+        let encoded_cmd = base64::engine::general_purpose::STANDARD.encode(&utf16_bytes);
+
+        let output = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-NonInteractive", "-EncodedCommand", &encoded_cmd])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output()
+            .map_err(|e| format!("Failed to execute PowerShell: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+        // Flush Windows Explorer Shell icon cache immediately
+        unsafe {
+            SHChangeNotify(0x08000000, 0x1000, std::ptr::null(), std::ptr::null());
+        }
+
+        if !output.status.success() && !stderr.is_empty() {
+            return Err(format!("Shortcut update failed: {}. (Output: {})", stderr, stdout));
+        }
+
+        return Ok(format!("Desktop & taskbar icons synced: {} ({})", ico_path_str, if stdout.is_empty() { "Shell cache refreshed" } else { &stdout }));
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    Ok("Runtime window icon updated".to_string())
+}

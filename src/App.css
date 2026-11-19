@@ -2020,11 +2020,22 @@
 * {
   box-sizing: border-box;
   font-family: var(--font-body);
-  font-variation-settings: "wght" var(--font-weight), "slnt" var(--font-slant), "wdth" var(--font-width), "ROND" var(--font-roundness);
+  font-style: oblique calc(var(--font-slant, 0) * 1deg);
+  letter-spacing: calc((var(--font-width, 100) - 100) * 0.02em);
+  font-variation-settings: "wght" var(--font-weight, 400), "GRAD" calc((var(--font-roundness, 50) - 50) * 2);
 }
 
 h1, h2, h3, h4, h5, h6, b, strong, th, .font-bold, .font-semibold, .font-extrabold {
-  font-variation-settings: "wght" calc(var(--font-weight) + 250), "slnt" var(--font-slant), "wdth" var(--font-width), "ROND" var(--font-roundness);
+  font-style: oblique calc(var(--font-slant, 0) * 1deg);
+  letter-spacing: calc((var(--font-width, 100) - 100) * 0.02em);
+  font-variation-settings: "wght" calc(var(--font-weight, 400) + 250), "GRAD" calc((var(--font-roundness, 50) - 50) * 2);
+}
+
+/* Ensure icon fonts never inherit slant, letter-spacing, or variation settings */
+[class^="ph-"], [class*=" ph-"], i[class*="ph"] {
+  font-style: normal !important;
+  letter-spacing: normal !important;
+  font-variation-settings: normal !important;
 }
 
 /* Accessibility: High-contrast tactile keyboard navigation */

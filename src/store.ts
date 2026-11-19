@@ -2,6 +2,7 @@ import {
   applyMaterialTheme,
   resolveSeedColor,
   generateMaterialPalette,
+  generateThemeIconPng,
   type MaterialTonalPalette,
 } from "./utils/themeEngine";
 import { createSignal, createRoot } from "solid-js";
@@ -289,6 +290,27 @@ export interface WhisperStatus {
   models?: WhisperModelInfo[];
 }
 
+export interface StudioLyricsResult {
+  duration: number;
+  language: string;
+  text: string;
+  lrc: string;
+  enhanced_lrc: string;
+  srt: string;
+  segments: Array<{
+    id: number;
+    start: number;
+    end: number;
+    text: string;
+    words: Array<{
+      word: string;
+      start: number;
+      end: number;
+      probability: number;
+    }>;
+  }>;
+}
+
 export const {
   toasts,
   setToasts,
@@ -368,6 +390,30 @@ export const {
   setBatchTranscriptionProgress,
   isBatchTranscribing,
   setIsBatchTranscribing,
+  studioSelectedVideo,
+  setStudioSelectedVideo,
+  studioCustomMediaPath,
+  setStudioCustomMediaPath,
+  studioResult,
+  setStudioResult,
+  studioEditableLrc,
+  setStudioEditableLrc,
+  studioIsGenerating,
+  setStudioIsGenerating,
+  studioGenStatusMsg,
+  setStudioGenStatusMsg,
+  studioActiveTab,
+  setStudioActiveTab,
+  studioRawTab,
+  setStudioRawTab,
+  studioSelectedModel,
+  setStudioSelectedModel,
+  studioSelectedTask,
+  setStudioSelectedTask,
+  studioSelectedLanguage,
+  setStudioSelectedLanguage,
+  studioSelectedDevice,
+  setStudioSelectedDevice,
   concurrentDownloads,
   setConcurrentDownloads,
   concurrentFragments,
@@ -722,6 +768,26 @@ export const {
     createSignal<BatchProgressEvent | null>(null);
   const [isBatchTranscribing, setIsBatchTranscribing] = createSignal(false);
 
+  // Persistent Lyrics Studio State
+  const [studioSelectedVideo, setStudioSelectedVideo] = createSignal<VideoEntry | null>(null);
+  const [studioCustomMediaPath, setStudioCustomMediaPath] = createSignal<string>("");
+  const [studioResult, setStudioResult] = createSignal<StudioLyricsResult | null>(null);
+  const [studioEditableLrc, setStudioEditableLrc] = createSignal<string>("");
+  const [studioIsGenerating, setStudioIsGenerating] = createSignal<boolean>(false);
+  const [studioGenStatusMsg, setStudioGenStatusMsg] = createSignal<string>("");
+  const [studioActiveTab, setStudioActiveTab] = createSignal<"karaoke" | "editor" | "formats">("karaoke");
+  const [studioRawTab, setStudioRawTab] = createSignal<"elrc" | "lrc" | "vtt" | "srt" | "json">("elrc");
+  const [studioSelectedModel, setStudioSelectedModel] = createSignal<string>(
+    getStr("whisperDefaultModel", "base")
+  );
+  const [studioSelectedTask, setStudioSelectedTask] = createSignal<string>(
+    getStr("whisperDefaultTask", "transcribe")
+  );
+  const [studioSelectedLanguage, setStudioSelectedLanguage] = createSignal<string>("auto");
+  const [studioSelectedDevice, setStudioSelectedDevice] = createSignal<string>(
+    getStr("whisperComputeDevice", "auto")
+  );
+
   const [defaultSortBy, setDefaultSortBy] = createSignal(
     getStr("defaultSortBy", "date"),
   );
@@ -937,6 +1003,30 @@ export const {
     setBatchTranscriptionProgress,
     isBatchTranscribing,
     setIsBatchTranscribing,
+    studioSelectedVideo,
+    setStudioSelectedVideo,
+    studioCustomMediaPath,
+    setStudioCustomMediaPath,
+    studioResult,
+    setStudioResult,
+    studioEditableLrc,
+    setStudioEditableLrc,
+    studioIsGenerating,
+    setStudioIsGenerating,
+    studioGenStatusMsg,
+    setStudioGenStatusMsg,
+    studioActiveTab,
+    setStudioActiveTab,
+    studioRawTab,
+    setStudioRawTab,
+    studioSelectedModel,
+    setStudioSelectedModel,
+    studioSelectedTask,
+    setStudioSelectedTask,
+    studioSelectedLanguage,
+    setStudioSelectedLanguage,
+    studioSelectedDevice,
+    setStudioSelectedDevice,
     defaultSortBy,
     setDefaultSortBy,
     defaultSortDirection,
@@ -1314,6 +1404,36 @@ export const updateThumbnailQuality = (val: ThumbnailQuality) => {
   } catch {}
 };
 
+export const syncThemeAppIcon = async (
+  palette: MaterialTonalPalette,
+  paletteId: string
+): Promise<{ success: boolean; message?: string; error?: string }> => {
+  if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+    try {
+      const pngBase64 = await generateThemeIconPng(palette);
+      if (!pngBase64) {
+        return {
+          success: false,
+          error: "Canvas context failed to generate theme icon PNG data.",
+        };
+      }
+      const res = await invoke<string>("update_app_icon", {
+        pngBase64,
+        paletteName: paletteId,
+      });
+      return { success: true, message: res };
+    } catch (err: any) {
+      const msg = typeof err === "string" ? err : err?.message || JSON.stringify(err);
+      console.warn("Could not sync outside app icon:", msg);
+      return { success: false, error: msg };
+    }
+  }
+  return {
+    success: false,
+    error: "Desktop shortcut synchronization is only supported in the ViveStream desktop application (Tauri runtime).",
+  };
+};
+
 export const toggleAppTheme = (theme: "light" | "dark") => {
   setAppTheme(theme);
   if (isBrowser) {
@@ -1323,6 +1443,7 @@ export const toggleAppTheme = (theme: "light" | "dark") => {
     const seed = resolveSeedColor(activePal, customAccentColor());
     const computed = applyMaterialTheme(seed, activePal);
     setActiveTonalPalette(computed);
+    syncThemeAppIcon(computed, activePal);
   }
 };
 
@@ -1340,6 +1461,7 @@ export const toggleAppPalette = (palette: string, customHex?: string) => {
     if (customHex) {
       window.localStorage.setItem("customAccentColor", customHex);
     }
+    syncThemeAppIcon(computed, palette);
   }
 };
 
@@ -1962,7 +2084,8 @@ export const loadLyricsForTrack = async (
 export const transcribeTrackQuick = async (
   trackId: string,
   audioPath: string,
-  title?: string
+  title?: string,
+  languageOverride?: string
 ): Promise<TrackLyricsPayload | null> => {
   if (!trackId || !audioPath) return null;
   setIsTranscribingCurrentTrack(true);
@@ -1978,6 +2101,8 @@ export const transcribeTrackQuick = async (
     } catch {}
   }
 
+  const activeLang = languageOverride || (studioSelectedLanguage() !== "auto" ? studioSelectedLanguage() : null);
+
   try {
     addToast(`Transcribing "${title || trackId}" with Whisper AI...`, "info");
     await invoke<any>("generate_track_lyrics", {
@@ -1985,7 +2110,7 @@ export const transcribeTrackQuick = async (
       trackId,
       model: whisperDefaultModel() || "base",
       task: whisperDefaultTask() || "transcribe",
-      language: null,
+      language: activeLang,
       device: whisperComputeDevice() || "auto",
     });
 
@@ -2000,6 +2125,63 @@ export const transcribeTrackQuick = async (
     if (unlistenProgress) unlistenProgress();
     setIsTranscribingCurrentTrack(false);
     setTranscribingTrackId(null);
+    setTranscribeProgress(null);
+  }
+};
+
+export const runStudioLyricsGeneration = async (
+  mediaPath: string,
+  video: VideoEntry | null,
+  model: string,
+  task: string,
+  language: string,
+  device: string
+): Promise<StudioLyricsResult> => {
+  setStudioIsGenerating(true);
+  setStudioGenStatusMsg(`Transcribing audio with Whisper ${model.toUpperCase()}...`);
+  setTranscribeProgress({
+    type: "progress",
+    stage: "transcribing",
+    percent: 0,
+    seek_sec: 0,
+    total_sec: 0,
+    message: `Transcribing audio with Whisper ${model.toUpperCase()}...`,
+  });
+
+  let unlistenProgress: (() => void) | undefined;
+  if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+    try {
+      unlistenProgress = await listen<any>("whisper-transcribe-progress", (event) => {
+        setTranscribeProgress(event.payload);
+        if (event.payload.message) {
+          setStudioGenStatusMsg(event.payload.message);
+        }
+      });
+    } catch {}
+  }
+
+  try {
+    const res = await invoke<StudioLyricsResult>("generate_track_lyrics", {
+      audioPath: mediaPath,
+      trackId: video ? video.id : null,
+      model,
+      task,
+      language: language === "auto" ? null : language,
+      device,
+    });
+
+    setStudioResult(res);
+    setStudioEditableLrc(res.enhanced_lrc || res.lrc || "");
+    addToast("Synced lyrics and subtitles generated successfully!", "success");
+    return res;
+  } catch (e: any) {
+    console.error("Studio transcription error:", e);
+    addToast(`Generation failed: ${e}`, "error");
+    throw e;
+  } finally {
+    if (unlistenProgress) unlistenProgress();
+    setStudioIsGenerating(false);
+    setStudioGenStatusMsg("");
     setTranscribeProgress(null);
   }
 };

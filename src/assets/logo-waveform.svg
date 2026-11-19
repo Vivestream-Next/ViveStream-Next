@@ -1,0 +1,130 @@
+<svg width="2048" height="2048" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Rich Multi-Stop Coral/Crimson Background -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff7e6b" />
+      <stop offset="50%" stop-color="#ef6351" />
+      <stop offset="100%" stop-color="#c93b2b" />
+    </linearGradient>
+
+    <!-- Subtle Inner Rim Highlight -->
+    <linearGradient id="rim-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05" />
+    </linearGradient>
+
+    <!-- Metallic/Glossy White Gradient for Primary V -->
+    <linearGradient id="v-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#ffe6e2" />
+    </linearGradient>
+
+    <!-- Neon Audio Glow Filter -->
+    <filter id="neon-glow" x="-25%" y="-50%" width="150%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5" result="blur1" />
+      <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Drop Shadow for 3D Depth on Primary V -->
+    <filter id="v-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#7a1c11" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- 1. Base Squircle -->
+  <rect width="500" height="500" rx="112" fill="url(#bg-grad)" />
+
+  <!-- 2. Recessed Glass Border -->
+  <rect x="14" y="14" width="472" height="472" rx="100" fill="none" stroke="url(#rim-grad)" stroke-width="3" />
+
+  <!-- 3. Subtle Acoustic Grid Lines -->
+  <g stroke="#ffffff" stroke-opacity="0.08" stroke-width="1.5" stroke-dasharray="4 6">
+    <line x1="60" y1="115" x2="440" y2="115" />
+    <line x1="120" y1="220" x2="380" y2="220" />
+    <line x1="180" y1="320" x2="320" y2="320" />
+  </g>
+
+  <!-- 4. Expanding Radar/Sonar Rings from V Vertex -->
+  <g fill="none" stroke="#ffffff">
+    <circle cx="250" cy="405" r="28" stroke-width="2.5" opacity="0.45">
+      <animate attributeName="r" values="24;70" dur="2.8s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0" dur="2.8s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="250" cy="405" r="50" stroke-width="2" opacity="0.2">
+      <animate attributeName="r" values="24;70" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
+      <animate attributeName="opacity" values="0.6;0" dur="2.8s" begin="1.4s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <!-- 5. Background Echo 'V' -->
+  <path d="M 85 155 L 250 428 L 415 155" stroke="#ffffff" stroke-opacity="0.18" stroke-width="14" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- 6. Internal Equalizer Frequency Bars inside the V -->
+  <g stroke="#ffffff" stroke-linecap="round" stroke-width="7" opacity="0.85">
+    <line x1="196" y1="220" x2="196" y2="250">
+      <animate attributeName="y1" values="225;195;225" dur="1.2s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="245;265;245" dur="1.2s" repeatCount="indefinite" />
+    </line>
+    <line x1="214" y1="205" x2="214" y2="275">
+      <animate attributeName="y1" values="215;180;215" dur="1.5s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="265;295;265" dur="1.5s" repeatCount="indefinite" />
+    </line>
+    <line x1="232" y1="190" x2="232" y2="300">
+      <animate attributeName="y1" values="200;170;200" dur="1.1s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="290;320;290" dur="1.1s" repeatCount="indefinite" />
+    </line>
+    <line x1="250" y1="180" x2="250" y2="325">
+      <animate attributeName="y1" values="195;160;195" dur="1.4s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="310;345;310" dur="1.4s" repeatCount="indefinite" />
+    </line>
+    <line x1="268" y1="190" x2="268" y2="300">
+      <animate attributeName="y1" values="175;205;175" dur="1.3s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="315;285;315" dur="1.3s" repeatCount="indefinite" />
+    </line>
+    <line x1="286" y1="205" x2="286" y2="275">
+      <animate attributeName="y1" values="185;215;185" dur="1.6s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="290;260;290" dur="1.6s" repeatCount="indefinite" />
+    </line>
+    <line x1="304" y1="220" x2="304" y2="250">
+      <animate attributeName="y1" values="200;225;200" dur="1.25s" repeatCount="indefinite" />
+      <animate attributeName="y2" values="265;245;265" dur="1.25s" repeatCount="indefinite" />
+    </line>
+  </g>
+
+  <!-- 7. Primary 'V' Mark with 3D Drop Shadow -->
+  <path d="M 105 165 L 250 405 L 395 165" stroke="url(#v-grad)" stroke-width="32" fill="none" stroke-linecap="round" stroke-linejoin="round" filter="url(#v-shadow)" />
+
+  <!-- 8. Unpredictable Non-Uniform Audio Soundwave (Recreated Oscilloscope Dynamics) -->
+  <g>
+    <path
+      stroke="#ffffff"
+      stroke-width="7"
+      fill="none"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      filter="url(#neon-glow)"
+      d="M 88 140 C 100 140, 110 132, 118 132 C 126 132, 134 82, 142 82 C 150 82, 156 188, 164 188 C 172 188, 178 115, 186 115 C 194 115, 202 38, 212 38 C 222 38, 230 226, 240 226 C 250 226, 258 24, 268 24 C 278 24, 286 208, 296 208 C 304 208, 312 68, 320 68 C 328 68, 336 178, 344 178 C 352 178, 360 98, 368 98 C 376 98, 384 158, 392 158 C 400 158, 406 140, 412 140"
+    >
+      <animate
+        attributeName="d"
+        dur="2.4s"
+        repeatCount="indefinite"
+        values="
+          M 88 140 C 100 140, 110 132, 118 132 C 126 132, 134 82, 142 82 C 150 82, 156 188, 164 188 C 172 188, 178 115, 186 115 C 194 115, 202 38, 212 38 C 222 38, 230 226, 240 226 C 250 226, 258 24, 268 24 C 278 24, 286 208, 296 208 C 304 208, 312 68, 320 68 C 328 68, 336 178, 344 178 C 352 178, 360 98, 368 98 C 376 98, 384 158, 392 158 C 400 158, 406 140, 412 140;
+          M 88 140 C 100 140, 108 152, 118 152 C 126 152, 134 195, 142 195 C 150 195, 158 64, 166 64 C 174 64, 182 175, 192 175 C 200 175, 210 238, 220 238 C 230 238, 238 90, 248 90 C 256 90, 266 185, 274 185 C 282 185, 290 32, 300 32 C 310 32, 318 215, 328 215 C 336 215, 346 52, 356 52 C 364 52, 374 165, 384 165 C 394 165, 404 125, 412 140;
+          M 88 140 C 98 140, 108 110, 116 110 C 124 110, 132 165, 140 165 C 148 165, 156 45, 166 45 C 176 45, 184 210, 194 210 C 202 210, 212 78, 222 78 C 230 78, 238 150, 246 150 C 254 150, 264 58, 272 58 C 282 58, 290 230, 302 230 C 312 230, 320 88, 330 88 C 338 88, 348 190, 358 190 C 366 190, 376 72, 386 72 C 396 72, 404 155, 412 140;
+          M 88 140 C 98 140, 108 162, 118 162 C 126 162, 136 95, 144 95 C 152 95, 160 145, 168 145 C 176 145, 186 220, 196 220 C 204 220, 214 55, 224 55 C 232 55, 242 180, 252 180 C 260 180, 268 40, 278 40 C 288 40, 298 160, 308 160 C 316 160, 326 105, 336 105 C 344 105, 354 205, 364 205 C 374 205, 384 120, 394 120 C 402 120, 408 140, 412 140;
+          M 88 140 C 100 140, 110 132, 118 132 C 126 132, 134 82, 142 82 C 150 82, 156 188, 164 188 C 172 188, 178 115, 186 115 C 194 115, 202 38, 212 38 C 222 38, 230 226, 240 226 C 250 226, 258 24, 268 24 C 278 24, 286 208, 296 208 C 304 208, 312 68, 320 68 C 328 68, 336 178, 344 178 C 352 178, 360 98, 368 98 C 376 98, 384 158, 392 158 C 400 158, 406 140, 412 140
+        "
+      />
+    </path>
+    <!-- Terminal Nodes -->
+    <circle cx="88" cy="140" r="5.5" fill="#ffffff" />
+    <circle cx="412" cy="140" r="5.5" fill="#ffffff" />
+  </g>
+</svg>

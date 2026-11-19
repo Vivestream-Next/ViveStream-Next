@@ -63,6 +63,10 @@ import {
   isSearchOpen,
   getThumbnailUrl,
   currentTrackLyrics,
+  setCurrentTrackLyrics,
+  deleteLyricsForTrack,
+  studioSelectedLanguage,
+  setStudioSelectedLanguage,
   isLyricsDrawerOpen,
   toggleLyricsDrawer,
   loadLyricsForTrack,
@@ -175,7 +179,10 @@ export default function Player() {
     if (idx >= 0 && lyricsScrollEl && isLyricsDrawerOpen()) {
       const el = lyricsScrollEl.querySelector(`[data-lyric-index="${idx}"]`) as HTMLElement | null;
       if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const containerRect = lyricsScrollEl.getBoundingClientRect();
+        const lineRect = el.getBoundingClientRect();
+        const targetScroll = lineRect.top - containerRect.top - (containerRect.height / 2) + (lineRect.height / 2);
+        lyricsScrollEl.scrollBy({ top: targetScroll, behavior: "smooth" });
       }
     }
   });
@@ -1270,7 +1277,7 @@ export default function Player() {
             title="Open in Lyrics Studio"
             onClick={() => {
               const v = video();
-              if (v) navigate(`/lyrics-studio?id=${encodeURIComponent(v.id)}`);
+              if (v) navigate(`/lyrics?trackId=${encodeURIComponent(v.id)}`);
             }}
           >
             <i class="ph-bold ph-sliders-horizontal" />
@@ -1290,58 +1297,77 @@ export default function Player() {
         </div>
       </div>
 
-      {/* Dedicated Calibration Toolbar Row (No button overflow) */}
+      {/* Dedicated Calibration & Management Toolbar Row */}
       <Show when={currentTrackLyrics()?.has_lyrics}>
         <div class="player-lyrics-toolbar">
+          <div class="player-lyrics-toolbar-left">
+            <button
+              type="button"
+              class="align-intro-btn"
+              title="Snap lyrics intro to current playback time"
+              onClick={() => {
+                const v = video();
+                if (v) alignLyricsToCurrentTime(v.id, currentTime());
+              }}
+            >
+              <i class="ph-bold ph-target" />
+              <span>Align Intro</span>
+            </button>
+            <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics earlier by 1.0s"
+                onClick={() => applyLyricsOffset(video()!.id, -1.0)}
+              >
+                -1s
+              </button>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics earlier by 0.2s"
+                onClick={() => applyLyricsOffset(video()!.id, -0.2)}
+              >
+                -0.2s
+              </button>
+              <span class="offset-val">
+                {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
+              </span>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics later by 0.2s"
+                onClick={() => applyLyricsOffset(video()!.id, 0.2)}
+              >
+                +0.2s
+              </button>
+              <button
+                type="button"
+                class="offset-btn"
+                title="Shift lyrics later by 1.0s"
+                onClick={() => applyLyricsOffset(video()!.id, 1.0)}
+              >
+                +1s
+              </button>
+            </div>
+          </div>
+
           <button
             type="button"
-            class="align-intro-btn"
-            title="Snap lyrics intro to current playback time"
-            onClick={() => {
+            class="player-lyrics-delete-btn"
+            title="Delete lyrics for this video"
+            onClick={async () => {
               const v = video();
-              if (v) alignLyricsToCurrentTime(v.id, currentTime());
+              if (!v) return;
+              const ok = await deleteLyricsForTrack(v.id);
+              if (ok) {
+                setCurrentTrackLyrics(null);
+              }
             }}
           >
-            <i class="ph-bold ph-target" />
-            <span>Align Intro</span>
+            <i class="ph-bold ph-trash" />
+            <span>Delete</span>
           </button>
-          <div class="player-lyrics-offset-pill" title="Calibrate Lyrics Offset">
-            <button
-              type="button"
-              class="offset-btn"
-              title="Shift lyrics earlier by 1.0s"
-              onClick={() => applyLyricsOffset(video()!.id, -1.0)}
-            >
-              -1s
-            </button>
-            <button
-              type="button"
-              class="offset-btn"
-              title="Shift lyrics earlier by 0.2s"
-              onClick={() => applyLyricsOffset(video()!.id, -0.2)}
-            >
-              -0.2s
-            </button>
-            <span class="offset-val">
-              {lyricsOffsetMs() > 0 ? `+${lyricsOffsetMs()}ms` : lyricsOffsetMs() < 0 ? `${lyricsOffsetMs()}ms` : "0ms"}
-            </span>
-            <button
-              type="button"
-              class="offset-btn"
-              title="Shift lyrics later by 0.2s"
-              onClick={() => applyLyricsOffset(video()!.id, 0.2)}
-            >
-              +0.2s
-            </button>
-            <button
-              type="button"
-              class="offset-btn"
-              title="Shift lyrics later by 1.0s"
-              onClick={() => applyLyricsOffset(video()!.id, 1.0)}
-            >
-              +1s
-            </button>
-          </div>
         </div>
       </Show>
 
@@ -1380,19 +1406,49 @@ export default function Player() {
             </Show>
 
             <Show when={!isTranscribingCurrentTrack()}>
-              <button
-                type="button"
-                class="lyrics-generate-action-btn"
-                onClick={() => {
-                  const vid = video();
-                  if (vid) {
-                    transcribeTrackQuick(vid.id, vid.video_path, vid.title);
-                  }
-                }}
-              >
-                <i class="ph-bold ph-magic-wand" />
-                <span>Generate Synced Lyrics with Whisper</span>
-              </button>
+              <div class="player-lyrics-gen-controls">
+                <div class="player-lyrics-lang-selector" title="Whisper Audio Language">
+                  <i class="ph-bold ph-globe" />
+                  <select
+                    class="player-lyrics-lang-dropdown"
+                    value={studioSelectedLanguage()}
+                    onChange={(e) => setStudioSelectedLanguage(e.currentTarget.value)}
+                  >
+                    <option value="auto">Auto-Detect Language</option>
+                    <option value="bn">Bengali (Bangla)</option>
+                    <option value="hi">Hindi</option>
+                    <option value="en">English</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ur">Urdu</option>
+                    <option value="pa">Punjabi</option>
+                    <option value="ar">Arabic</option>
+                    <option value="ru">Russian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="it">Italian</option>
+                    <option value="tr">Turkish</option>
+                  </select>
+                </div>
+
+                <button
+                  type="button"
+                  class="lyrics-generate-action-btn"
+                  onClick={() => {
+                    const vid = video();
+                    if (vid) {
+                      const lang = studioSelectedLanguage() !== "auto" ? studioSelectedLanguage() : undefined;
+                      transcribeTrackQuick(vid.id, vid.video_path, vid.title, lang);
+                    }
+                  }}
+                >
+                  <i class="ph-bold ph-magic-wand" />
+                  <span>Generate Synced Lyrics</span>
+                </button>
+              </div>
             </Show>
           </div>
         }

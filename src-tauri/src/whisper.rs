@@ -1624,18 +1624,66 @@ pub async fn save_custom_lyrics(
 pub async fn delete_track_lyrics(app: AppHandle, track_id: String) -> Result<(), String> {
     let lyrics_dir = get_lyrics_dir(&app)?;
     let base_dir = get_base_dir(&app)?;
+    let videos_dir = base_dir.join("Videos");
 
-    let extensions = ["json", "lrc", "enhanced.lrc", "srt", "vtt"];
-    for ext in &extensions {
-        let p = lyrics_dir.join(format!("{}.{}", track_id, ext));
-        if p.is_file() {
-            let _ = fs::remove_file(p);
-        }
+    let clean_id = track_id.trim();
+    if clean_id.is_empty() {
+        return Ok(());
     }
 
-    let video_vtt = base_dir.join("Videos").join(format!("{}.vtt", track_id));
-    if video_vtt.is_file() {
-        let _ = fs::remove_file(video_vtt);
+    let stems = [
+        clean_id.to_string(),
+        format!("raw_{}", clean_id),
+        clean_id.trim_start_matches("raw_").to_string(),
+    ];
+
+    let extensions = [
+        "json",
+        "lrc",
+        "enhanced.lrc",
+        "srt",
+        "vtt",
+        "txt",
+        "part",
+    ];
+
+    let target_dirs = [&lyrics_dir, &videos_dir];
+
+    for dir in &target_dirs {
+        if !dir.exists() {
+            continue;
+        }
+
+        // 1. Direct stem + extension deletion
+        for stem in &stems {
+            for ext in &extensions {
+                let p = dir.join(format!("{}.{}", stem, ext));
+                if p.is_file() {
+                    let _ = fs::remove_file(&p);
+                }
+            }
+        }
+
+        // 2. Scan directory to catch any file starting with track_id (e.g. track_id.wav.json)
+        if let Ok(entries) = fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let p = entry.path();
+                if p.is_file() {
+                    if let Some(file_name) = p.file_name().and_then(|s| s.to_str()) {
+                        for stem in &stems {
+                            if file_name.starts_with(stem) {
+                                for ext in &extensions {
+                                    if file_name.ends_with(ext) {
+                                        let _ = fs::remove_file(&p);
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     Ok(())
