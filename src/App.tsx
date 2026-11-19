@@ -38,6 +38,7 @@ import {
   addToast,
 } from "./store";
 import NotificationSystem from "./components/NotificationSystem";
+import appLogoSvg from "./assets/logo-animated.svg";
 import ShortcutsModal from "./components/ShortcutsModal";
 import ArcadeModal from "./components/ArcadeModal";
 import Miniplayer from "./components/Miniplayer";
@@ -59,35 +60,13 @@ const LyricsStudio = lazy(() => import("./pages/LyricsStudio"));
 const AI = lazy(() => import("./pages/AI"));
 
 const AppLogo = () => (
-  <svg
+  <img
+    src={appLogoSvg}
+    alt="ViveStream"
+    class="app-logo"
     width="32"
     height="32"
-    viewBox="0 0 500 500"
-    xmlns="http://www.w3.org/2000/svg"
-    class="app-logo"
-  >
-    <path
-      fill="var(--primary-accent)"
-      d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"
-    />
-    <path
-      d="M95 125 L250 385 L405 125"
-      stroke="var(--logo-inner, #f1f1f1)"
-      stroke-width="30"
-      fill="none"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-    <path
-      class="logo-glow"
-      d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-      stroke="var(--logo-wave, #ffffff)"
-      stroke-width="6"
-      fill="none"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    />
-  </svg>
+  />
 );
 
 const ImmersiveTitleBar = () => {
