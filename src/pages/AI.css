@@ -75,8 +75,16 @@
 }
 
 .ai-badge.dark {
-  background: var(--card-bg, #1e1e24);
-  color: var(--text-color);
+  background: var(--tertiary-background, #2a2b32);
+  color: var(--primary-text, #e0e0e0);
+  border: 1.5px solid var(--border-color);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+[data-theme="light"] .ai-badge.dark {
+  background: var(--secondary-background, #ffffff);
+  color: var(--primary-text, #1a1a1a);
+  border-color: var(--border-color, #000000);
 }
 
 .ai-badge.trial {
@@ -94,15 +102,28 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  background: rgba(18, 18, 24, 0.7);
+  background: var(--tertiary-background, #2a2b32);
   border: 1.5px solid var(--border-color);
   border-radius: 9999px;
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 700;
-  color: var(--text-color);
+  color: var(--primary-text, #e0e0e0);
   letter-spacing: 0.4px;
   font-family: var(--font-body, inherit);
+  box-shadow: 2px 2px 0px var(--border-color);
+}
+
+[data-theme="dark"] .ai-telemetry-pill {
+  background: rgba(30, 30, 38, 0.9);
+  color: var(--primary-text, #e0e0e0);
+}
+
+[data-theme="light"] .ai-telemetry-pill {
+  background: var(--secondary-background, #ffffff);
+  color: var(--primary-text, #1a1a1a);
+  border-color: var(--border-color, #000000);
+  box-shadow: 2px 2px 0px var(--border-color, #000000);
 }
 
 .ai-led-dot {
@@ -110,6 +131,7 @@
   height: 7px;
   border-radius: 50%;
   background: #666;
+  border: 0.5px solid rgba(0, 0, 0, 0.35);
   flex-shrink: 0;
 }
 
