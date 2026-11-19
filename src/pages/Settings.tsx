@@ -107,7 +107,7 @@ import BenchmarkModal from "../components/BenchmarkModal";
 import CustomSelect from "../components/CustomSelect";
 import { SakuraPixelSvg, NekoPixelSvg, BytePixelSvg } from "../components/PixelMascot";
 import { APP_VERSION } from "../version";
-import bannerPng from "../assets/Banner.png";
+import devAvatarJpg from "../assets/rootlocalghsot-red.jpg";
 import logoAnimatedSvg from "../assets/logo-animated.svg";
 import "./Settings.css";
 
@@ -1228,31 +1228,16 @@ export default function Settings() {
               {/* Live Adaptive Logo Preview */}
               <div class="live-logo-preview-badge">
                 <div class="live-logo-preview-box">
-                  <svg width="40" height="40" viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg">
-                    <path
-                      fill="var(--primary-accent)"
-                      d="M83.333 0h333.334A83.333 83.333 0 0 1 500 83.333v333.334A83.333 83.333 0 0 1 416.667 500H83.333A83.333 83.333 0 0 1 0 416.667V83.333A83.333 83.333 0 0 1 83.333 0"
-                    />
-                    <path
-                      d="M95 125 L250 385 L405 125"
-                      stroke="var(--logo-inner, #f1f1f1)"
-                      stroke-width="30"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                    <path
-                      d="M100 125 Q110 125 118 85 Q126 45 134 125 Q142 175 150 125 Q158 75 166 125 Q174 25 182 125 Q190 215 198 125 Q206 55 214 125 Q222 195 230 125 Q238 35 246 125 Q254 235 262 125 Q270 45 278 125 Q286 205 294 125 Q302 65 310 125 Q318 175 326 125 Q334 85 342 125 Q350 225 358 125 Q366 55 374 125 Q382 165 390 125 Q398 105 405 125"
-                      stroke="var(--logo-wave, #ffffff)"
-                      stroke-width="6"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                                    <div class="live-logo-info">
-                    <span class="live-logo-title">Adaptive Logo Output</span>
-                    <span class="live-logo-desc">Contrast: <strong>{activeTonalPalette().logoInner === "#121212" ? "Dark Glyph" : "Light Glyph"}</strong> ({activeTonalPalette().onPrimary})</span>
+                  <img
+                    src={logoAnimatedSvg}
+                    alt="ViveStream Logo"
+                    width="40"
+                    height="40"
+                    style={{ "border-radius": "10px", "object-fit": "contain" }}
+                  />
+                  <div class="live-logo-info">
+                    <span class="live-logo-title">Adaptive Brand Logo</span>
+                    <span class="live-logo-desc">Waveform: <strong>Neon Acoustic Glow</strong> ({activeTonalPalette().onPrimary})</span>
                   </div>
                 </div>
 
@@ -3343,8 +3328,37 @@ export default function Settings() {
       </h2>
 
       <div class="settings-card about-app-card">
-        <div class="about-banner-container">
-          <img src={bannerPng} alt="ViveStream Next" class="about-banner-img" />
+        {/* Developer Profile Header */}
+        <div class="about-developer-hero">
+          <div class="about-dev-profile-container">
+            <div class="about-dev-avatar-wrapper">
+              <img
+                src={devAvatarJpg}
+                alt="rootlocalghost"
+                class="about-dev-avatar"
+              />
+              <span class="about-dev-status-dot" title="Active Developer"></span>
+            </div>
+            <div class="about-dev-details">
+              <div class="about-dev-name-row">
+                <span class="about-dev-handle">rootlocalghost</span>
+                <span class="about-dev-badge">Author & Architect</span>
+                <button
+                  type="button"
+                  class="about-dev-gh-btn"
+                  onClick={() => openExternalLink("https://github.com/rootlocalghost")}
+                  title="Visit GitHub Profile"
+                >
+                  <i class="ph-fill ph-github-logo"></i>
+                  <span>@rootlocalghost</span>
+                  <i class="ph-bold ph-arrow-up-right"></i>
+                </button>
+              </div>
+              <p class="about-dev-bio">
+                Solo creator and maintainer of ViveStream Next. Dedicated to crafting ultra-fast, 100% private, zero-telemetry media tools.
+              </p>
+            </div>
+          </div>
         </div>
         <div class="about-hero-row">
           <div class="about-logo-badge">
