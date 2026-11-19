@@ -155,7 +155,7 @@
   align-items: center;
   gap: 7px;
   background: var(--bg-surface-secondary, rgba(255, 255, 255, 0.06));
-  color: var(--text-color, #ffffff);
+  color: var(--text-color);
   border: 1.5px solid var(--border-color, rgba(255, 255, 255, 0.14));
   border-radius: var(--neo-radius, 10px);
   padding: 8px 15px;
@@ -263,7 +263,7 @@
   align-items: center;
   justify-content: center;
   padding: 48px 32px;
-  background: radial-gradient(circle at center, var(--primary-container) 0%, var(--secondary-background) 75%);
+  background: var(--secondary-background);
   position: relative;
   text-align: center;
   overflow: hidden;
