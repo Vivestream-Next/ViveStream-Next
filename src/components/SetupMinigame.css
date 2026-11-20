@@ -1,5 +1,5 @@
 /* ==========================================================================
-   STREAM RUNNER MINIGAME - NEO-BRUTALIST STYLING
+   STREAM RUNNER MINIGAME - DYNAMIC NEO-BRUTALIST THEMED STYLING
    ========================================================================== */
 
 .setup-minigame-container {
@@ -9,7 +9,7 @@
   background: var(--secondary-background);
   border: 2.5px solid var(--border-color);
   border-radius: var(--neo-radius);
-  box-shadow: 6px 6px 0px var(--border-color);
+  box-shadow: var(--shadow-hard-lg, 6px 6px 0px var(--border-color));
   overflow: hidden;
   position: relative;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -78,6 +78,7 @@
 }
 
 .minigame-icon-btn:hover {
+  background: var(--secondary-background);
   transform: translate(-1px, -1px);
   box-shadow: 3px 3px 0px var(--border-color);
 }
@@ -126,14 +127,10 @@
   position: relative;
   width: 100%;
   height: 280px;
-  background: #14151a;
+  background: var(--primary-background);
   overflow: hidden;
   user-select: none;
   touch-action: manipulation;
-}
-
-[data-theme="light"] .minigame-canvas-wrapper {
-  background: #1e1f26;
 }
 
 .minigame-canvas {
@@ -157,17 +154,17 @@
 .hud-stat {
   display: flex;
   flex-direction: column;
-  background: rgba(18, 19, 24, 0.85);
-  border: 2px solid #383a45;
+  background: var(--clay-bg);
+  border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 4px 10px;
-  box-shadow: 2px 2px 0px #000000;
+  box-shadow: 2px 2px 0px var(--border-color);
 }
 
 .hud-label {
   font-size: 9px;
   font-weight: 800;
-  color: #8b9298;
+  color: var(--secondary-text);
   letter-spacing: 1px;
 }
 
@@ -175,7 +172,7 @@
   font-family: var(--font-display);
   font-size: 16px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--primary-text);
 }
 
 .hud-value.highlight {
@@ -185,13 +182,13 @@
 .hud-center-powerup {
   background: var(--primary-accent);
   color: var(--on-primary, #ffffff);
-  border: 2px solid #000000;
+  border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-pill);
   padding: 4px 12px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 1px;
-  box-shadow: 3px 3px 0px #000000;
+  box-shadow: 3px 3px 0px var(--border-color);
   animation: pulsePowerup 0.5s infinite alternate ease-in-out;
 }
 
@@ -208,7 +205,7 @@
 .minigame-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(15, 16, 20, 0.88);
+  background: var(--overlay-bg, rgba(15, 16, 20, 0.88));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -235,10 +232,10 @@
   font-family: var(--font-display);
   font-size: 24px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--primary-text);
   letter-spacing: 2px;
   margin: 0;
-  text-shadow: 3px 3px 0px #000000;
+  text-shadow: 2px 2px 0px var(--border-color);
 }
 
 .overlay-title.game-over {
@@ -251,7 +248,7 @@
 
 .overlay-subtitle {
   font-size: 13px;
-  color: #a0a6ad;
+  color: var(--secondary-text);
   max-width: 440px;
   line-height: 1.4;
   margin: 0;
@@ -265,19 +262,19 @@
 }
 
 .overlay-stat-box {
-  background: #25262c;
-  border: 2px solid #383a45;
+  background: var(--clay-bg);
+  border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 8px 16px;
   display: flex;
   flex-direction: column;
-  box-shadow: 3px 3px 0px #000000;
+  box-shadow: 3px 3px 0px var(--border-color);
 }
 
 .overlay-stat-label {
   font-size: 10px;
   font-weight: 800;
-  color: #8b9298;
+  color: var(--secondary-text);
   letter-spacing: 1px;
 }
 
@@ -285,13 +282,13 @@
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 800;
-  color: #ffffff;
+  color: var(--primary-text);
 }
 
 .overlay-play-btn {
   background: var(--primary-accent);
   color: var(--on-primary, #ffffff);
-  border: 2.5px solid #000000;
+  border: 2.5px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 10px 24px;
   font-family: var(--font-display);
@@ -299,7 +296,7 @@
   font-weight: 800;
   letter-spacing: 1.5px;
   cursor: pointer;
-  box-shadow: 4px 4px 0px #000000;
+  box-shadow: 4px 4px 0px var(--border-color);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -308,12 +305,12 @@
 
 .overlay-play-btn:hover {
   transform: translate(-2px, -2px);
-  box-shadow: 6px 6px 0px #000000;
+  box-shadow: 6px 6px 0px var(--border-color);
 }
 
 .overlay-play-btn:active {
   transform: translate(2px, 2px);
-  box-shadow: 0px 0px 0px #000000;
+  box-shadow: 0px 0px 0px var(--border-color);
 }
 
 .overlay-play-btn.launch-btn {

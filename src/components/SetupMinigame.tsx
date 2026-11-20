@@ -294,10 +294,12 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
       sfx.jump(isDouble);
 
       // Jump burst particles
+      const isLightMode = document.documentElement.getAttribute("data-theme") === "light";
+      const accent = getComputedStyle(document.documentElement).getPropertyValue("--primary-accent").trim() || "#f25c54";
       spawnParticles(
         player.x + player.width / 2,
         player.y + player.height,
-        isDouble ? "#f25c54" : "#ffffff",
+        isDouble ? accent : (isLightMode ? "#000000" : "#ffffff"),
         isDouble ? 10 : 6,
       );
     }
@@ -359,27 +361,38 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
         const width = rect.width;
         const height = rect.height;
 
-        // Clear screen with cyberpunk background
-        ctx.fillStyle = "#16171d";
+        // Dynamic theme resolution from CSS variables
+        const isLight = document.documentElement.getAttribute("data-theme") === "light";
+        const computed = getComputedStyle(document.documentElement);
+        const primaryAccent = computed.getPropertyValue("--primary-accent").trim() || (isLight ? "#000000" : "#f25c54");
+        const primaryBg = computed.getPropertyValue("--primary-background").trim() || (isLight ? "#fdf6f0" : "#16171d");
+        const secondaryBg = computed.getPropertyValue("--secondary-background").trim() || (isLight ? "#ffffff" : "#25262c");
+        const tertiaryBg = computed.getPropertyValue("--tertiary-background").trim() || (isLight ? "#f1e4d8" : "#2a2b32");
+        const borderColor = computed.getPropertyValue("--border-color").trim() || (isLight ? "#000000" : "#383a45");
+
+        // Clear screen with current theme's primary background
+        ctx.fillStyle = primaryBg;
         ctx.fillRect(0, 0, width, height);
 
-        // Draw background equalizer bars
-        ctx.fillStyle = "rgba(242, 92, 84, 0.08)";
+        // Draw background equalizer bars using active theme accent
+        ctx.fillStyle = primaryAccent;
+        ctx.globalAlpha = isLight ? 0.12 : 0.16;
         eqBars.forEach((bar) => {
           bar.height = 16 + Math.sin(time * 0.003 * bar.speed + bar.x) * 14;
           ctx.fillRect(bar.x % width, height - 36 - bar.height, 22, bar.height);
         });
+        ctx.globalAlpha = 1.0;
 
         // Draw ground platform (Neo-Brutalist grid)
         const groundY = height - 36;
         player.groundY = groundY;
 
         // Ground base
-        ctx.fillStyle = "#25262c";
+        ctx.fillStyle = isLight ? tertiaryBg : secondaryBg;
         ctx.fillRect(0, groundY, width, 36);
 
         // Ground top border
-        ctx.strokeStyle = "#383a45";
+        ctx.strokeStyle = borderColor;
         ctx.lineWidth = 3;
         ctx.beginPath();
         ctx.moveTo(0, groundY);
@@ -387,8 +400,9 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
         ctx.stroke();
 
         // Scrolling grid stripes on ground
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.strokeStyle = borderColor;
         ctx.lineWidth = 2;
+        ctx.globalAlpha = isLight ? 0.25 : 0.18;
         const stripeOffset = (distance * 1.5) % 28;
         for (let x = -stripeOffset; x < width + 30; x += 28) {
           ctx.beginPath();
@@ -396,6 +410,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
           ctx.lineTo(x + 14, height);
           ctx.stroke();
         }
+        ctx.globalAlpha = 1.0;
 
         if (gameState() === "playing") {
           // Update game state
@@ -471,7 +486,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
             spawnParticles(
               player.x + 4,
               player.y + player.height - 2,
-              turboActive() ? "#f25c54" : "rgba(255, 255, 255, 0.4)",
+              turboActive() ? primaryAccent : (isLight ? borderColor : "rgba(255, 255, 255, 0.4)"),
               1,
               0.5,
             );
@@ -491,8 +506,8 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
 
           // Hurdle Base
           ctx.fillStyle = "#ef233c";
-          ctx.strokeStyle = "#000000";
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = borderColor;
+          ctx.lineWidth = 2.5;
           ctx.fillRect(
             -obs.width / 2,
             -obs.height / 2,
@@ -533,7 +548,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
               spawnParticles(
                 obs.x + obs.width / 2,
                 obs.y + obs.height / 2,
-                "#f25c54",
+                primaryAccent,
                 14,
                 1.8,
               );
@@ -588,8 +603,8 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
 
           if (col.type === "wave") {
             // Audio wave bars
-            ctx.fillStyle = "#48cae4";
-            ctx.strokeStyle = "#000000";
+            ctx.fillStyle = isLight ? primaryAccent : "#48cae4";
+            ctx.strokeStyle = borderColor;
             ctx.lineWidth = 1.5;
             [-6, 0, 6].forEach((ox, idx) => {
               const h = 8 + (idx === 1 ? 8 : 4);
@@ -600,14 +615,14 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
             // 4K Token Diamond
             ctx.rotate(Math.PI / 4);
             ctx.fillStyle = "#ffd166";
-            ctx.strokeStyle = "#000000";
+            ctx.strokeStyle = borderColor;
             ctx.lineWidth = 2;
             ctx.fillRect(-8, -8, 16, 16);
             ctx.strokeRect(-8, -8, 16, 16);
           } else if (col.type === "turbo") {
             // Turbo Bandwidth Bolt
-            ctx.fillStyle = "#f25c54";
-            ctx.strokeStyle = "#ffffff";
+            ctx.fillStyle = primaryAccent;
+            ctx.strokeStyle = borderColor;
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(2, -10);
@@ -635,7 +650,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
               setTurboActive(true);
               player.invincibleTimer = 5.0;
               setTurboRemaining(5.0);
-              spawnParticles(col.x, drawY, "#f25c54", 16, 1.5);
+              spawnParticles(col.x, drawY, primaryAccent, 16, 1.5);
               setScore((s) => s + 150);
             } else if (col.type === "4k") {
               sfx.collect();
@@ -643,7 +658,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
               setScore((s) => s + 200);
             } else {
               sfx.collect();
-              spawnParticles(col.x, drawY, "#48cae4", 8, 1);
+              spawnParticles(col.x, drawY, isLight ? primaryAccent : "#48cae4", 8, 1);
               setScore((s) => s + 50);
             }
 
@@ -663,7 +678,7 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
 
           // Turbo Aura / Shield
           if (turboActive()) {
-            ctx.strokeStyle = "#f25c54";
+            ctx.strokeStyle = primaryAccent;
             ctx.lineWidth = 3;
             ctx.strokeRect(
               -player.width / 2 - 4,
@@ -674,8 +689,8 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
           }
 
           // Player Body: Neo-Brutalist Cyber Stream Bot
-          ctx.fillStyle = turboActive() ? "#f25c54" : "#ffffff";
-          ctx.strokeStyle = "#000000";
+          ctx.fillStyle = turboActive() ? primaryAccent : (isLight ? "#ffffff" : secondaryBg);
+          ctx.strokeStyle = borderColor;
           ctx.lineWidth = 2.5;
 
           ctx.fillRect(
@@ -692,16 +707,16 @@ const SetupMinigame: Component<SetupMinigameProps> = (props) => {
           );
 
           // Bot Screen / Face visor
-          ctx.fillStyle = "#1e1e24";
+          ctx.fillStyle = isLight ? "#1a1a1a" : "#0f1015";
           ctx.fillRect(-player.width / 2 + 4, -player.height / 2 + 6, 24, 12);
 
           // Glowing pixel eyes
-          ctx.fillStyle = turboActive() ? "#ffd166" : "#27c93f";
+          ctx.fillStyle = turboActive() ? "#ffd166" : (isLight ? primaryAccent : "#27c93f");
           ctx.fillRect(-player.width / 2 + 8, -player.height / 2 + 10, 4, 4);
           ctx.fillRect(-player.width / 2 + 18, -player.height / 2 + 10, 4, 4);
 
           // Headphone / Antenna detail
-          ctx.fillStyle = "#f25c54";
+          ctx.fillStyle = primaryAccent;
           ctx.fillRect(-player.width / 2 - 3, -player.height / 2 + 8, 3, 8);
           ctx.fillRect(player.width / 2, -player.height / 2 + 8, 3, 8);
 
