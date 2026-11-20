@@ -916,6 +916,10 @@ pub async fn check_binaries(app: AppHandle) -> Result<BinaryCheckStatus, String>
     #[cfg(target_os = "windows")]
     let ffmpeg_exists = ffmpeg.exists() && ffprobe.exists();
 
+    if let Ok(base_dir) = get_base_dir(&app) {
+        organize_media_folders(&base_dir);
+    }
+
     Ok(BinaryCheckStatus {
         ytdlp_exists,
         ffmpeg_exists,
@@ -1179,6 +1183,8 @@ pub async fn install_app_update(app: AppHandle, download_url: String) -> Result<
 #[tauri::command]
 pub async fn update_binaries(app: AppHandle) -> Result<(), String> {
     download_binaries(app.clone()).await?;
+    // Also deploy or update the Whisper neural engine binary
+    let _ = crate::whisper::install_whisper_binary(app.clone()).await;
     let _ = app.emit("engine-update-completed", ());
     Ok(())
 }
@@ -1327,6 +1333,32 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
 
     let ffmpeg_installed = ffmpeg_path.exists();
 
+    // Check Whisper neural engine status
+    let whisper_bin_path = crate::whisper::get_whisper_bin_path(&app).ok();
+    let whisper_installed = whisper_bin_path.as_ref().map(|p| p.is_file()).unwrap_or(false);
+    let mut whisper_version = "Not Installed".to_string();
+    if whisper_installed {
+        if let Some(ref p) = whisper_bin_path {
+            let mut cmd = Command::new(p);
+            #[cfg(target_os = "windows")]
+            cmd.creation_flags(0x08000000);
+            if let Ok(out) = cmd.arg("--version").output() {
+                if out.status.success() {
+                    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                    if !s.is_empty() {
+                        whisper_version = s;
+                    }
+                }
+            }
+            if whisper_version == "Not Installed" {
+                whisper_version = "v1.0.0 (Installed)".to_string();
+            }
+        }
+    }
+
+    let mut latest_whisper_version = "v1.0.0".to_string();
+    let mut whisper_update = false;
+
     if !ytdlp_path.exists() || !ffmpeg_installed || !quickjs_installed {
         return Ok(EngineUpdateInfo {
             update_available: true,
@@ -1336,6 +1368,10 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
             ffmpeg_installed,
             quickjs_installed,
             deno_installed,
+            whisper_installed,
+            whisper_update,
+            whisper_version,
+            latest_whisper_version,
             message: if !quickjs_installed {
                 "QuickJS runtime migration ready to install.".to_string()
             } else {
@@ -1360,10 +1396,32 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
                 ffmpeg_installed,
                 quickjs_installed,
                 deno_installed,
+                whisper_installed,
+                whisper_update: false,
+                whisper_version,
+                latest_whisper_version: "Unknown".to_string(),
                 message: format!("HTTP client error: {}", e),
             });
         }
     };
+
+    // Query ViveStream-Whisper latest release tag if possible
+    if let Ok(resp) = client
+        .get("https://api.github.com/repos/Vivestream-Next/ViveStream-Whisper/releases/latest")
+        .send()
+        .await
+    {
+        if resp.status().is_success() {
+            if let Ok(json) = resp.json::<serde_json::Value>().await {
+                if let Some(tag) = json["tag_name"].as_str() {
+                    latest_whisper_version = tag.to_string();
+                    if whisper_installed && whisper_version != "Not Installed" && !whisper_version.contains(tag) {
+                        whisper_update = true;
+                    }
+                }
+            }
+        }
+    }
 
     let sums_res = client
         .get("https://github.com/yt-dlp/yt-dlp-nightly-builds/releases/latest/download/SHA2-256SUMS")
@@ -1402,30 +1460,39 @@ pub async fn check_engine_updates(app: AppHandle) -> Result<EngineUpdateInfo, St
             }
 
             let ytdlp_differs = !expected_hash.is_empty() && expected_hash != local_ytdlp_hash;
+            let update_available = ytdlp_differs || whisper_update;
 
             Ok(EngineUpdateInfo {
-                update_available: ytdlp_differs,
+                update_available,
                 ytdlp_update: ytdlp_differs,
                 current_ytdlp_version,
                 latest_ytdlp_version: latest_version,
                 ffmpeg_installed,
                 quickjs_installed,
                 deno_installed,
-                message: if ytdlp_differs {
-                    "A newer nightly build of yt-dlp is available.".to_string()
+                whisper_installed,
+                whisper_update,
+                whisper_version,
+                latest_whisper_version,
+                message: if update_available {
+                    "Newer engine updates (yt-dlp / Whisper) are available.".to_string()
                 } else {
                     "All core engines are up-to-date.".to_string()
                 },
             })
         }
         _ => Ok(EngineUpdateInfo {
-            update_available: false,
+            update_available: whisper_update,
             ytdlp_update: false,
             current_ytdlp_version,
             latest_ytdlp_version: "Unknown (Offline)".to_string(),
             ffmpeg_installed,
             quickjs_installed,
             deno_installed,
+            whisper_installed,
+            whisper_update,
+            whisper_version,
+            latest_whisper_version,
             message: "Offline or GitHub unreachable. Using installed engines.".to_string(),
         }),
     }
@@ -1863,6 +1930,44 @@ pub async fn download_video(
     res
 }
 
+pub fn organize_media_folders(base_dir: &Path) {
+    let vid_dir = base_dir.join("Videos");
+    let lyrics_dir = base_dir.join("Lyrics");
+    let desc_dir = base_dir.join("Descriptions");
+    let thumb_dir = base_dir.join("Thumbnails");
+
+    let _ = fs::create_dir_all(&lyrics_dir);
+    let _ = fs::create_dir_all(&desc_dir);
+    let _ = fs::create_dir_all(&thumb_dir);
+
+    if let Ok(entries) = fs::read_dir(&vid_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let lower = name.to_lowercase();
+                if lower.ends_with(".vtt") || lower.ends_with(".srt") || lower.ends_with(".lrc") || lower.ends_with(".json") {
+                    let dest = lyrics_dir.join(&name);
+                    let _ = fs::rename(&path, dest);
+                } else if lower.ends_with(".description") || (lower.ends_with(".txt") && !lower.ends_with(".vtt")) {
+                    let dest_name = if lower.ends_with(".description") {
+                        format!("{}.txt", name.trim_end_matches(".description"))
+                    } else {
+                        name.clone()
+                    };
+                    let dest = desc_dir.join(dest_name);
+                    let _ = fs::rename(&path, dest);
+                } else if (lower.ends_with(".jpg") || lower.ends_with(".webp") || lower.ends_with(".png")) && !lower.starts_with("raw_") {
+                    let dest = thumb_dir.join(&name);
+                    let _ = fs::rename(&path, dest);
+                } else if lower.starts_with("raw_") {
+                    let _ = fs::remove_file(&path);
+                }
+            }
+        }
+    }
+}
+
 async fn download_video_inner(
     app: AppHandle,
     url: String,
@@ -1913,11 +2018,13 @@ async fn download_video_inner(
     let thumb_dir = base_dir.join("Thumbnails");
     let desc_dir = base_dir.join("Descriptions");
     let av_dir = base_dir.join("Avatars");
+    let lyrics_dir = base_dir.join("Lyrics");
 
     fs::create_dir_all(&vid_dir).unwrap();
     fs::create_dir_all(&thumb_dir).unwrap();
     fs::create_dir_all(&desc_dir).unwrap();
     fs::create_dir_all(&av_dir).unwrap();
+    fs::create_dir_all(&lyrics_dir).unwrap();
 
     let temp_path = vid_dir.join(format!("raw_{}.mp4", metadata.id));
     let final_path = PathBuf::from(&metadata.video_path);
@@ -1998,12 +2105,22 @@ async fn download_video_inner(
         vid_dir.to_str().unwrap().to_string(),
         "--paths".to_string(),
         format!("thumbnail:{}", thumb_dir.to_str().unwrap()),
+        "--paths".to_string(),
+        format!("subtitle:{}", lyrics_dir.to_str().unwrap()),
+        "--paths".to_string(),
+        format!("description:{}", desc_dir.to_str().unwrap()),
         "-o".to_string(),
         "raw_%(id)s.%(ext)s".to_string(),
         "--write-thumbnail".to_string(),
         "--convert-thumbnails".to_string(),
         "jpg".to_string(),
         "--write-description".to_string(),
+        "--fragment-retries".to_string(),
+        "10".to_string(),
+        "--file-access-retries".to_string(),
+        "5".to_string(),
+        "--retry-sleep".to_string(),
+        "2".to_string(),
         "--ignore-errors".to_string(),
         "--no-abort-on-error".to_string(),
     ];
@@ -2156,7 +2273,18 @@ async fn download_video_inner(
             if path.is_file() {
                 let fname = path.file_name().unwrap_or_default().to_string_lossy();
                 if fname.starts_with(&format!("raw_{}", metadata.id)) && fname.ends_with(".vtt") {
-                    let _ = fs::rename(&path, vid_dir.join(format!("{}.vtt", metadata.id)));
+                    let _ = fs::rename(&path, lyrics_dir.join(format!("{}.vtt", metadata.id)));
+                }
+            }
+        }
+    }
+    if let Ok(entries) = fs::read_dir(&lyrics_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                let fname = path.file_name().unwrap_or_default().to_string_lossy();
+                if fname.starts_with(&format!("raw_{}", metadata.id)) && fname.ends_with(".vtt") {
+                    let _ = fs::rename(&path, lyrics_dir.join(format!("{}.vtt", metadata.id)));
                 }
             }
         }
@@ -2370,12 +2498,26 @@ async fn download_video_inner(
         (&metadata.id, &metadata.title, &metadata.channel, &metadata.video_path, &metadata.thumbnail_path)).map_err(|e| e.to_string())?;
     tx.commit().map_err(|e| e.to_string())?;
 
+    // Clean up any remaining raw temp files for this video
+    if let Ok(entries) = fs::read_dir(&vid_dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if let Some(name) = p.file_name().and_then(|s| s.to_str()) {
+                if name.starts_with(&format!("raw_{}", metadata.id)) {
+                    let _ = fs::remove_file(p);
+                }
+            }
+        }
+    }
+    organize_media_folders(&base_dir);
+
     Ok(())
 }
 
 #[tauri::command]
 pub async fn reindex_library(app: AppHandle, player_client: String) -> Result<String, String> {
     let base_dir = get_base_dir(&app)?;
+    organize_media_folders(&base_dir);
     let bin_dir = get_bin_dir(&app)?;
     let (ytdlp_path, _, _) = crate::downloader::get_binary_paths(&bin_dir);
 

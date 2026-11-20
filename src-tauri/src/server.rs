@@ -177,6 +177,51 @@ pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
             Err(warp::reject::not_found())
         });
 
+    // Subtitle & Lyrics resolver: If subtitles or lyrics are requested via /Videos/:filename,
+    // seamlessly serve them from the dedicated Lyrics folder (or Videos as fallback) with proper headers.
+    let base_dir_for_subs = base_dir.clone();
+    let subtitle_route = warp::path("Videos")
+        .and(warp::path::param::<String>())
+        .and(warp::any().map(move || base_dir_for_subs.clone()))
+        .and_then(|filename: String, base: PathBuf| async move {
+            let lower = filename.to_lowercase();
+            if !(lower.ends_with(".vtt") || lower.ends_with(".srt") || lower.ends_with(".lrc") || lower.ends_with(".json")) {
+                return Err(warp::reject::not_found());
+            }
+            let lyrics_file = base.join("Lyrics").join(&filename);
+            let vid_file = base.join("Videos").join(&filename);
+            let file_to_read = if lyrics_file.exists() {
+                Some(lyrics_file)
+            } else if vid_file.exists() {
+                Some(vid_file)
+            } else {
+                None
+            };
+
+            match file_to_read {
+                Some(path) => match tokio::fs::read(&path).await {
+                    Ok(bytes) => {
+                        let content_type = if lower.ends_with(".vtt") {
+                            "text/vtt; charset=utf-8"
+                        } else if lower.ends_with(".json") {
+                            "application/json; charset=utf-8"
+                        } else {
+                            "text/plain; charset=utf-8"
+                        };
+                        let resp = warp::http::Response::builder()
+                            .header("Content-Type", content_type)
+                            .header("Access-Control-Allow-Origin", "*")
+                            .header("Cache-Control", "no-cache")
+                            .body(bytes)
+                            .unwrap();
+                        Ok::<_, warp::Rejection>(resp)
+                    }
+                    Err(_) => Err(warp::reject::not_found()),
+                },
+                None => Err(warp::reject::not_found()),
+            }
+        });
+
     let static_files = warp::fs::dir(base_dir)
         .with(warp::reply::with::header(
             "Cache-Control",
@@ -186,6 +231,7 @@ pub async fn start_server(base_dir: PathBuf, app: AppHandle) {
 
     let routes = po_token_route
         .or(thumbnail_route)
+        .or(subtitle_route)
         .or(video_redirect_route)
         .or(static_files)
         .with(cors);
