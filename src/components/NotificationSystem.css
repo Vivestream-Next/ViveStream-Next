@@ -199,9 +199,10 @@
 
 .engine-update-card {
   background: var(--clay-bg);
-  border: 2px solid var(--primary-accent);
+  border: 2px solid var(--border-color);
+  border-left: 5px solid var(--primary-accent);
   border-radius: var(--neo-radius);
-  box-shadow: 6px 6px 0px var(--border-color);
+  box-shadow: 5px 5px 0px var(--border-color);
   padding: 16px 20px;
   display: flex;
   align-items: center;
@@ -215,8 +216,9 @@
   height: 42px;
   min-width: 42px;
   border-radius: 50%;
-  background: var(--primary-accent);
-  color: var(--on-primary, #ffffff);
+  background: var(--surface-tint, rgba(255, 255, 255, 0.08));
+  color: var(--primary-accent);
+  border: 2px solid var(--border-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -257,7 +259,7 @@
 }
 
 .update-action-btn {
-  border: 1.5px solid var(--border-color);
+  border: 2px solid var(--border-color);
   border-radius: var(--neo-radius-sm);
   padding: 6px 12px;
   font-size: 12px;
@@ -267,7 +269,7 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.12s ease;
   white-space: nowrap;
 }
 
@@ -284,7 +286,7 @@
 
 .update-action-btn.secondary {
   background: var(--secondary-background);
-  color: var(--secondary-text);
+  color: var(--primary-text);
   box-shadow: 2px 2px 0px var(--border-color);
 }
 
@@ -294,7 +296,8 @@
 }
 
 .update-icon-circle.app-badge {
-  background: linear-gradient(135deg, #ff007f, #7928ca);
+  background: var(--surface-tint, rgba(255, 255, 255, 0.08));
+  color: var(--primary-accent);
 }
 
 .update-icon-circle.spinning i {
@@ -306,22 +309,23 @@
 }
 
 .engine-update-card.app-update-ready-card {
-  border-color: #ff007f;
+  border: 2px solid var(--border-color);
+  border-left: 5px solid var(--primary-accent);
 }
 
 .update-progress-track {
   width: 100%;
   height: 8px;
-  background: var(--input-bg, rgba(255, 255, 255, 0.08));
+  background: var(--secondary-background, rgba(255, 255, 255, 0.08));
   border-radius: 999px;
   overflow: hidden;
   margin-top: 8px;
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--border-color);
 }
 
 .update-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--primary-accent), #38ef7d);
+  background: var(--primary-accent);
   border-radius: 999px;
   transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }

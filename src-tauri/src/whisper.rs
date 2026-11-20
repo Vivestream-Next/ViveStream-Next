@@ -1084,7 +1084,6 @@ pub async fn generate_track_lyrics(
     let bin_path = get_whisper_bin_path(&app)?;
     let models_dir = get_whisper_models_dir(&app)?;
     let lyrics_dir = get_lyrics_dir(&app)?;
-    let base_dir = get_base_dir(&app)?;
     let bin_dir = get_bin_dir(&app)?;
 
     if !bin_path.is_file() {
@@ -1281,9 +1280,7 @@ pub async fn generate_track_lyrics(
         let vtt_str = srt_to_vtt(&shifted_srt);
         if !resolved_id.is_empty() {
             let dest_vtt_lyrics = lyrics_dir.join(format!("{}.vtt", resolved_id));
-            let dest_vtt_videos = base_dir.join("Videos").join(format!("{}.vtt", resolved_id));
             let _ = fs::write(&dest_vtt_lyrics, &vtt_str);
-            let _ = fs::write(&dest_vtt_videos, &vtt_str);
         }
         srt_str_final = Some(shifted_srt);
     }

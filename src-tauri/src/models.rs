@@ -76,6 +76,14 @@ pub struct EngineUpdateInfo {
     pub quickjs_installed: bool,
     #[serde(default)]
     pub deno_installed: bool,
+    #[serde(default)]
+    pub whisper_installed: bool,
+    #[serde(default)]
+    pub whisper_update: bool,
+    #[serde(default)]
+    pub whisper_version: String,
+    #[serde(default)]
+    pub latest_whisper_version: String,
     pub message: String,
 }
 
