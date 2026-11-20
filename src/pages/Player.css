@@ -1879,3 +1879,118 @@ video::cue {
   box-shadow: none;
   background: transparent;
 }
+
+/* Audio-Only Banner & Artwork Presentation */
+.player-audio-banner-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.player-audio-banner-bg {
+  position: absolute;
+  top: -20px;
+  left: -20px;
+  right: -20px;
+  bottom: -20px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(40px) brightness(0.35);
+  transform: scale(1.1);
+  opacity: 0.85;
+}
+
+.player-audio-card {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  background: var(--clay-bg, rgba(20, 20, 25, 0.85));
+  border: 2.5px solid var(--border-color);
+  box-shadow: 8px 8px 0px var(--border-color);
+  border-radius: var(--neo-radius);
+  padding: 24px 32px;
+  max-width: 80%;
+  backdrop-filter: blur(16px);
+  animation: modalPopIn 0.3s var(--ease-spring) forwards;
+}
+
+.player-audio-artwork-wrap {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  min-width: 140px;
+  border-radius: var(--neo-radius-sm);
+  overflow: hidden;
+  border: 2px solid var(--border-color);
+  box-shadow: 4px 4px 0px var(--border-color);
+}
+
+.player-audio-artwork {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.4s ease;
+}
+
+.player-audio-card.is-playing .player-audio-artwork {
+  transform: scale(1.04);
+}
+
+.player-audio-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.player-audio-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: var(--primary-accent);
+  background: var(--surface-tint, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--primary-accent);
+  border-radius: var(--neo-radius-pill, 9999px);
+  padding: 3px 10px;
+  width: fit-content;
+}
+
+.player-audio-badge i {
+  font-size: 14px;
+}
+
+.player-audio-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--primary-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.3px;
+}
+
+.player-audio-artist {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--secondary-text);
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

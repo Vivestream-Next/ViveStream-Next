@@ -132,6 +132,31 @@ export default function Player() {
   const [showHoverTooltip, setShowHoverTooltip] = createSignal(false);
   const [bufferedPercent, setBufferedPercent] = createSignal(0);
 
+  let videoRef: HTMLVideoElement | undefined;
+  const isAudioTrack = createMemo(() => {
+    const v = video();
+    if (!v) return false;
+    const path = (v.video_path || "").toLowerCase();
+    const isAudioExt =
+      path.endsWith(".m4a") ||
+      path.endsWith(".mp3") ||
+      path.endsWith(".opus") ||
+      path.endsWith(".ogg") ||
+      path.endsWith(".wav") ||
+      path.endsWith(".aac") ||
+      path.endsWith(".flac");
+    if (isAudioExt) return true;
+    if (
+      videoRef &&
+      videoRef.readyState >= 1 &&
+      videoRef.videoWidth === 0 &&
+      videoRef.videoHeight === 0
+    ) {
+      return true;
+    }
+    return false;
+  });
+
   const [searchParams] = useSearchParams();
   const [showAddToModal, setShowAddToModal] = createSignal(false);
   const [isEditingMeta, setIsEditingMeta] = createSignal(false);
@@ -143,7 +168,6 @@ export default function Player() {
     string[]
   >(["#f25c54", "#ef233c", "#3b82f6", "#10b981", "#a855f7"]);
 
-  let videoRef: HTMLVideoElement | undefined;
   let timelineContainerRef: HTMLDivElement | undefined;
   let playerContainerRef: HTMLDivElement | undefined;
   let ambientCanvasRef: HTMLCanvasElement | undefined;
@@ -1583,8 +1607,39 @@ export default function Player() {
                 setShowControls(false)
               }
             >
-              
-
+              {/* Audio-only Banner & Presentation Overlay */}
+              <Show when={isAudioTrack()}>
+                <div class="player-audio-banner-container" aria-hidden="true">
+                  <div
+                    class="player-audio-banner-bg"
+                    style={{
+                      "background-image": `url("${getThumbnailUrl(video()?.thumbnail_path, video()?.id)}")`,
+                    }}
+                  />
+                  <div
+                    class="player-audio-card"
+                    classList={{ "is-playing": isPlaying() }}
+                  >
+                    <div class="player-audio-artwork-wrap">
+                      <img
+                        src={getThumbnailUrl(
+                          video()?.thumbnail_path,
+                          video()?.id,
+                        )}
+                        alt={video()?.title || "Audio"}
+                        class="player-audio-artwork"
+                      />
+                    </div>
+                    <div class="player-audio-info">
+                      <span class="player-audio-badge">
+                        <i class="ph-fill ph-waveform" /> Audio Playback
+                      </span>
+                      <h2 class="player-audio-title">{video()?.title}</h2>
+                      <p class="player-audio-artist">{video()?.channel}</p>
+                    </div>
+                  </div>
+                </div>
+              </Show>
               <Show when={osdMessage()}>
                 <div class="player-osd-badge">
                   <i
