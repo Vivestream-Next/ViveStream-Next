@@ -5,7 +5,7 @@ import {
   generateThemeIconPng,
   type MaterialTonalPalette,
 } from "./utils/themeEngine";
-import { createSignal, createRoot } from "solid-js";
+import { createSignal, createRoot, createMemo } from "solid-js";
 import { invoke, convertFileSrc } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -197,6 +197,98 @@ export interface AppUpdateInfo {
   asset_size_mb: number | null;
   published_at: string | null;
 }
+
+export type SupporterTierId = "none" | "spark" | "copper" | "silver" | "gold" | "obsidian";
+
+export interface SupporterBadgeInfo {
+  id: SupporterTierId;
+  name: string;
+  minSeconds: number;
+  minAds: number;
+  color: string;
+  bgGradient: string;
+  icon: string;
+  respectTag: string;
+  description: string;
+}
+
+export const SUPPORTER_BADGES: Record<SupporterTierId, SupporterBadgeInfo> = {
+  none: {
+    id: "none",
+    name: "Curious Listener",
+    minSeconds: 0,
+    minAds: 0,
+    color: "#888888",
+    bgGradient: "linear-gradient(135deg, #2a2a2e 0%, #1a1a1c 100%)",
+    icon: "ph-user",
+    respectTag: "Free Explorer",
+    description: "Start supporting development by fueling the code with voluntary ads.",
+  },
+  spark: {
+    id: "spark",
+    name: "Code Spark",
+    minSeconds: 60,
+    minAds: 1,
+    color: "#f38375",
+    bgGradient: "linear-gradient(135deg, rgba(243, 131, 117, 0.25) 0%, rgba(239, 99, 81, 0.15) 100%)",
+    icon: "ph-fire",
+    respectTag: "Kindred Supporter",
+    description: "Fueled the first spark of code! Earned early supporter honors.",
+  },
+  copper: {
+    id: "copper",
+    name: "Copper Booster",
+    minSeconds: 300,
+    minAds: 5,
+    color: "#e07a5f",
+    bgGradient: "linear-gradient(135deg, rgba(224, 122, 95, 0.3) 0%, rgba(203, 85, 59, 0.18) 100%)",
+    icon: "ph-lightning",
+    respectTag: "Dev Sustainer",
+    description: "Actively boosting energy! Recognized across the app with the copper badge.",
+  },
+  silver: {
+    id: "silver",
+    name: "Silver Catalyst",
+    minSeconds: 900,
+    minAds: 15,
+    color: "#ced4da",
+    bgGradient: "linear-gradient(135deg, rgba(206, 212, 218, 0.35) 0%, rgba(173, 181, 189, 0.2) 100%)",
+    icon: "ph-sparkle",
+    respectTag: "Ecosystem Champion",
+    description: "Silver-tier champion keeping server engines running smoothly.",
+  },
+  gold: {
+    id: "gold",
+    name: "Gold Patron",
+    minSeconds: 1800,
+    minAds: 30,
+    color: "#ffd166",
+    bgGradient: "linear-gradient(135deg, rgba(255, 209, 102, 0.35) 0%, rgba(247, 183, 49, 0.2) 100%)",
+    icon: "ph-crown",
+    respectTag: "Grand Benefactor",
+    description: "Distinguished patron of the ViveStream movement with a gleaming gold crown.",
+  },
+  obsidian: {
+    id: "obsidian",
+    name: "Obsidian Legend",
+    minSeconds: 3600,
+    minAds: 60,
+    color: "#e63946",
+    bgGradient: "linear-gradient(135deg, rgba(230, 57, 70, 0.4) 0%, rgba(15, 14, 23, 0.8) 100%)",
+    icon: "ph-shield-star",
+    respectTag: "Immortal Architect",
+    description: "The highest order of community respect. Forever immortalized in the codebase.",
+  },
+};
+
+export const computeSupporterTier = (seconds: number, ads: number): SupporterTierId => {
+  if (seconds >= 3600 || ads >= 60) return "obsidian";
+  if (seconds >= 1800 || ads >= 30) return "gold";
+  if (seconds >= 900 || ads >= 15) return "silver";
+  if (seconds >= 300 || ads >= 5) return "copper";
+  if (seconds >= 60 || ads >= 1) return "spark";
+  return "none";
+};
 
 export interface UpdateProgressEvent {
   target: string;
@@ -502,6 +594,17 @@ export const {
   setShowShortcutsModal,
   showArcadeModal,
   setShowArcadeModal,
+  showFuelModal,
+  setShowFuelModal,
+  supporterWatchSeconds,
+  setSupporterWatchSeconds,
+  supporterAdsCompleted,
+  setSupporterAdsCompleted,
+  supporterAutoLoop,
+  setSupporterAutoLoop,
+  supporterMuted,
+  setSupporterMuted,
+  supporterTier,
   activeVideo,
   setActiveVideo,
   isPlaying,
@@ -567,6 +670,22 @@ export const {
   const [dialogState, setDialogState] = createSignal<DialogState | null>(null);
   const [showShortcutsModal, setShowShortcutsModal] = createSignal(false);
   const [showArcadeModal, setShowArcadeModal] = createSignal(false);
+  const [showFuelModal, setShowFuelModal] = createSignal(false);
+  const [supporterWatchSeconds, setSupporterWatchSeconds] = createSignal(
+    getNum("supporterWatchSeconds", 0)
+  );
+  const [supporterAdsCompleted, setSupporterAdsCompleted] = createSignal(
+    getNum("supporterAdsCompleted", 0)
+  );
+  const [supporterAutoLoop, setSupporterAutoLoop] = createSignal(
+    getBool("supporterAutoLoop", true)
+  );
+  const [supporterMuted, setSupporterMuted] = createSignal(
+    getBool("supporterMuted", true)
+  );
+  const supporterTier = createMemo(() =>
+    computeSupporterTier(supporterWatchSeconds(), supporterAdsCompleted())
+  );
   const [isFetchingInfo, setIsFetchingInfo] = createSignal(false);
   const [fetchingUrl, setFetchingUrl] = createSignal("");
   const [downloadHistory, setDownloadHistory] = createSignal<
@@ -903,6 +1022,17 @@ export const {
     setShowShortcutsModal,
     showArcadeModal,
     setShowArcadeModal,
+    showFuelModal,
+    setShowFuelModal,
+    supporterWatchSeconds,
+    setSupporterWatchSeconds,
+    supporterAdsCompleted,
+    setSupporterAdsCompleted,
+    supporterAutoLoop,
+    setSupporterAutoLoop,
+    supporterMuted,
+    setSupporterMuted,
+    supporterTier,
     useAnimatedIcons,
     setUseAnimatedIcons,
     sidebarHoverMode,
@@ -1883,16 +2013,21 @@ const processQueue = () => {
   const slotsAvailable = concurrentDownloads() - activeCount;
   const tasksToStart = pendingTasks.slice(0, slotsAvailable);
 
-  tasksToStart.forEach((task) => {
-    executeDownload(task);
+  tasksToStart.forEach((task, index) => {
+    if (index === 0) {
+      executeDownload(task);
+    } else {
+      setTimeout(() => executeDownload(task), index * 600);
+    }
   });
 };
 
-const executeDownload = async (task: DownloadTask) => {
+const executeDownload = async (task: DownloadTask, attempt: number = 0) => {
+  const isRetry = attempt > 0;
   updateTask(task.id, {
     status: "downloading",
-    phase: "Initializing Engine...",
-    logs: ["Initializing engine..."],
+    phase: isRetry ? `Retrying (${attempt}/2)...` : "Initializing Engine...",
+    logs: isRetry ? [...task.logs, `Initiating retry attempt ${attempt}/2...`] : ["Initializing engine..."],
   });
 
   const unlisten = await listen<string>(
@@ -1986,15 +2121,39 @@ const executeDownload = async (task: DownloadTask) => {
           : t,
       ),
     );
+    unlisten();
+    fetchDownloadHistory();
+    processQueue();
   } catch (e) {
+    unlisten();
+    const maxRetries = 2; // Up to 3 total attempts
+    if (attempt < maxRetries) {
+      const nextAttempt = attempt + 1;
+      const delayMs = nextAttempt * 2500;
+      updateTask(task.id, {
+        status: "downloading",
+        phase: `Retrying in ${delayMs / 1000}s (${nextAttempt}/${maxRetries})...`,
+        progress: 0,
+      });
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id
+            ? { ...t, logs: [...t.logs, `Download interrupted (${e}). Auto-retrying in ${delayMs / 1000}s (attempt ${nextAttempt}/${maxRetries})...`] }
+            : t,
+        ),
+      );
+      setTimeout(() => {
+        executeDownload(task, nextAttempt);
+      }, delayMs);
+      return;
+    }
+
     updateTask(task.id, { status: "error", phase: "Failed" });
     setTasks((prev) =>
       prev.map((t) =>
         t.id === task.id ? { ...t, logs: [...t.logs, `ERROR: ${e}`] } : t,
       ),
     );
-  } finally {
-    unlisten();
     fetchDownloadHistory();
     processQueue();
   }
@@ -2289,5 +2448,36 @@ export const runBatchTranscription = async (
   } finally {
     setIsBatchTranscribing(false);
     setBatchTranscriptionProgress(null);
+  }
+};
+
+export const addSupporterWatchSeconds = (seconds: number) => {
+  const next = supporterWatchSeconds() + seconds;
+  setSupporterWatchSeconds(next);
+  if (isBrowser) window.localStorage.setItem("supporterWatchSeconds", String(next));
+};
+
+export const recordCompletedAd = () => {
+  const next = supporterAdsCompleted() + 1;
+  setSupporterAdsCompleted(next);
+  if (isBrowser) window.localStorage.setItem("supporterAdsCompleted", String(next));
+};
+
+export const updateSupporterAutoLoop = (loop: boolean) => {
+  setSupporterAutoLoop(loop);
+  if (isBrowser) window.localStorage.setItem("supporterAutoLoop", String(loop));
+};
+
+export const updateSupporterMuted = (muted: boolean) => {
+  setSupporterMuted(muted);
+  if (isBrowser) window.localStorage.setItem("supporterMuted", String(muted));
+};
+
+export const resetSupporterStats = () => {
+  setSupporterWatchSeconds(0);
+  setSupporterAdsCompleted(0);
+  if (isBrowser) {
+    window.localStorage.removeItem("supporterWatchSeconds");
+    window.localStorage.removeItem("supporterAdsCompleted");
   }
 };

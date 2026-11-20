@@ -68,6 +68,11 @@ import {
   syncThemeAppIcon,
   setShowShortcutsModal,
   setShowArcadeModal,
+  setShowFuelModal,
+  supporterWatchSeconds,
+  supporterAdsCompleted,
+  supporterTier,
+  SUPPORTER_BADGES,
   defaultSortBy,
   updateDefaultSortBy,
   defaultSortDirection,
@@ -386,10 +391,10 @@ export default function Settings() {
       const folderPath = await invoke<string>("open_companion_extension_folder");
       try {
         await openPath(folderPath);
-      } catch (_) {}
+      } catch (_) { }
       try {
         await navigator.clipboard.writeText(folderPath);
-      } catch (_) {}
+      } catch (_) { }
       addToast(`Extension directory: ${folderPath} (Copied path to clipboard)`, "success");
     } catch (e) {
       console.error(e);
@@ -478,6 +483,7 @@ export default function Settings() {
   const handleCheckEngineUpdates = async () => {
     setIsCheckingEngineUpdates(true);
     try {
+      localStorage.setItem("vs_last_engine_check_timestamp", Date.now().toString());
       const info = await invoke<{
         update_available: boolean;
         ytdlp_update: boolean;
@@ -486,21 +492,29 @@ export default function Settings() {
         ffmpeg_installed: boolean;
         quickjs_installed: boolean;
         deno_installed: boolean;
+        whisper_installed?: boolean;
+        whisper_update?: boolean;
+        whisper_version?: string;
+        latest_whisper_version?: string;
         message: string;
       }>("check_engine_updates");
       setEngineUpdateInfo(info);
       if (info.update_available) {
+        const details: string[] = [];
+        if (info.ytdlp_update) details.push(`yt-dlp ${info.latest_ytdlp_version}`);
+        if (info.whisper_update || !info.whisper_installed) details.push("Whisper Neural Engine");
         addToast(
-          `Update available: yt-dlp ${info.latest_ytdlp_version}. Click 'Update Engines' to install.`,
+          `Update available: ${details.join(" & ") || "Core Engines"}. Click 'Update Engines' to install.`,
           "info",
         );
       } else {
         addToast(
-          `All core engines are up-to-date (${info.current_ytdlp_version}).`,
+          `All engines (yt-dlp, FFmpeg, Whisper) are up-to-date.`,
           "success",
         );
       }
       await refreshEngineVersions();
+      await fetchWhisperStatus();
     } catch (e) {
       addToast(`Engine update check failed: ${e}`, "error");
     } finally {
@@ -535,8 +549,8 @@ export default function Settings() {
         .then((unsub) => {
           unlistenPo = unsub;
         })
-        .catch(() => {});
-    } catch (_) {}
+        .catch(() => { });
+    } catch (_) { }
 
     onCleanup(() => {
       if (unlistenPo) unlistenPo();
@@ -1034,83 +1048,84 @@ export default function Settings() {
               {(preset) => {
                 const effectiveSeed = resolveSeedColor(preset.id);
                 return (
-                <div
-                  class={`theme-preview-card m3-preset-card special-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
-                  onClick={() => toggleAppPalette(preset.id)}
-                >
-                  <div class="theme-preview-mockup m3-mockup-wrapper">
-                    <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
-                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed, border: preset.id === "monochrome" ? "1px solid var(--border-color)" : undefined }}></div>
-                      <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
-                    </div>
-                    <div class="mockup-main">
-                      <div class="mockup-topbar">
-                        <div class="mockup-search" style={{ opacity: "0.6" }}></div>
+                  <div
+                    class={`theme-preview-card m3-preset-card special-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
+                    onClick={() => toggleAppPalette(preset.id)}
+                  >
+                    <div class="theme-preview-mockup m3-mockup-wrapper">
+                      <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
+                        <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed, border: preset.id === "monochrome" ? "1px solid var(--border-color)" : undefined }}></div>
+                        <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
+                        <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
+                        <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                       </div>
-                      <div class="mockup-grid">
-                        <div
-                          class="mockup-card"
-                          style={{
-                            "border-color": preset.id === "monochrome" ? "var(--border-color)" : effectiveSeed,
-                            "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : `1.5px 1.5px 0px ${effectiveSeed}`,
-                          }}
-                        >
-                          <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
-                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
-                          <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
+                      <div class="mockup-main">
+                        <div class="mockup-topbar">
+                          <div class="mockup-search" style={{ opacity: "0.6" }}></div>
                         </div>
-                        <div
-                          class="mockup-card"
-                          style={{
-                            "border-color": preset.id === "monochrome" ? "var(--border-color)" : (appPalette() === preset.id ? effectiveSeed : "var(--border-color)"),
-                            "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : (appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)"),
-                          }}
-                        >
-                          <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
-                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
-                          <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
+                        <div class="mockup-grid">
+                          <div
+                            class="mockup-card"
+                            style={{
+                              "border-color": preset.id === "monochrome" ? "var(--border-color)" : effectiveSeed,
+                              "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : `1.5px 1.5px 0px ${effectiveSeed}`,
+                            }}
+                          >
+                            <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
+                            <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                            <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
+                          </div>
+                          <div
+                            class="mockup-card"
+                            style={{
+                              "border-color": preset.id === "monochrome" ? "var(--border-color)" : (appPalette() === preset.id ? effectiveSeed : "var(--border-color)"),
+                              "box-shadow": preset.id === "monochrome" ? "0 2px 6px rgba(0,0,0,0.25)" : (appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)"),
+                            }}
+                          >
+                            <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
+                            <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                            <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Swatches Ramp */}
-                  <Show when={preset.tokens && preset.tokens.length > 0}>
-                    <div class="palette-swatches-strip" title="Palette Color Swatches">
-                      <For each={preset.tokens}>
-                        {(color) => (
+                    {/* Swatches Ramp */}
+                    <Show when={preset.tokens && preset.tokens.length > 0}>
+                      <div class="palette-swatches-strip" title="Palette Color Swatches">
+                        <For each={preset.tokens}>
+                          {(color) => (
+                            <span
+                              class="palette-swatch-segment"
+                              style={{ background: color }}
+                              title={color}
+                            ></span>
+                          )}
+                        </For>
+                      </div>
+                    </Show>
+
+                    <div class="theme-card-footer">
+                      <div class="theme-card-info">
+                        <div class="theme-card-title-row">
                           <span
-                            class="palette-swatch-segment"
-                            style={{ background: color }}
-                            title={color}
+                            class="preset-color-dot"
+                            style={{
+                              background: effectiveSeed,
+                              border: preset.id === "monochrome" ? "1px solid rgba(128,128,128,0.5)" : undefined,
+                            }}
                           ></span>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
-
-                  <div class="theme-card-footer">
-                    <div class="theme-card-info">
-                      <div class="theme-card-title-row">
-                        <span
-                          class="preset-color-dot"
-                          style={{
-                            background: effectiveSeed,
-                            border: preset.id === "monochrome" ? "1px solid rgba(128,128,128,0.5)" : undefined,
-                          }}
-                        ></span>
-                        <span class="theme-card-name">{preset.name}</span>
+                          <span class="theme-card-name">{preset.name}</span>
+                        </div>
+                        <span class="theme-card-desc">{preset.description}</span>
                       </div>
-                      <span class="theme-card-desc">{preset.description}</span>
-                    </div>
-                    <div class="theme-radio-indicator">
-                      <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
+                      <div class="theme-radio-indicator">
+                        <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );}}
+                );
+              }}
             </For>
           </div>
 
@@ -1129,64 +1144,65 @@ export default function Settings() {
               {(preset) => {
                 const effectiveSeed = resolveSeedColor(preset.id);
                 return (
-                <div
-                  class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
-                  onClick={() => toggleAppPalette(preset.id)}
-                >
-                  <div class="theme-preview-mockup m3-mockup-wrapper">
-                    <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
-                      <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed }}></div>
-                      <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
-                      <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
-                    </div>
-                    <div class="mockup-main">
-                      <div class="mockup-topbar">
-                        <div class="mockup-search" style={{ opacity: "0.6" }}></div>
+                  <div
+                    class={`theme-preview-card m3-preset-card ${appPalette() === preset.id ? "selected" : ""}`}
+                    onClick={() => toggleAppPalette(preset.id)}
+                  >
+                    <div class="theme-preview-mockup m3-mockup-wrapper">
+                      <div class="mockup-sidebar" style={{ "border-right": "1.5px solid var(--border-color)" }}>
+                        <div class="mockup-bar mockup-logo" style={{ background: effectiveSeed }}></div>
+                        <div class="mockup-bar" style={{ background: effectiveSeed, opacity: "0.55" }}></div>
+                        <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
+                        <div class="mockup-bar" style={{ opacity: "0.35" }}></div>
                       </div>
-                      <div class="mockup-grid">
-                        <div
-                          class="mockup-card"
-                          style={{
-                            "border-color": effectiveSeed,
-                            "box-shadow": `1.5px 1.5px 0px ${effectiveSeed}`,
-                          }}
-                        >
-                          <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
-                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
-                          <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
+                      <div class="mockup-main">
+                        <div class="mockup-topbar">
+                          <div class="mockup-search" style={{ opacity: "0.6" }}></div>
                         </div>
-                        <div
-                          class="mockup-card"
-                          style={{
-                            "border-color": appPalette() === preset.id ? effectiveSeed : "var(--border-color)",
-                            "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)",
-                          }}
-                        >
-                          <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
-                          <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
-                          <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
+                        <div class="mockup-grid">
+                          <div
+                            class="mockup-card"
+                            style={{
+                              "border-color": effectiveSeed,
+                              "box-shadow": `1.5px 1.5px 0px ${effectiveSeed}`,
+                            }}
+                          >
+                            <div class="mockup-card-thumb" style={{ background: effectiveSeed }}></div>
+                            <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                            <div class="mockup-card-line short" style={{ background: effectiveSeed, width: "45%" }}></div>
+                          </div>
+                          <div
+                            class="mockup-card"
+                            style={{
+                              "border-color": appPalette() === preset.id ? effectiveSeed : "var(--border-color)",
+                              "box-shadow": appPalette() === preset.id ? `1.5px 1.5px 0px ${effectiveSeed}` : "1.5px 1.5px 0px var(--border-color)",
+                            }}
+                          >
+                            <div class="mockup-card-thumb" style={{ background: effectiveSeed, opacity: "0.8" }}></div>
+                            <div class="mockup-card-line" style={{ background: "var(--primary-text)" }}></div>
+                            <div class="mockup-card-line short" style={{ background: "var(--secondary-text)" }}></div>
+                          </div>
                         </div>
+                      </div>
+                    </div>
+                    <div class="theme-card-footer">
+                      <div class="theme-card-info">
+                        <div class="theme-card-title-row">
+                          <span
+                            class="preset-color-dot"
+                            style={{ background: effectiveSeed }}
+                          ></span>
+                          <span class="theme-card-name">{preset.name}</span>
+                        </div>
+                        <span class="theme-card-desc">{preset.description}</span>
+                      </div>
+                      <div class="theme-radio-indicator">
+                        <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
                       </div>
                     </div>
                   </div>
-                  <div class="theme-card-footer">
-                    <div class="theme-card-info">
-                      <div class="theme-card-title-row">
-                        <span
-                          class="preset-color-dot"
-                          style={{ background: effectiveSeed }}
-                        ></span>
-                        <span class="theme-card-name">{preset.name}</span>
-                      </div>
-                      <span class="theme-card-desc">{preset.description}</span>
-                    </div>
-                    <div class="theme-radio-indicator">
-                      <i class={appPalette() === preset.id ? "ph-bold ph-check" : ""}></i>
-                    </div>
-                  </div>
-                </div>
-              );}}
+                );
+              }}
             </For>
           </div>
 
@@ -1433,7 +1449,7 @@ export default function Settings() {
                       <span>
                         {iconSyncResult()!.success
                           ? iconSyncResult()!.message ||
-                            "Desktop shortcut & taskbar icon successfully synced!"
+                          "Desktop shortcut & taskbar icon successfully synced!"
                           : iconSyncResult()!.error}
                       </span>
                     </div>
@@ -2197,8 +2213,7 @@ export default function Settings() {
               }}
               style={
                 {
-                  "--progress": `${
-                    (((thumbnailQuality() === "low"
+                  "--progress": `${(((thumbnailQuality() === "low"
                       ? 1
                       : thumbnailQuality() === "high"
                         ? 3
@@ -2206,7 +2221,7 @@ export default function Settings() {
                       1) /
                       2) *
                     100
-                  }%`,
+                    }%`,
                 } as any
               }
             />
@@ -2583,9 +2598,8 @@ export default function Settings() {
               }
               style={
                 {
-                  "--progress": `${
-                    ((concurrentDownloads() - 1) / (5 - 1)) * 100
-                  }%`,
+                  "--progress": `${((concurrentDownloads() - 1) / (5 - 1)) * 100
+                    }%`,
                 } as any
               }
             />
@@ -2616,9 +2630,8 @@ export default function Settings() {
               }
               style={
                 {
-                  "--progress": `${
-                    ((concurrentFragments() - 1) / (16 - 1)) * 100
-                  }%`,
+                  "--progress": `${((concurrentFragments() - 1) / (16 - 1)) * 100
+                    }%`,
                 } as any
               }
             />
@@ -3077,16 +3090,16 @@ export default function Settings() {
               options={
                 whisperStatus()?.system?.compute_devices && whisperStatus()!.system!.compute_devices.length > 0
                   ? whisperStatus()!.system!.compute_devices.map((dev: any) => ({
-                      value: dev.id,
-                      label: dev.label,
-                      badge: dev.id.startsWith("gpu") ? "GPU" : dev.id === "auto" ? "Auto" : "CPU",
-                      icon: dev.id.startsWith("gpu") ? "ph-bold ph-lightning" : dev.id === "auto" ? "ph-bold ph-sparkle" : "ph-bold ph-cpu",
-                    }))
+                    value: dev.id,
+                    label: dev.label,
+                    badge: dev.id.startsWith("gpu") ? "GPU" : dev.id === "auto" ? "Auto" : "CPU",
+                    icon: dev.id.startsWith("gpu") ? "ph-bold ph-lightning" : dev.id === "auto" ? "ph-bold ph-sparkle" : "ph-bold ph-cpu",
+                  }))
                   : [
-                      { value: "auto", label: "Auto (DirectML Priority)", badge: "Auto", icon: "ph-bold ph-sparkle" },
-                      { value: "gpu:0", label: "Discrete GPU", badge: "GPU", icon: "ph-bold ph-lightning" },
-                      { value: "cpu", label: "CPU (Rayon Multi-Threading)", badge: "CPU", icon: "ph-bold ph-cpu" },
-                    ]
+                    { value: "auto", label: "Auto (DirectML Priority)", badge: "Auto", icon: "ph-bold ph-sparkle" },
+                    { value: "gpu:0", label: "Discrete GPU", badge: "GPU", icon: "ph-bold ph-lightning" },
+                    { value: "cpu", label: "CPU (Rayon Multi-Threading)", badge: "CPU", icon: "ph-bold ph-cpu" },
+                  ]
               }
             />
           </div>
@@ -3655,6 +3668,84 @@ export default function Settings() {
                 and new features with a small donation!
               </p>
             </div>
+          </div>
+
+          {/* Voluntary Ad Supporter: Fuel the Code */}
+          <div
+            class="fuel-support-hero-card"
+            style={{
+              padding: "16px 20px",
+              background: "linear-gradient(135deg, rgba(243, 131, 117, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)",
+              border: "1.5px solid rgba(243, 131, 117, 0.3)",
+              "border-radius": "14px",
+              display: "flex",
+              "align-items": "center",
+              "justify-content": "space-between",
+              "flex-wrap": "wrap",
+              gap: "16px",
+              "margin-bottom": "14px",
+            }}
+          >
+            <div style={{ display: "flex", "align-items": "center", gap: "14px" }}>
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  "border-radius": "12px",
+                  display: "flex",
+                  "align-items": "center",
+                  "justify-content": "center",
+                  "font-size": "26px",
+                  color: SUPPORTER_BADGES[supporterTier()].color,
+                  background: SUPPORTER_BADGES[supporterTier()].bgGradient,
+                  border: `1.5px solid ${SUPPORTER_BADGES[supporterTier()].color}`,
+                  "box-shadow": `0 0 16px ${SUPPORTER_BADGES[supporterTier()].color}33`,
+                  "flex-shrink": "0",
+                }}
+              >
+                <i class={`ph-fill ${SUPPORTER_BADGES[supporterTier()].icon}`}></i>
+              </div>
+              <div>
+                <div style={{ display: "flex", "align-items": "center", gap: "8px", "flex-wrap": "wrap" }}>
+                  <span style={{ "font-weight": "700", "font-size": "1rem", color: "var(--text-color, #ffffff)" }}>
+                    Fuel the Code
+                  </span>
+                  <span
+                    style={{
+                      "font-size": "0.72rem",
+                      "font-weight": "700",
+                      padding: "2px 8px",
+                      "border-radius": "4px",
+                      background: SUPPORTER_BADGES[supporterTier()].color,
+                      color: "#000",
+                      "text-transform": "uppercase",
+                    }}
+                  >
+                    {SUPPORTER_BADGES[supporterTier()].name}
+                  </span>
+                </div>
+                <div style={{ "font-size": "0.82rem", color: "var(--secondary-text, #a0a0ab)", "margin-top": "3px" }}>
+                  Voluntarily watch ads or loop them on mute to fuel development & earn prestigious respect badges.
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              class="command-btn primary"
+              onClick={() => setShowFuelModal(true)}
+              style={{
+                display: "flex",
+                "align-items": "center",
+                gap: "8px",
+                padding: "9px 18px",
+                "font-weight": "700",
+                "font-size": "0.88rem",
+              }}
+            >
+              <i class="ph-bold ph-broadcast"></i>
+              Open Supporter Lounge
+            </button>
           </div>
 
           {/* Direct Financial Support Tiers */}

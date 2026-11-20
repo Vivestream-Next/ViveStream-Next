@@ -16,6 +16,10 @@ import {
   setShowShortcutsModal,
   showArcadeModal,
   setShowArcadeModal,
+  showFuelModal,
+  setShowFuelModal,
+  supporterTier,
+  SUPPORTER_BADGES,
   isSearchOpen,
   setIsSearchOpen,
   isSortOpen,
@@ -41,6 +45,7 @@ import NotificationSystem from "./components/NotificationSystem";
 import DynamicAppLogo from "./components/DynamicAppLogo";
 import ShortcutsModal from "./components/ShortcutsModal";
 import ArcadeModal from "./components/ArcadeModal";
+import FuelTheCodeModal from "./components/FuelTheCodeModal";
 import Miniplayer from "./components/Miniplayer";
 import FPSCounter from "./components/FPSCounter";
 import PixelMascot from "./components/PixelMascot";
@@ -115,8 +120,21 @@ const ImmersiveTitleBar = () => {
 const AppLifecycle: Component<{ children?: any }> = (props) => {
   const [needsSetup, setNeedsSetup] = createSignal<boolean | null>(false);
 
+  const LAST_ENGINE_CHECK_KEY = "vs_last_engine_check_timestamp";
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
   const checkEngineUpdatesOnStartup = async () => {
     if (!autoCheckEngineUpdates()) return;
+
+    const lastCheckStr = localStorage.getItem(LAST_ENGINE_CHECK_KEY);
+    const lastCheck = lastCheckStr ? parseInt(lastCheckStr, 10) : 0;
+    const now = Date.now();
+    if (now - lastCheck < TWENTY_FOUR_HOURS) {
+      console.log(
+        "[EngineUpdater] Skipping startup check: engines checked within the last 24 hours.",
+      );
+      return;
+    }
 
     try {
       const updateInfo = await invoke<{
@@ -126,16 +144,21 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
         latest_ytdlp_version: string;
         ffmpeg_installed: boolean;
         deno_installed: boolean;
+        whisper_installed?: boolean;
+        whisper_update?: boolean;
+        whisper_version?: string;
+        latest_whisper_version?: string;
         message: string;
       }>("check_engine_updates");
 
+      localStorage.setItem(LAST_ENGINE_CHECK_KEY, now.toString());
       setEngineUpdateInfo(updateInfo);
 
       if (updateInfo.update_available) {
         console.log("[EngineUpdater] Background update available:", updateInfo);
         setEngineUpdateDownloading(true);
         addToast(
-          `Updating core engines to ${updateInfo.latest_ytdlp_version} in background...`,
+          `Updating core engines in background...`,
           "info",
         );
 
@@ -211,6 +234,7 @@ const AppLifecycle: Component<{ children?: any }> = (props) => {
         isOpen={showArcadeModal()}
         onClose={() => setShowArcadeModal(false)}
       />
+      <FuelTheCodeModal />
       <FPSCounter />
       <PixelMascot />
       <ImmersiveTitleBar />
@@ -292,8 +316,13 @@ const AppLayout: Component<{ children?: any }> = (props) => {
           target.tagName === "SELECT" ||
           target.isContentEditable);
 
-      // Escape closes arcade modal, shortcuts modal, sort bar, or search bar
+      // Escape closes fuel modal, arcade modal, shortcuts modal, sort bar, or search bar
       if (e.key === "Escape") {
+        if (showFuelModal()) {
+          e.preventDefault();
+          setShowFuelModal(false);
+          return;
+        }
         if (showArcadeModal()) {
           e.preventDefault();
           setShowArcadeModal(false);
@@ -545,6 +574,29 @@ const AppLayout: Component<{ children?: any }> = (props) => {
             </div>
             <span class="nav-text">Arcade</span>
             <span class="nav-badge-pro">PLAY</span>
+          </button>
+          <button
+            type="button"
+            class="sidebar-nav-btn fuel-code-btn"
+            onClick={() => setShowFuelModal(true)}
+            title="Fuel the Code • Voluntary Supporter Lounge"
+            aria-label="Fuel the Code"
+          >
+            <div class="icon-stack anim-pulse" style={{ color: SUPPORTER_BADGES[supporterTier()].color }}>
+              <i class={`ph ${SUPPORTER_BADGES[supporterTier()].icon} icon-outline`}></i>
+              <i class={`ph-fill ${SUPPORTER_BADGES[supporterTier()].icon} icon-fill`}></i>
+            </div>
+            <span class="nav-text">Fuel Code</span>
+            <span
+              class="nav-badge-pro"
+              style={{
+                background: supporterTier() !== "none" ? SUPPORTER_BADGES[supporterTier()].color : undefined,
+                color: supporterTier() !== "none" ? "#000" : undefined,
+                "font-weight": "700"
+              }}
+            >
+              {supporterTier() !== "none" ? SUPPORTER_BADGES[supporterTier()].respectTag.split(" ")[0].toUpperCase() : "FREE"}
+            </span>
           </button>
           <NavItem
             href="/ai"
